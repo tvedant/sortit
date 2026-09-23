@@ -81,6 +81,10 @@ async function dbSelectColumns(table, columns, query = '') { return supa(`/rest/
 async function dbInsert(table, rows) {
   return supa(`/rest/v1/${table}`, { method: 'POST', headers: { Prefer: 'return=representation' }, body: JSON.stringify(rows) });
 }
+async function dbUpsert(table, rows, onConflict) {
+  const query = onConflict ? `?on_conflict=${encodeURIComponent(onConflict)}` : '';
+  return supa(`/rest/v1/${table}${query}`, { method: 'POST', headers: { Prefer: 'resolution=merge-duplicates,return=representation' }, body: JSON.stringify(rows) });
+}
 async function dbUpdate(table, query, patch) {
   return supa(`/rest/v1/${table}?${query}`, { method: 'PATCH', headers: { Prefer: 'return=representation' }, body: JSON.stringify(patch) });
 }
@@ -275,6 +279,45 @@ function parseReadState(raw) {
     }
     return out;
   } catch (_) { return {}; }
+}
+
+let READ_STATE_WARNED = false;
+async function getPersistedReadState(viewerId) {
+  if (!DB_ENABLED || !viewerId) return null;
+  try {
+    const rows = await dbSelectColumns('case_reads','case_id,last_read_at',`viewer_id=eq.${encodeURIComponent(viewerId)}`);
+    const out = {};
+    for (const row of rows || []) {
+      if (row.case_id && row.last_read_at) out[String(row.case_id)] = row.last_read_at;
+    }
+    return out;
+  } catch (err) {
+    if (!READ_STATE_WARNED) {
+      READ_STATE_WARNED = true;
+      console.warn('Persistent read-state table unavailable; using browser fallback until migration is applied:', err.message);
+    }
+    return null;
+  }
+}
+
+async function markCaseRead(viewerId, caseId) {
+  const messages = await listMessages(caseId);
+  const latest = messages[messages.length - 1];
+  if (!latest?.createdAt) return { ok:true, lastReadAt:null };
+  if (DB_ENABLED) {
+    try {
+      await dbUpsert('case_reads',[{viewer_id:viewerId,case_id:caseId,last_read_at:latest.createdAt}], 'viewer_id,case_id');
+      return { ok:true, lastReadAt:latest.createdAt, persisted:true };
+    } catch (err) {
+      if (!READ_STATE_WARNED) { READ_STATE_WARNED = true; console.warn('Could not persist chat read state; browser fallback will be used:', err.message); }
+    }
+  }
+  return { ok:true, lastReadAt:latest.createdAt, persisted:false };
+}
+
+async function resolveSeenMap(viewerId, fallbackMap) {
+  const persisted = await getPersistedReadState(viewerId);
+  return persisted || fallbackMap || {};
 }
 
 async function getLatestMessageMeta(records, viewerRole, seenMap = {}) {
@@ -715,7 +758,8 @@ async function decorateCase(c){
 }
 app.get('/api/my/cases',requireAuth,asyncHandler(async(req,res)=>{
   const rows=await listCasesForUser(req.user.uid);
-  const seenMap=parseReadState(req.get('x-read-state'));
+  const fallbackSeen=parseReadState(req.get('x-read-state'));
+  const seenMap=await resolveSeenMap(req.user.uid,fallbackSeen);
   const meta=await getLatestMessageMeta(rows,'customer',seenMap);
   const out=attachMessageMeta(rows,meta).sort((a,b)=>new Date(b.lastMessageAt||b.updatedAt||b.createdAt||0)-new Date(a.lastMessageAt||a.updatedAt||a.createdAt||0));
   res.json(out.map(x=>{const{userId,...rest}=x;return rest;}));
@@ -743,6 +787,12 @@ app.get('/api/my/cases/:caseId/files/:filename',requireAuth,asyncHandler(async(r
   const fp=path.join(UPLOADS_DIR,req.params.caseId,req.params.filename);
   if(!fp.startsWith(path.resolve(UPLOADS_DIR)+path.sep)||!fs.existsSync(fp))return res.status(404).json({error:'File not found.'});
   res.sendFile(fp);
+}));
+
+app.post('/api/my/cases/:caseId/read',requireAuth,asyncHandler(async(req,res)=>{
+  const record=await findCase(req.params.caseId,req.user.uid);
+  if(!record)return res.status(404).json({error:'Case not found.'});
+  res.json(await markCaseRead(req.user.uid,req.params.caseId));
 }));
 
 app.get('/api/my/cases/:caseId/messages',requireAuth,asyncHandler(async(req,res)=>{
@@ -775,7 +825,8 @@ async function listStaffCases(staff){
 async function canStaffAccessCase(staff,record){return staff.role==='admin'||!record.assignedTo||record.assignedTo===staff.uid;}
 app.get('/api/admin/cases',requireStaff,asyncHandler(async(req,res)=>{
   const rows=await listStaffCases(req.staff);
-  const seenMap=parseReadState(req.get('x-read-state'));
+  const fallbackSeen=parseReadState(req.get('x-read-state'));
+  const seenMap=await resolveSeenMap(req.staff.uid,fallbackSeen);
   const meta=await getLatestMessageMeta(rows,req.staff.role,seenMap);
   const out=attachMessageMeta(rows,meta).sort((a,b)=>new Date(b.lastMessageAt||b.updatedAt||b.createdAt||0)-new Date(a.lastMessageAt||a.updatedAt||a.createdAt||0));
   res.json(out);
@@ -792,6 +843,12 @@ app.patch('/api/admin/cases/:caseId/assign',requireAdmin,async(req,res)=>{try{
   if(agentId){const agent=await findUserById(agentId);if(!agent||agent.role!=='agent')return res.status(400).json({error:'Agent not found.'});}
   await updateCase(req.params.caseId,{assignedTo:agentId,assignedAt:agentId?new Date().toISOString():null,updatedAt:new Date().toISOString()});res.json({ok:true,assignedTo:agentId});
 }catch(e){console.error(e);res.status(500).json({error:'Could not assign case.'});}});
+app.post('/api/admin/cases/:caseId/read',requireStaff,asyncHandler(async(req,res)=>{
+  const record=await findCase(req.params.caseId);
+  if(!record)return res.status(404).json({error:'Case not found.'});
+  if(!(await canStaffAccessCase(req.staff,caseFromDb(record))))return res.status(403).json({error:'This case is assigned to another agent.'});
+  res.json(await markCaseRead(req.staff.uid,req.params.caseId));
+}));
 app.get('/api/admin/cases/:caseId/messages',requireStaff,asyncHandler(async(req,res)=>{const record=await findCase(req.params.caseId);if(!record)return res.status(404).json({error:'Case not found.'});if(!(await canStaffAccessCase(req.staff,caseFromDb(record))))return res.status(403).json({error:'This case is assigned to another agent.'});res.json(await listMessages(req.params.caseId));}));
 app.post('/api/admin/cases/:caseId/messages',requireStaff,async(req,res)=>{try{const{text}=req.body||{};if(!text||!text.trim())return res.status(400).json({error:'Message cannot be empty.'});const record=await findCase(req.params.caseId);if(!record)return res.status(404).json({error:'Case not found.'});const c=caseFromDb(record);if(!(await canStaffAccessCase(req.staff,c)))return res.status(403).json({error:'This case is assigned to another agent.'});
   // An agent replying to an unassigned case claims it, preventing two agents from working it simultaneously.
