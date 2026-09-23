@@ -78,6 +78,7 @@ async function supa(pathname, options = {}) {
 }
 async function dbSelect(table, query = '') { return supa(`/rest/v1/${table}?select=*${query ? `&${query}` : ''}`); }
 async function dbSelectColumns(table, columns, query = '') { return supa(`/rest/v1/${table}?select=${encodeURIComponent(columns)}${query ? `&${query}` : ''}`); }
+async function dbRpc(fn, body = {}) { return supa(`/rest/v1/rpc/${fn}`, { method: 'POST', body: JSON.stringify(body) }); }
 async function dbInsert(table, rows) {
   return supa(`/rest/v1/${table}`, { method: 'POST', headers: { Prefer: 'return=representation' }, body: JSON.stringify(rows) });
 }
@@ -208,6 +209,7 @@ function normalizeMessageRow(row, columns = null) {
     sender: canonicalSender(senderKey ? row[senderKey] : '', senderName),
     senderRole: canonicalSender(senderKey ? row[senderKey] : '', senderName),
     senderName,
+    senderId: row.sender_id ?? row.senderId ?? null,
     text: textKey ? (row[textKey] || '') : '',
     createdAt: createdKey ? (row[createdKey] || new Date().toISOString()) : new Date().toISOString()
   };
@@ -227,6 +229,7 @@ function messagePatchForSchema(m, columns, caseDbId) {
   setIf(['id', 'message_id'], m.id);
   setIf(['sender', 'role', 'sender_type', 'author_type'], m.sender);
   setIf(['sender_name', 'author_name', 'senderName', 'name'], m.senderName);
+  setIf(['sender_id', 'senderId', 'author_id'], m.senderId);
   setIf(['text', 'message', 'content', 'body'], m.text);
   setIf(['created_at', 'sent_at', 'timestamp', 'createdAt'], m.createdAt);
 
@@ -300,19 +303,23 @@ async function getPersistedReadState(viewerId) {
   }
 }
 
-async function markCaseRead(viewerId, caseId) {
-  const messages = await listMessages(caseId);
-  const latest = messages[messages.length - 1];
-  if (!latest?.createdAt) return { ok:true, lastReadAt:null };
+async function markCaseRead(viewerId, caseId, requestedAt = null) {
+  let lastReadAt = requestedAt && !Number.isNaN(new Date(requestedAt).getTime()) ? new Date(requestedAt).toISOString() : null;
+  if (!lastReadAt) {
+    const messages = await listMessages(caseId);
+    const latest = messages[messages.length - 1];
+    lastReadAt = latest?.createdAt || null;
+  }
+  if (!lastReadAt) return { ok:true, lastReadAt:null };
   if (DB_ENABLED) {
     try {
-      await dbUpsert('case_reads',[{viewer_id:viewerId,case_id:caseId,last_read_at:latest.createdAt}], 'viewer_id,case_id');
-      return { ok:true, lastReadAt:latest.createdAt, persisted:true };
+      await dbUpsert('case_reads',[{viewer_id:viewerId,case_id:caseId,last_read_at:lastReadAt,updated_at:new Date().toISOString()}], 'viewer_id,case_id');
+      return { ok:true, lastReadAt, persisted:true };
     } catch (err) {
-      if (!READ_STATE_WARNED) { READ_STATE_WARNED = true; console.warn('Could not persist chat read state; browser fallback will be used:', err.message); }
+      if (!READ_STATE_WARNED) { READ_STATE_WARNED = true; console.warn('Could not persist chat read state:', err.message); }
     }
   }
-  return { ok:true, lastReadAt:latest.createdAt, persisted:false };
+  return { ok:true, lastReadAt, persisted:false };
 }
 
 async function resolveSeenMap(viewerId, fallbackMap) {
@@ -320,73 +327,70 @@ async function resolveSeenMap(viewerId, fallbackMap) {
   return persisted || fallbackMap || {};
 }
 
-async function getLatestMessageMeta(records, viewerRole, seenMap = {}) {
+async function getLatestMessageMeta(records, viewerRole, seenMap = {}, viewerId = null) {
   const rows = Array.isArray(records) ? records : [];
   const meta = new Map();
   if (!rows.length) return meta;
 
+  // Production path: let Postgres calculate latest-message and unread state in one query.
+  // This avoids scanning thousands of historical messages on every inbox refresh.
+  if (DB_ENABLED && viewerId) {
+    try {
+      const caseIds = rows.map(r => String(caseFromDb(r).caseId)).filter(Boolean);
+      if (caseIds.length) {
+        const result = await dbRpc('get_case_chat_meta', { p_case_ids: caseIds, p_viewer_id: viewerId, p_viewer_role: viewerRole });
+        for (const r of result || []) {
+          meta.set(String(r.case_id), {
+            lastMessageText: r.last_message_text || '',
+            lastMessageAt: r.last_message_at || null,
+            lastMessageSender: canonicalSender(r.last_message_sender, r.last_message_sender_name),
+            lastMessageSenderName: r.last_message_sender_name || '',
+            lastMessageSenderId: r.last_message_sender_id || null,
+            unreadCount: Number(r.unread_count || 0),
+            unread: Number(r.unread_count || 0) > 0,
+            messageCount: Number(r.message_count || 0)
+          });
+        }
+        for (const r of rows) {
+          const c=caseFromDb(r);
+          if (!meta.has(String(c.caseId))) meta.set(String(c.caseId), {lastMessageText:'',lastMessageAt:null,lastMessageSender:'',lastMessageSenderName:'',lastMessageSenderId:null,unread:false,unreadCount:0,messageCount:0});
+        }
+        return meta;
+      }
+    } catch (err) {
+      console.warn('Chat metadata RPC unavailable; using compatibility fallback:', err.message);
+    }
+  }
+
   const byPublic = new Map(rows.map(r => { const c=caseFromDb(r); return [String(c.caseId),c]; }));
   const byDb = new Map(rows.map(r => { const c=caseFromDb(r); return [String(c.id),c]; }));
   const grouped = new Map();
-
-  const consume = (raw) => {
-    const m = normalizeMessageRow(raw);
-    const c = byPublic.get(String(m.caseId)) || byDb.get(String(m.caseId));
-    if (!c) return;
-    const key = String(c.caseId);
-    const list = grouped.get(key) || [];
-    list.push(m);
-    grouped.set(key, list);
+  const consume = raw => {
+    const m=normalizeMessageRow(raw);
+    const c=byPublic.get(String(m.caseId))||byDb.get(String(m.caseId));
+    if(!c)return; const key=String(c.caseId); const list=grouped.get(key)||[]; list.push(m); grouped.set(key,list);
   };
-
-  if (!DB_ENABLED) {
-    for (const m of readJson(FILES.messages)) consume(m);
-  } else {
-    const now = Date.now();
-    let messages = MESSAGE_META_CACHE;
-    if (!messages || now - MESSAGE_META_CACHE_AT > MESSAGE_META_TTL_MS) {
-      const columns = await getMessageSchema();
-      if (!columns) return meta;
-      const caseColumn = firstExistingColumn(columns,['case_id','caseId','case_uuid']);
-      const senderColumn = firstExistingColumn(columns,['sender','role','sender_type','author_type']);
-      const senderNameColumn = firstExistingColumn(columns,['sender_name','author_name','senderName','name']);
-      const textColumn = firstExistingColumn(columns,['text','message','content','body']);
-      const createdColumn = firstExistingColumn(columns,['created_at','sent_at','timestamp','createdAt']);
-      if (!caseColumn || !createdColumn) return meta;
-      const selected = [caseColumn,senderColumn,senderNameColumn,textColumn,createdColumn].filter(Boolean).filter((v,i,a)=>a.indexOf(v)===i).join(',');
-      try {
-        messages = await dbSelectColumns('messages', selected, `order=${encodeURIComponent(createdColumn)}.desc&limit=10000`);
-        MESSAGE_META_CACHE = messages;
-        MESSAGE_META_CACHE_AT = now;
-      } catch (err) {
-        console.warn('Message metadata query failed:', err.message);
-        return meta;
-      }
+  if(!DB_ENABLED){ for(const m of readJson(FILES.messages)) consume(m); }
+  else {
+    const now=Date.now(); let messages=MESSAGE_META_CACHE;
+    if(!messages || now-MESSAGE_META_CACHE_AT>MESSAGE_META_TTL_MS){
+      const columns=await getMessageSchema(); if(!columns)return meta;
+      const caseColumn=firstExistingColumn(columns,['case_id','caseId','case_uuid']); const createdColumn=firstExistingColumn(columns,['created_at','sent_at','timestamp','createdAt']);
+      if(!caseColumn||!createdColumn)return meta;
+      const selected=[caseColumn,'sender','sender_name','sender_id','text',createdColumn].filter((v,i,a)=>v&&a.indexOf(v)===i).join(',');
+      messages=await dbSelectColumns('messages',selected,`order=${encodeURIComponent(createdColumn)}.desc&limit=10000`); MESSAGE_META_CACHE=messages; MESSAGE_META_CACHE_AT=now;
     }
-    for (const raw of messages || []) consume(raw);
+    for(const raw of messages||[])consume(raw);
   }
-
-  for (const [caseId, list] of grouped) {
-    list.sort((a,b)=>new Date(b.createdAt||0)-new Date(a.createdAt||0));
-    const latest = list[0];
-    const seenAt = seenMap && seenMap[caseId] ? new Date(seenMap[caseId]).getTime() : null;
-    const unreadCount = seenAt === null || Number.isNaN(seenAt)
-      ? 0
-      : list.filter(m => canonicalSender(m.sender,m.senderName) !== viewerRole && new Date(m.createdAt||0).getTime() > seenAt).length;
-    meta.set(caseId, {
-      lastMessageText: latest?.text || '',
-      lastMessageAt: latest?.createdAt || null,
-      lastMessageSender: latest ? canonicalSender(latest.sender,latest.senderName) : '',
-      lastMessageSenderName: latest?.senderName || '',
-      unreadCount,
-      unread: unreadCount > 0,
-      messageCount: list.length
-    });
+  for(const [caseId,list] of grouped){
+    list.sort((a,b)=>new Date(b.createdAt||0)-new Date(a.createdAt||0)); const latest=list[0]; const seenAt=seenMap?.[caseId]?new Date(seenMap[caseId]).getTime():null;
+    const unreadCount=seenAt===null||Number.isNaN(seenAt)?0:list.filter(m=>{const t=new Date(m.createdAt||0).getTime(); return t>seenAt && (m.senderId ? m.senderId!==viewerId : canonicalSender(m.sender,m.senderName)!==viewerRole);}).length;
+    meta.set(caseId,{lastMessageText:latest?.text||'',lastMessageAt:latest?.createdAt||null,lastMessageSender:latest?canonicalSender(latest.sender,latest.senderName):'',lastMessageSenderName:latest?.senderName||'',lastMessageSenderId:latest?.senderId||null,unreadCount,unread:unreadCount>0,messageCount:list.length});
   }
   return meta;
 }
 
-function attachMessageMeta(records,meta){return records.map(r=>{const c=caseFromDb(r);return {...c,...(meta.get(c.caseId)||{lastMessageText:'',lastMessageAt:null,lastMessageSender:'',lastMessageSenderName:'',unread:false,unreadCount:0,messageCount:0})};});}
+function attachMessageMeta(records,meta){return records.map(r=>{const c=caseFromDb(r);return {...c,...(meta.get(c.caseId)||{lastMessageText:'',lastMessageAt:null,lastMessageSender:'',lastMessageSenderName:'',lastMessageSenderId:null,unread:false,unreadCount:0,messageCount:0})};});}
 
 async function createMessage(m) {
   if (!DB_ENABLED) {
@@ -539,7 +543,8 @@ function asyncHandler(fn){return function(req,res,next){Promise.resolve(fn(req,r
 
 function signToken(user){return jwt.sign({uid:user.id,email:user.email,name:user.name},JWT_SECRET,{expiresIn:'7d'});}
 function requireAuth(req,res,next){const token=req.cookies.token;if(!token)return res.status(401).json({error:'Please log in first.'});try{req.user=jwt.verify(token,JWT_SECRET);next();}catch(_){return res.status(401).json({error:'Your session has expired. Please log in again.'});}}
-function signStaffToken(staff){return jwt.sign({uid:staff.id||null,email:staff.email,name:staff.name,role:staff.role,staff:true},JWT_SECRET,{expiresIn:'12h'});}
+const MASTER_ADMIN_VIEWER_ID='00000000-0000-0000-0000-000000000001';
+function signStaffToken(staff){return jwt.sign({uid:staff.id||MASTER_ADMIN_VIEWER_ID,email:staff.email,name:staff.name,role:staff.role,staff:true},JWT_SECRET,{expiresIn:'12h'});}
 function requireStaff(req,res,next){const token=req.cookies.staff_token;if(!token)return res.status(401).json({error:'Please sign in to the staff portal.'});try{const staff=jwt.verify(token,JWT_SECRET);if(!staff.staff || !['admin','agent'].includes(staff.role))throw new Error('invalid');req.staff=staff;next();}catch(_){return res.status(401).json({error:'Your staff session has expired. Please sign in again.'});}}
 function requireAdmin(req,res,next){return requireStaff(req,res,()=>{if(req.staff.role!=='admin')return res.status(403).json({error:'Administrator access required.'});next();});}
 if(IS_PROD && (!process.env.ADMIN_USER || !process.env.ADMIN_PASS || process.env.ADMIN_PASS.length<16)) throw new Error('ADMIN_USER and a strong ADMIN_PASS are required in production.');
@@ -581,7 +586,7 @@ app.post('/api/staff/login',rateLimit('staff-login',12,15*60*1000),async(req,res
   const password=String(req.body?.password||'');
   if(!email||!password)return res.status(400).json({error:'Email and password are required.'});
   let staff=null;
-  if(email===MASTER_ADMIN_EMAIL && password===String(process.env.ADMIN_PASS||'')) staff={id:null,email,name:MASTER_ADMIN_NAME,role:'admin'};
+  if(email===MASTER_ADMIN_EMAIL && password===String(process.env.ADMIN_PASS||'')) staff={id:MASTER_ADMIN_VIEWER_ID,email,name:MASTER_ADMIN_NAME,role:'admin'};
   else {
     const user=await findUserByEmail(email);
     const role=user?.role||user?.user_role;
@@ -760,7 +765,7 @@ app.get('/api/my/cases',requireAuth,asyncHandler(async(req,res)=>{
   const rows=await listCasesForUser(req.user.uid);
   const fallbackSeen=parseReadState(req.get('x-read-state'));
   const seenMap=await resolveSeenMap(req.user.uid,fallbackSeen);
-  const meta=await getLatestMessageMeta(rows,'customer',seenMap);
+  const meta=await getLatestMessageMeta(rows,'customer',seenMap,req.user.uid);
   const out=attachMessageMeta(rows,meta).sort((a,b)=>new Date(b.lastMessageAt||b.updatedAt||b.createdAt||0)-new Date(a.lastMessageAt||a.updatedAt||a.createdAt||0));
   res.json(out.map(x=>{const{userId,...rest}=x;return rest;}));
 }));
@@ -792,7 +797,14 @@ app.get('/api/my/cases/:caseId/files/:filename',requireAuth,asyncHandler(async(r
 app.post('/api/my/cases/:caseId/read',requireAuth,asyncHandler(async(req,res)=>{
   const record=await findCase(req.params.caseId,req.user.uid);
   if(!record)return res.status(404).json({error:'Case not found.'});
-  res.json(await markCaseRead(req.user.uid,req.params.caseId));
+  res.json(await markCaseRead(req.user.uid,req.params.caseId,req.body?.lastReadAt));
+}));
+
+app.get('/api/my/cases/:caseId/stream',requireAuth,asyncHandler(async(req,res)=>{
+  const record=await findCase(req.params.caseId,req.user.uid); if(!record)return res.status(404).end();
+  res.set({'Content-Type':'text/event-stream','Cache-Control':'no-cache, no-transform','Connection':'keep-alive','X-Accel-Buffering':'no'}); res.flushHeaders?.(); res.write('event: ready\ndata: {}\n\n');
+  const client=addChatStream(req.params.caseId,req.user.uid,res); const heartbeat=setInterval(()=>{try{res.write(`: heartbeat ${Date.now()}\n\n`);}catch(_){clearInterval(heartbeat);removeChatStream(req.params.caseId,client);}},15000);
+  req.on('close',()=>{clearInterval(heartbeat);removeChatStream(req.params.caseId,client);});
 }));
 
 app.get('/api/my/cases/:caseId/messages',requireAuth,asyncHandler(async(req,res)=>{
@@ -806,9 +818,23 @@ app.post('/api/my/cases/:caseId/messages',requireAuth,rateLimit('chat-send',30,5
   if(!record)return res.status(404).json({error:'Case not found.'});
   const{text}=req.body||{};
   if(!text||!text.trim())return res.status(400).json({error:'Message cannot be empty.'});
-  const msg={id:crypto.randomUUID(),caseId:req.params.caseId,sender:'customer',senderName:req.user.name,text:text.trim().slice(0,2000),createdAt:new Date().toISOString()};
-  res.status(201).json(await createMessage(msg));
+  const msg={id:crypto.randomUUID(),caseId:req.params.caseId,sender:'customer',senderName:req.user.name,senderId:req.user.uid,text:text.trim().slice(0,2000),createdAt:new Date().toISOString()};
+  const saved=await createMessage(msg);
+  broadcastChatMessage(saved);
+  res.status(201).json(saved);
 }));
+
+// Lightweight server-push chat transport. Messages are pushed immediately to open conversations;
+// a slow fallback poll remains in the clients for resilience.
+const CHAT_STREAMS = new Map();
+function addChatStream(caseId, viewerId, res) {
+  const key=String(caseId); const set=CHAT_STREAMS.get(key)||new Set(); const client={viewerId,res}; set.add(client); CHAT_STREAMS.set(key,set); return client;
+}
+function removeChatStream(caseId, client) { const set=CHAT_STREAMS.get(String(caseId)); if(!set)return; set.delete(client); if(!set.size)CHAT_STREAMS.delete(String(caseId)); }
+function broadcastChatMessage(message) {
+  const set=CHAT_STREAMS.get(String(message.caseId)); if(!set)return; const payload=`event: message\ndata: ${JSON.stringify(message)}\n\n`;
+  for(const client of [...set]) { try { client.res.write(payload); } catch (_) { removeChatStream(message.caseId,client); } }
+}
 
 // ADMIN / AGENT WORKSPACE
 async function listStaffCases(staff){
@@ -827,7 +853,7 @@ app.get('/api/admin/cases',requireStaff,asyncHandler(async(req,res)=>{
   const rows=await listStaffCases(req.staff);
   const fallbackSeen=parseReadState(req.get('x-read-state'));
   const seenMap=await resolveSeenMap(req.staff.uid,fallbackSeen);
-  const meta=await getLatestMessageMeta(rows,req.staff.role,seenMap);
+  const meta=await getLatestMessageMeta(rows,req.staff.role,seenMap,req.staff.uid);
   const out=attachMessageMeta(rows,meta).sort((a,b)=>new Date(b.lastMessageAt||b.updatedAt||b.createdAt||0)-new Date(a.lastMessageAt||a.updatedAt||a.createdAt||0));
   res.json(out);
 }));
@@ -847,13 +873,20 @@ app.post('/api/admin/cases/:caseId/read',requireStaff,asyncHandler(async(req,res
   const record=await findCase(req.params.caseId);
   if(!record)return res.status(404).json({error:'Case not found.'});
   if(!(await canStaffAccessCase(req.staff,caseFromDb(record))))return res.status(403).json({error:'This case is assigned to another agent.'});
-  res.json(await markCaseRead(req.staff.uid,req.params.caseId));
+  res.json(await markCaseRead(req.staff.uid,req.params.caseId,req.body?.lastReadAt));
 }));
+app.get('/api/admin/cases/:caseId/stream',requireStaff,asyncHandler(async(req,res)=>{
+  const record=await findCase(req.params.caseId); if(!record)return res.status(404).end(); if(!(await canStaffAccessCase(req.staff,caseFromDb(record))))return res.status(403).end();
+  res.set({'Content-Type':'text/event-stream','Cache-Control':'no-cache, no-transform','Connection':'keep-alive','X-Accel-Buffering':'no'}); res.flushHeaders?.(); res.write('event: ready\ndata: {}\n\n');
+  const client=addChatStream(req.params.caseId,req.staff.uid,res); const heartbeat=setInterval(()=>{try{res.write(`: heartbeat ${Date.now()}\n\n`);}catch(_){clearInterval(heartbeat);removeChatStream(req.params.caseId,client);}},15000);
+  req.on('close',()=>{clearInterval(heartbeat);removeChatStream(req.params.caseId,client);});
+}));
+
 app.get('/api/admin/cases/:caseId/messages',requireStaff,asyncHandler(async(req,res)=>{const record=await findCase(req.params.caseId);if(!record)return res.status(404).json({error:'Case not found.'});if(!(await canStaffAccessCase(req.staff,caseFromDb(record))))return res.status(403).json({error:'This case is assigned to another agent.'});res.json(await listMessages(req.params.caseId));}));
 app.post('/api/admin/cases/:caseId/messages',requireStaff,async(req,res)=>{try{const{text}=req.body||{};if(!text||!text.trim())return res.status(400).json({error:'Message cannot be empty.'});const record=await findCase(req.params.caseId);if(!record)return res.status(404).json({error:'Case not found.'});const c=caseFromDb(record);if(!(await canStaffAccessCase(req.staff,c)))return res.status(403).json({error:'This case is assigned to another agent.'});
   // An agent replying to an unassigned case claims it, preventing two agents from working it simultaneously.
   if(req.staff.role==='agent'&&!c.assignedTo)await updateCase(c.caseId,{assignedTo:req.staff.uid,assignedAt:new Date().toISOString(),updatedAt:new Date().toISOString()});
-  const msg={id:crypto.randomUUID(),caseId:req.params.caseId,sender:req.staff.role==='admin'?'admin':'agent',senderName:req.staff.name,text:text.trim().slice(0,2000),createdAt:new Date().toISOString()};res.status(201).json(await createMessage(msg));
+  const msg={id:crypto.randomUUID(),caseId:req.params.caseId,sender:req.staff.role==='admin'?'admin':'agent',senderName:req.staff.name,senderId:req.staff.uid,text:text.trim().slice(0,2000),createdAt:new Date().toISOString()};const saved=await createMessage(msg);broadcastChatMessage(saved);res.status(201).json(saved);
 }catch(e){console.error(e);res.status(500).json({error:'Could not send message.'});}});
 app.get('/api/admin/cases/:caseId/files/:filename',requireStaff,async(req,res)=>{const record=await findCase(req.params.caseId);if(!record)return res.status(404).json({error:'Case not found.'});if(!(await canStaffAccessCase(req.staff,caseFromDb(record))))return res.status(403).json({error:'This case is assigned to another agent.'});const f=await authorizeFile(req,true);if(!f)return res.status(404).json({error:'File not found.'});if(DB_ENABLED){try{return res.redirect(await signedStorageUrl(f.storagePath));}catch(e){return res.status(500).json({error:'Could not open file.'});}}const fp=path.join(UPLOADS_DIR,req.params.caseId,req.params.filename);if(!fp.startsWith(path.resolve(UPLOADS_DIR)+path.sep)||!fs.existsSync(fp))return res.status(404).json({error:'File not found.'});res.sendFile(fp);});
 
