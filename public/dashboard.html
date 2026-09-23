@@ -56,6 +56,8 @@
   .status-won{background:#d4f7dc; color:#1e7d34;}
   .status-closed{background:#e2e3e5; color:#555;}
   .empty-state{border:3px dashed var(--ink); padding:40px; text-align:center; color:#5a4f3c;}
+  .loading-state{border:3px solid var(--ink); padding:24px; text-align:center; color:#5a4f3c; background:var(--paper-2);}
+  .btn:disabled{opacity:.6; cursor:not-allowed; transform:none;}
 
   .panel{border:3px solid var(--ink); background:var(--paper); padding:28px; box-shadow:6px 6px 0 var(--mustard); margin-bottom:24px;}
   .panel h2{font-size:22px; margin-bottom:6px;}
@@ -231,8 +233,8 @@
       currentUser = await meRes.json();
       document.getElementById('userNameChip').textContent = `Hi, ${currentUser.name.split(' ')[0]}`;
 
-      const configRes = await fetch('/api/config');
-      config = await configRes.json();
+      const configRes = await fetch('/api/config', { cache: 'no-store' });
+      if (configRes.ok) config = await configRes.json();
       document.querySelectorAll('#feeDisplay1,#feeDisplay2,#feeDisplay3').forEach(el => el.textContent = config.caseFeeRupees);
       document.getElementById('testModeNotice').classList.toggle('hidden', config.paymentsLive);
 
@@ -270,48 +272,110 @@
   }
 
   async function loadCases() {
-    const res = await fetch('/api/my/cases');
-    const cases = await res.json();
     const listEl = document.getElementById('caseList');
-    if (!cases.length) {
-      listEl.innerHTML = '<div class="empty-state">No cases yet. Click "Open a New Case" to file your first one.</div>';
-      return;
-    }
-    listEl.innerHTML = cases.map(c => `
-      <div class="case-row" data-case="${c.caseId}" data-status="${c.status}">
-        <div>
-          <div class="case-id">${c.caseId}</div>
-          <div class="case-meta">${new Date(c.createdAt).toLocaleString('en-IN')}${c.category ? ' • ' + c.category : ''}</div>
+    listEl.innerHTML = '<div class="loading-state">Loading your cases…</div>';
+
+    try {
+      const res = await fetch('/api/my/cases', { cache: 'no-store' });
+      const payload = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(payload.error || 'Could not load your cases.');
+
+      const cases = Array.isArray(payload) ? payload : [];
+      if (!cases.length) {
+        listEl.innerHTML = '<div class="empty-state">No cases yet. Click "Open a New Case" to file your first one.</div>';
+        return;
+      }
+
+      listEl.innerHTML = cases.map(c => `
+        <div class="case-row" data-case="${escapeHtml(c.caseId)}" data-status="${escapeHtml(c.status || '')}">
+          <div>
+            <div class="case-id">${escapeHtml(c.caseId)}</div>
+            <div class="case-meta">${c.createdAt ? new Date(c.createdAt).toLocaleString('en-IN') : 'Date unavailable'}${c.category ? ' • ' + escapeHtml(c.category) : ''}</div>
+          </div>
+          <span class="status-badge status-${escapeHtml(c.status || '')}">${escapeHtml(statusLabel(c.status || ''))}</span>
         </div>
-        <span class="status-badge status-${c.status}">${statusLabel(c.status)}</span>
-      </div>
-    `).join('');
-    listEl.querySelectorAll('.case-row').forEach(row => {
-      row.addEventListener('click', () => resumeCase(row.dataset.case, row.dataset.status));
-    });
+      `).join('');
+
+      listEl.querySelectorAll('.case-row').forEach(row => {
+        row.addEventListener('click', () => resumeCase(row.dataset.case, row.dataset.status));
+      });
+    } catch (err) {
+      console.error('loadCases:', err);
+      listEl.innerHTML = `<div class="empty-state"><strong>Could not load your cases.</strong><br><span style="font-size:13px;">${escapeHtml(err.message || 'Please refresh and try again.')}</span><br><button class="btn secondary" style="margin-top:16px;" onclick="loadCases()">Try Again</button></div>`;
+    }
   }
 
-  function resumeCase(caseId, status) {
+  async function resumeCase(caseId, status) {
     currentCaseId = caseId;
+
+    // In demo/test mode, an old pending case can be activated without asking
+    // the customer to perform a fake payment step.
+    if (status === 'awaiting_payment' && !config.paymentsLive) {
+      await activateDemoCase(caseId);
+      return;
+    }
+
     if (status === 'awaiting_payment') {
       document.getElementById('payCaseId').textContent = caseId;
+      document.getElementById('payMsg').textContent = '';
       showScreen('pay');
     } else if (status === 'awaiting_details') {
       document.getElementById('detailsCaseId').textContent = caseId;
       showScreen('details');
     } else {
-      openCaseView(caseId);
+      await openCaseView(caseId);
+    }
+  }
+
+  async function activateDemoCase(caseId) {
+    const rows = document.querySelectorAll('.case-row');
+    rows.forEach(r => { if (r.dataset.case === caseId) r.style.pointerEvents = 'none'; });
+    try {
+      const res = await fetch(`/api/my/cases/${encodeURIComponent(caseId)}/mock-pay`, { method: 'POST' });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || 'Could not activate the demo case.');
+      await openCaseView(caseId);
+    } catch (err) {
+      alert(err.message || 'Could not activate this case. Please try again.');
+    } finally {
+      rows.forEach(r => { r.style.pointerEvents = ''; });
     }
   }
 
   // ---- New case ----
   document.getElementById('newCaseBtn').addEventListener('click', async () => {
-    const res = await fetch('/api/my/cases', { method: 'POST' });
-    const data = await res.json();
-    if (!res.ok) { alert(data.error || 'Could not start a new case.'); return; }
-    currentCaseId = data.caseId;
-    document.getElementById('payCaseId').textContent = data.caseId;
-    showScreen('pay');
+    const btn = document.getElementById('newCaseBtn');
+    if (btn.disabled) return;
+    btn.disabled = true;
+    const original = btn.innerHTML;
+    btn.textContent = 'Opening your case…';
+
+    try {
+      const res = await fetch('/api/my/cases', {
+        method: 'POST',
+        headers: { 'Accept': 'application/json' }
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || 'Could not start a new case.');
+
+      currentCaseId = data.caseId;
+
+      // Demo/test mode: the server has already marked the case paid.
+      // Go straight to the human chat instead of showing a fake payment screen.
+      if (data.testMode || data.paymentStatus === 'paid') {
+        await openCaseView(currentCaseId);
+        return;
+      }
+
+      document.getElementById('payCaseId').textContent = data.caseId;
+      document.getElementById('payMsg').textContent = '';
+      showScreen('pay');
+    } catch (err) {
+      alert(err.message || 'Could not start a new case.');
+    } finally {
+      btn.disabled = false;
+      btn.innerHTML = original;
+    }
   });
 
   document.getElementById('backFromPay').addEventListener('click', (e) => { e.preventDefault(); loadCases(); showScreen('list'); });
@@ -394,26 +458,37 @@
   // ---- Case summary + chat ----
   async function openCaseView(caseId) {
     currentCaseId = caseId;
-    const res = await fetch(`/api/my/cases/${caseId}`);
-    const c = await res.json();
-    document.getElementById('caseViewId').textContent = c.caseId;
-    document.getElementById('caseViewStatus').textContent = statusLabel(c.status);
-    document.getElementById('caseViewStatus').className = `status-badge status-${c.status}`;
-    document.getElementById('caseViewSummary').textContent = c.summary || 'Summary will appear here once details are submitted.';
-    document.getElementById('caseViewFiles').textContent = c.proofFiles && c.proofFiles.length
-      ? `📎 ${c.proofFiles.length} file(s) attached: ${c.proofFiles.map(f => f.originalName).join(', ')}`
-      : '';
-    showScreen('case');
-    await loadMessages();
-    if (chatPollTimer) clearInterval(chatPollTimer);
-    chatPollTimer = setInterval(loadMessages, 4000);
+    try {
+      const res = await fetch(`/api/my/cases/${encodeURIComponent(caseId)}`, { cache: 'no-store' });
+      const c = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(c.error || 'Could not open this case.');
+
+      document.getElementById('caseViewId').textContent = c.caseId;
+      document.getElementById('caseViewStatus').textContent = statusLabel(c.status);
+      document.getElementById('caseViewStatus').className = `status-badge status-${c.status}`;
+      document.getElementById('caseViewSummary').textContent = c.summary || 'Your case is open. Start the conversation below and a RefundWaapsi human can reply.';
+      document.getElementById('caseViewFiles').textContent = c.proofFiles && c.proofFiles.length
+        ? `📎 ${c.proofFiles.length} file(s) attached: ${c.proofFiles.map(f => f.originalName).join(', ')}`
+        : '';
+
+      showScreen('case');
+      await loadMessages();
+      if (chatPollTimer) clearInterval(chatPollTimer);
+      chatPollTimer = setInterval(loadMessages, 4000);
+    } catch (err) {
+      console.error('openCaseView:', err);
+      alert(err.message || 'Could not open this case. Please try again.');
+      await loadCases();
+      showScreen('list');
+    }
   }
 
   async function loadMessages() {
     if (!currentCaseId) return;
-    const res = await fetch(`/api/my/cases/${currentCaseId}/messages`);
-    if (!res.ok) return;
-    const messages = await res.json();
+    try {
+      const res = await fetch(`/api/my/cases/${encodeURIComponent(currentCaseId)}/messages`, { cache: 'no-store' });
+      if (!res.ok) return;
+      const messages = await res.json();
     const el = document.getElementById('chatMessages');
     const wasAtBottom = el.scrollTop + el.clientHeight >= el.scrollHeight - 10;
     if (!messages.length) {
@@ -426,7 +501,10 @@
         ${escapeHtml(m.text)}
       </div>
     `).join('');
-    if (wasAtBottom) el.scrollTop = el.scrollHeight;
+      if (wasAtBottom) el.scrollTop = el.scrollHeight;
+    } catch (err) {
+      console.error('loadMessages:', err);
+    }
   }
 
   function escapeHtml(str) {
@@ -444,13 +522,16 @@
     if (!text || !currentCaseId) return;
     input.value = '';
     try {
-      await fetch(`/api/my/cases/${currentCaseId}/messages`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
+      const res = await fetch(`/api/my/cases/${encodeURIComponent(currentCaseId)}/messages`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
         body: JSON.stringify({ text }),
       });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || 'Could not send message.');
       await loadMessages();
     } catch (err) {
-      alert('Could not send message. Please try again.');
+      alert(err.message || 'Could not send message. Please try again.');
     }
   }
 
