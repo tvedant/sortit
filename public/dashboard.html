@@ -80,11 +80,9 @@
   .chat-wrap{border:3px solid var(--ink); background:#fff; margin-top:10px;}
   .chat-messages{height:320px; overflow-y:auto; padding:16px; display:flex; flex-direction:column; gap:10px;}
   .chat-msg{max-width:75%; padding:10px 14px; font-size:14px; line-height:1.4;}
-  .chat-msg{align-self:flex-start;}
-  .chat-msg.mine{align-self:flex-end;}
-  .chat-msg.customer{background:#fff; color:var(--ink); border:2px solid #cfc7bb;}
-  .chat-msg.agent{background:#e9f0ff; border:2px solid #6d98d6;}
-  .chat-msg.admin{background:#fff0c2; border:2px solid #d6a91d;}
+  .chat-msg.customer{align-self:flex-start; background:#fff; color:var(--ink); border:2px solid #cfc7bb;}
+  .chat-msg.agent{align-self:flex-end; background:#e9f0ff; border:2px solid #6d98d6;}
+  .chat-msg.admin{align-self:flex-end; background:#fff0c2; border:2px solid #d6a91d;}
   .chat-msg .who{font-size:10.5px; font-weight:700; opacity:.75; display:block; margin-bottom:3px; text-transform:uppercase;}
   .chat-empty{text-align:center; color:#999; font-size:13px; padding:30px 0;}
   .chat-input-row{display:flex; border-top:3px solid var(--ink);}
@@ -204,59 +202,14 @@
   let currentCaseId = null;
   let chatPollTimer = null;
   let caseListPollTimer = null;
-  let realtimeSocket = null;
-  let realtimeReconnectTimer = null;
-  let realtimeBackoff = 1000;
-  let realtimeConnected = false;
-  let realtimeRefreshTimer = null;
   let config = { paymentsLive: false, caseFeeRupees: 59 };
   let prefillLead = null;
   let prefillLeadId = null;
   function isUnread(c){return Number(c?.unreadCount||0)>0;}
-  function wsUrl(){return `${location.protocol==='https:'?'wss':'ws'}://${location.host}/ws`;}
-  function scheduleRealtimeRefresh(){
-    clearTimeout(realtimeRefreshTimer);
-    realtimeRefreshTimer=setTimeout(()=>{
-      loadCases(true).catch(()=>{});
-      if(currentCaseId){
-        fetch(`/api/my/cases/${encodeURIComponent(currentCaseId)}`,{cache:'no-store'}).then(r=>r.ok?r.json():null).then(c=>{if(!c||currentCaseId!==c.caseId)return;renderCurrentCase(c);}).catch(()=>{});
-      }
-    },120);
-  }
-  function subscribeCurrentCase(){if(realtimeSocket?.readyState===WebSocket.OPEN&&currentCaseId)realtimeSocket.send(JSON.stringify({type:'subscribe',caseId:currentCaseId}));}
-  function connectRealtime(){
-    clearTimeout(realtimeReconnectTimer);
-    try{realtimeSocket=new WebSocket(wsUrl());}catch(_){scheduleRealtimeReconnect();return;}
-    realtimeSocket.onopen=()=>{realtimeConnected=true;realtimeBackoff=1000;subscribeCurrentCase();loadCases(true).catch(()=>{});if(currentCaseId){loadMessages().catch(()=>{});scheduleRealtimeRefresh();}};
-    realtimeSocket.onmessage=event=>{
-      try{
-        const e=JSON.parse(event.data||'{}');
-        if(e.type==='ready'){subscribeCurrentCase();return;}
-        if(e.type==='subscribed')return;
-        if(e.type==='message.created' && e.message){
-          if(String(e.message.caseId)===String(currentCaseId)){
-            appendIncomingMessage(e.message);
-            markRead({caseId:currentCaseId,lastMessageAt:e.message.createdAt}).catch(()=>{});
-          }
-          scheduleRealtimeRefresh();
-          return;
-        }
-        if(e.type==='case.updated'||e.type==='inbox.changed'){scheduleRealtimeRefresh();return;}
-      }catch(err){console.debug('realtime event',err.message);}
-    };
-    realtimeSocket.onclose=()=>{realtimeConnected=false;scheduleRealtimeReconnect();};
-    realtimeSocket.onerror=()=>{try{realtimeSocket.close();}catch(_){};};
-  }
-  function scheduleRealtimeReconnect(){
-    clearTimeout(realtimeReconnectTimer);
-    const delay=Math.min(realtimeBackoff,30000);realtimeBackoff=Math.min(realtimeBackoff*2,30000);
-    realtimeReconnectTimer=setTimeout(connectRealtime,delay);
-  }
-  function closeRealtime(){clearTimeout(realtimeReconnectTimer);clearTimeout(realtimeRefreshTimer);if(realtimeSocket){try{realtimeSocket.close();}catch(_){};realtimeSocket=null;}realtimeConnected=false;}
+  let chatStream=null;
   async function markRead(c){if(!c?.caseId)return;const ts=c.lastMessageAt||null;try{await fetch(`/api/my/cases/${encodeURIComponent(c.caseId)}/read`,{method:'POST',headers:{'Content-Type':'application/json','Accept':'application/json'},body:JSON.stringify({lastReadAt:ts})});}catch(e){console.debug('read-state',e.message);}}
-  function subscribeCase(caseId){currentCaseId=caseId;subscribeCurrentCase();}
-  function unsubscribeCase(caseId){if(realtimeSocket?.readyState===WebSocket.OPEN&&caseId)realtimeSocket.send(JSON.stringify({type:'unsubscribe',caseId}));}
-  function closeChatStream(){/* WebSocket is shared for the whole dashboard; keep it alive. */}
+  function closeChatStream(){if(chatStream){chatStream.close();chatStream=null;}}
+  function openChatStream(caseId){closeChatStream();chatStream=new EventSource(`/api/my/cases/${encodeURIComponent(caseId)}/stream`);chatStream.addEventListener('message',async()=>{await loadMessages();loadCases(true).catch(()=>{});});chatStream.onerror=()=>{};}
   function senderLabel(c){if(!c.lastMessageSender)return '';if(c.lastMessageSender==='customer')return 'You';if(c.lastMessageSender==='admin')return c.lastMessageSenderName||'Super Admin';if(c.lastMessageSender==='agent')return c.lastMessageSenderName||'Agent';return c.lastMessageSenderName||'Customer';}
 
   const screens = {
@@ -266,7 +219,7 @@
     case: document.getElementById('screenCase'),
   };
   function showScreen(name) {
-    if (name !== 'case') { /* keep the authenticated realtime socket alive */ }
+    if (name !== 'case') closeChatStream();
     Object.values(screens).forEach(s => s.classList.add('hidden'));
     screens[name].classList.remove('hidden');
     if (name !== 'case' && chatPollTimer) { clearInterval(chatPollTimer); chatPollTimer = null; }
@@ -296,9 +249,8 @@
       document.getElementById('testModeNotice').classList.toggle('hidden', config.paymentsLive);
 
       await loadCases();
-      connectRealtime();
       if (caseListPollTimer) clearInterval(caseListPollTimer);
-      caseListPollTimer = setInterval(() => { if (!realtimeConnected && document.visibilityState === 'visible') loadCases(true).catch(()=>{}); }, 60000);
+      caseListPollTimer = setInterval(() => { if (document.visibilityState === 'visible' && !currentCaseId) loadCases().catch(e => console.error('case list refresh', e)); }, 5000);
 
       const leadId = new URLSearchParams(window.location.search).get('leadId');
       if (leadId) {
@@ -331,9 +283,8 @@
     }
   }
 
-  async function loadCases(silent=false) {
-    const listEl=document.getElementById('caseList');
-    if(!silent) listEl.innerHTML='<div class="loading-state">Loading your cases…</div>';
+  async function loadCases() {
+    const listEl=document.getElementById('caseList');listEl.innerHTML='<div class="loading-state">Loading your cases…</div>';
     try{const res=await fetch('/api/my/cases',{cache:'no-store'});const payload=await res.json().catch(()=>({}));if(!res.ok)throw new Error(payload.error||'Could not load your cases.');const cases=(Array.isArray(payload)?payload:[]).sort((a,b)=>new Date(b.lastMessageAt||b.updatedAt||b.createdAt||0)-new Date(a.lastMessageAt||a.updatedAt||a.createdAt||0));if(!cases.length){listEl.innerHTML='<div class="empty-state">No cases yet. Click "Open a New Case" to file your first one.</div>';return;}listEl.innerHTML=cases.map(c=>{const preview=c.lastMessageText?`${senderLabel(c)}: ${c.lastMessageText}`:'No messages yet';const count=Number(c.unreadCount||0);return `<div class="case-row ${count?'unread':''}" data-case="${escapeHtml(c.caseId)}" data-status="${escapeHtml(c.status||'')}"><div style="min-width:0;flex:1"><div class="case-id">${escapeHtml(c.caseId)}</div><div class="case-meta">${c.createdAt?new Date(c.createdAt).toLocaleString('en-IN'):'Date unavailable'}${c.category?' • '+escapeHtml(c.category):''}</div><div class="case-preview">${escapeHtml(preview)}</div></div><div class="case-actions">${count?`<span class="unread-pill" title="${count} unread message${count===1?'':'s'}">${count>99?'99+':count}</span>`:''}<span class="status-badge status-${escapeHtml(c.status||'')}">${escapeHtml(statusLabel(c.status||''))}</span></div></div>`;}).join('');listEl.querySelectorAll('.case-row').forEach(row=>row.addEventListener('click',()=>resumeCase(row.dataset.case,row.dataset.status)));}catch(err){console.error('loadCases:',err);listEl.innerHTML=`<div class="empty-state"><strong>Could not load your cases.</strong><br><span style="font-size:13px;">${escapeHtml(err.message||'Please refresh and try again.')}</span><br><button class="btn secondary" style="margin-top:16px;" onclick="loadCases()">Try Again</button></div>`;}
   }
 
@@ -418,8 +369,6 @@
       clearInterval(chatPollTimer);
       chatPollTimer = null;
     }
-    const oldCase=currentCaseId;
-    if(oldCase) unsubscribeCase(oldCase);
     currentCaseId = null;
   }
 
@@ -516,14 +465,6 @@
   });
 
   // ---- Case summary + chat ----
-  function renderCurrentCase(c){
-    document.getElementById('caseViewId').textContent = c.caseId;
-    document.getElementById('caseViewStatus').textContent = statusLabel(c.status);
-    document.getElementById('caseViewStatus').className = `status-badge status-${c.status}`;
-    document.getElementById('caseViewSummary').textContent = c.summary || 'Your case is open. Start the conversation below and a RefundWaapsi human can reply.';
-    document.getElementById('caseViewFiles').textContent = c.proofFiles && c.proofFiles.length ? `📎 ${c.proofFiles.length} file(s) attached: ${c.proofFiles.map(f=>f.originalName).join(', ')}` : '';
-  }
-
   async function openCaseView(caseId) {
     currentCaseId = caseId;
     try {
@@ -531,14 +472,22 @@
       const c = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(c.error || 'Could not open this case.');
 
-      renderCurrentCase(c);
+      document.getElementById('caseViewId').textContent = c.caseId;
+      document.getElementById('caseViewStatus').textContent = statusLabel(c.status);
+      document.getElementById('caseViewStatus').className = `status-badge status-${c.status}`;
+      document.getElementById('caseViewSummary').textContent = c.summary || 'Your case is open. Start the conversation below and a RefundWaapsi human can reply.';
+      document.getElementById('caseViewFiles').textContent = c.proofFiles && c.proofFiles.length
+        ? `📎 ${c.proofFiles.length} file(s) attached: ${c.proofFiles.map(f => f.originalName).join(', ')}`
+        : '';
 
       showScreen('case');
       await loadMessages();
       await markRead(c);
       const listCase=document.querySelector(`.case-row[data-case=\"${CSS.escape(caseId)}\"]`);
       if(listCase){listCase.classList.remove('unread');const pill=listCase.querySelector('.unread-pill');if(pill)pill.remove();}
-      subscribeCase(caseId);
+      openChatStream(caseId);
+      if (chatPollTimer) clearInterval(chatPollTimer);
+      chatPollTimer = setInterval(()=>loadMessages(), 30000);
     } catch (err) {
       console.error('openCaseView:', err);
       if (chatPollTimer) { clearInterval(chatPollTimer); chatPollTimer = null; }
@@ -548,24 +497,6 @@
       showScreen('list');
       await loadCases();
     }
-  }
-
-  function renderChatMessage(m){
-    const sender=m.sender==='admin'?'admin':m.sender==='agent'?'agent':'customer';
-    const mine=sender==='customer';
-    const label=mine?'You':(m.senderName || (sender==='admin' ? 'Super Admin' : 'Agent'));
-    const roleLabel=mine?'YOU':(sender==='admin'?'SUPER ADMIN':'AGENT');
-    return `<div class="chat-msg ${sender} ${mine?'mine':'theirs'}"><span class="who">${escapeHtml(label)} · ${roleLabel} · ${new Date(m.createdAt).toLocaleString('en-IN')}</span>${escapeHtml(m.text||'')}</div>`;
-  }
-  function appendIncomingMessage(m){
-    const el=document.getElementById('chatMessages');
-    const id=m.id||`${m.createdAt||''}:${m.senderId||m.sender||''}`;
-    if(id && el.querySelector(`[data-message-id="${CSS.escape(id)}"]`)) return;
-    const empty=el.querySelector('.chat-empty'); if(empty) empty.remove();
-    const atBottom=el.scrollTop+el.clientHeight>=el.scrollHeight-20;
-    const wrap=document.createElement('div'); wrap.innerHTML=renderChatMessage(m);
-    const node=wrap.firstElementChild; if(id) node.dataset.messageId=id; el.appendChild(node);
-    if(atBottom || m.sender==='customer') el.scrollTop=el.scrollHeight;
   }
 
   async function loadMessages() {
@@ -580,7 +511,13 @@
       el.innerHTML = '<div class="chat-empty">No messages yet — say hello!</div>';
       return;
     }
-    el.innerHTML = messages.map(renderChatMessage).join('');
+    el.innerHTML = messages.map(m => {
+      const sender=m.sender==='admin'?'admin':m.sender==='agent'?'agent':'customer';
+      const mine=sender==='customer';
+      const label=mine?'You':(m.senderName || (sender==='admin' ? 'Super Admin' : 'Agent'));
+      const roleLabel=mine?'YOU':(sender==='admin'?'SUPER ADMIN':'AGENT');
+      return `<div class="chat-msg ${sender}"><span class="who">${escapeHtml(label)} · ${roleLabel} · ${new Date(m.createdAt).toLocaleString('en-IN')}</span>${escapeHtml(m.text)}</div>`;
+    }).join('');
       if (wasAtBottom) el.scrollTop = el.scrollHeight;
       const latest = messages[messages.length - 1];
       if (latest?.createdAt) {
@@ -630,15 +567,15 @@
       const empty = el.querySelector('.chat-empty');
       if (empty) empty.remove();
       const bubble = document.createElement('div');
-      bubble.className = 'chat-msg customer mine';
+      bubble.className = 'chat-msg customer';
       bubble.innerHTML = `<span class="who">You · YOU · ${new Date(data.createdAt || Date.now()).toLocaleString('en-IN')}</span>${escapeHtml(data.text || text)}`;
       el.appendChild(bubble);
       el.scrollTop = el.scrollHeight;
-      markRead({caseId:currentCaseId,lastMessageAt:data.createdAt||new Date().toISOString()}).catch(()=>{});
+      await markRead({caseId:currentCaseId,lastMessageAt:data.createdAt||new Date().toISOString()});
 
       // The server pushes this message over SSE to every open participant.
       // Avoid an immediate second GET here; keep the UI responsive.
-      scheduleRealtimeRefresh();
+      setTimeout(()=>{ if(currentCaseId) loadCases().catch(()=>{}); }, 500);
     } catch (err) {
       // Preserve unsent text so a transient/network error does not destroy it.
       input.value = text;
@@ -648,8 +585,6 @@
       button.textContent = 'Send';
     }
   }
-
-  window.addEventListener('beforeunload',closeRealtime);
 
   document.getElementById('logoutBtn').addEventListener('click', async () => {
     await fetch('/api/auth/logout', { method: 'POST' });
