@@ -64,5 +64,6 @@ $('assign').onchange=async e=>{if(!current||staff.role!=='admin')return;try{awai
 $('refresh').onclick=loadCases;$('search').oninput=renderList;$('filter').onchange=renderList;$('logout').onclick=async()=>{await fetch('/api/staff/logout',{method:'POST'});location.href='/admin-login'};
 $('agentForm').onsubmit=async e=>{e.preventDefault();try{await api('/api/admin/agents',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:$('aName').value,email:$('aEmail').value,password:$('aPassword').value})});e.target.reset();await loadAgents();}catch(err){alert(err.message)}};
 boot();
-</script><script src="/rw-fx.js" defer></script>
+</script><script src="/rw-chat.js"></script>
+<script src="/rw-fx.js" defer></script>
 </body></html>
