@@ -45,7 +45,7 @@
     display:flex; justify-content:space-between; align-items:center; gap:14px; cursor:pointer;
     box-shadow:4px 4px 0 rgba(0,0,0,0.15); flex-wrap:wrap;
   }
-  .case-row:hover{background:var(--paper-2);}.case-row.unread{border-color:var(--crimson);background:#fff9ed}.case-preview{font-size:12px;color:#5a4f3c;margin-top:6px;max-width:620px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.case-actions{display:flex;align-items:center;gap:8px}.unread-pill{background:var(--crimson);color:#fff;padding:4px 9px;border-radius:20px;font-size:10px;font-weight:800;text-transform:uppercase}
+  .case-row:hover{background:var(--paper-2);}.case-row.unread{border-color:var(--crimson);background:#fff9ed}.case-preview{font-size:12px;color:#5a4f3c;margin-top:6px;max-width:620px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.case-actions{display:flex;align-items:center;gap:8px}.unread-pill{display:inline-flex;align-items:center;justify-content:center;min-width:21px;height:21px;padding:0 6px;background:var(--crimson);color:#fff;border-radius:50%;font-size:10px;font-weight:800;box-shadow:0 0 0 0 rgba(193,39,45,.45);animation:unreadPulse 1.8s infinite}@keyframes unreadPulse{0%{box-shadow:0 0 0 0 rgba(193,39,45,.45)}70%{box-shadow:0 0 0 6px rgba(193,39,45,0)}100%{box-shadow:0 0 0 0 rgba(193,39,45,0)}}
   .case-id{font-family:'Anton',sans-serif; font-size:16px;}
   .case-meta{font-size:12.5px; color:#5a4f3c; margin-top:2px;}
   .status-badge{padding:4px 12px; border-radius:20px; font-size:11px; font-weight:700; text-transform:uppercase;}
@@ -206,8 +206,11 @@
   let prefillLead = null;
   let prefillLeadId = null;
   function readKey(caseId){return `rw_customer_seen_${currentUser?.email||'user'}_${caseId}`;}
-  function isUnread(c){if(!c.lastMessageAt)return false;const seen=localStorage.getItem(readKey(c.caseId));return !seen||new Date(c.lastMessageAt)>new Date(seen);}
+  function readState(){const out={};const prefix=`rw_customer_seen_${currentUser?.email||'user'}_`;for(let i=0;i<localStorage.length;i++){const k=localStorage.key(i)||'';if(k.startsWith(prefix)){const v=localStorage.getItem(k);if(v)out[k.slice(prefix.length)]=v;}}return out;}
+  function isUnread(c){return Number(c.unreadCount||0)>0;}
   function markRead(c){if(c?.lastMessageAt)localStorage.setItem(readKey(c.caseId),c.lastMessageAt);}
+  function seedReadState(rows){for(const c of rows||[]){const k=readKey(c.caseId);if(!localStorage.getItem(k)&&c.lastMessageAt)localStorage.setItem(k,c.lastMessageAt);}}
+  function senderLabel(c){if(!c.lastMessageSender)return '';if(c.lastMessageSender==='customer')return 'You';if(c.lastMessageSender==='admin')return c.lastMessageSenderName||'Super Admin';if(c.lastMessageSender==='agent')return c.lastMessageSenderName||'Agent';return c.lastMessageSenderName||'Customer';}
 
   const screens = {
     list: document.getElementById('screenList'),
@@ -281,7 +284,7 @@
 
   async function loadCases() {
     const listEl=document.getElementById('caseList');listEl.innerHTML='<div class="loading-state">Loading your cases…</div>';
-    try{const res=await fetch('/api/my/cases',{cache:'no-store'});const payload=await res.json().catch(()=>({}));if(!res.ok)throw new Error(payload.error||'Could not load your cases.');const cases=(Array.isArray(payload)?payload:[]).sort((a,b)=>new Date(b.lastMessageAt||b.updatedAt||b.createdAt||0)-new Date(a.lastMessageAt||a.updatedAt||a.createdAt||0));if(!cases.length){listEl.innerHTML='<div class="empty-state">No cases yet. Click "Open a New Case" to file your first one.</div>';return;}listEl.innerHTML=cases.map(c=>{const preview=c.lastMessageText?`${c.lastMessageSenderName||(c.lastMessageSender==='customer'?'You':'RefundWaapsi')}: ${c.lastMessageText}`:'No messages yet';return `<div class="case-row ${isUnread(c)?'unread':''}" data-case="${escapeHtml(c.caseId)}" data-status="${escapeHtml(c.status||'')}"><div style="min-width:0;flex:1"><div class="case-id">${escapeHtml(c.caseId)}</div><div class="case-meta">${c.createdAt?new Date(c.createdAt).toLocaleString('en-IN'):'Date unavailable'}${c.category?' • '+escapeHtml(c.category):''}</div><div class="case-preview">${escapeHtml(preview)}</div></div><div class="case-actions">${isUnread(c)?'<span class="unread-pill">Unread</span>':''}<span class="status-badge status-${escapeHtml(c.status||'')}">${escapeHtml(statusLabel(c.status||''))}</span></div></div>`;}).join('');listEl.querySelectorAll('.case-row').forEach(row=>row.addEventListener('click',()=>resumeCase(row.dataset.case,row.dataset.status)));}catch(err){console.error('loadCases:',err);listEl.innerHTML=`<div class="empty-state"><strong>Could not load your cases.</strong><br><span style="font-size:13px;">${escapeHtml(err.message||'Please refresh and try again.')}</span><br><button class="btn secondary" style="margin-top:16px;" onclick="loadCases()">Try Again</button></div>`;}
+    try{const res=await fetch('/api/my/cases',{cache:'no-store',headers:{'X-Read-State':JSON.stringify(readState())}});const payload=await res.json().catch(()=>({}));if(!res.ok)throw new Error(payload.error||'Could not load your cases.');const cases=(Array.isArray(payload)?payload:[]).sort((a,b)=>new Date(b.lastMessageAt||b.updatedAt||b.createdAt||0)-new Date(a.lastMessageAt||a.updatedAt||a.createdAt||0));seedReadState(cases);if(!cases.length){listEl.innerHTML='<div class="empty-state">No cases yet. Click "Open a New Case" to file your first one.</div>';return;}listEl.innerHTML=cases.map(c=>{const preview=c.lastMessageText?`${senderLabel(c)}: ${c.lastMessageText}`:'No messages yet';const count=Number(c.unreadCount||0);return `<div class="case-row ${count?'unread':''}" data-case="${escapeHtml(c.caseId)}" data-status="${escapeHtml(c.status||'')}"><div style="min-width:0;flex:1"><div class="case-id">${escapeHtml(c.caseId)}</div><div class="case-meta">${c.createdAt?new Date(c.createdAt).toLocaleString('en-IN'):'Date unavailable'}${c.category?' • '+escapeHtml(c.category):''}</div><div class="case-preview">${escapeHtml(preview)}</div></div><div class="case-actions">${count?`<span class="unread-pill" title="${count} unread message${count===1?'':'s'}">${count>99?'99+':count}</span>`:''}<span class="status-badge status-${escapeHtml(c.status||'')}">${escapeHtml(statusLabel(c.status||''))}</span></div></div>`;}).join('');listEl.querySelectorAll('.case-row').forEach(row=>row.addEventListener('click',()=>resumeCase(row.dataset.case,row.dataset.status)));}catch(err){console.error('loadCases:',err);listEl.innerHTML=`<div class="empty-state"><strong>Could not load your cases.</strong><br><span style="font-size:13px;">${escapeHtml(err.message||'Please refresh and try again.')}</span><br><button class="btn secondary" style="margin-top:16px;" onclick="loadCases()">Try Again</button></div>`;}
   }
 
   async function resumeCase(caseId, status) {
@@ -508,11 +511,14 @@
     }
     el.innerHTML = messages.map(m => {
       const sender=m.sender==='admin'?'admin':m.sender==='agent'?'agent':'customer';
-      const label=m.senderName || (sender==='customer' ? (currentUser?.name || 'You') : sender==='admin' ? 'RefundWaapsi Admin' : 'Agent');
-      const roleLabel=sender==='admin'?'SUPER ADMIN':sender==='agent'?'AGENT':'YOU';
+      const mine=sender==='customer';
+      const label=mine?'You':(m.senderName || (sender==='admin' ? 'Super Admin' : 'Agent'));
+      const roleLabel=mine?'YOU':(sender==='admin'?'SUPER ADMIN':'AGENT');
       return `<div class="chat-msg ${sender}"><span class="who">${escapeHtml(label)} · ${roleLabel} · ${new Date(m.createdAt).toLocaleString('en-IN')}</span>${escapeHtml(m.text)}</div>`;
     }).join('');
       if (wasAtBottom) el.scrollTop = el.scrollHeight;
+      const latest = messages[messages.length - 1];
+      if (latest?.createdAt) markRead({caseId: currentCaseId, lastMessageAt: latest.createdAt});
     } catch (err) {
       console.error('loadMessages:', err);
     }
@@ -558,7 +564,7 @@
       if (empty) empty.remove();
       const bubble = document.createElement('div');
       bubble.className = 'chat-msg customer';
-      bubble.innerHTML = `<span class="who">${escapeHtml(currentUser?.name || 'You')} · ${new Date(data.createdAt || Date.now()).toLocaleString('en-IN')}</span>${escapeHtml(data.text || text)}`;
+      bubble.innerHTML = `<span class="who">You · YOU · ${new Date(data.createdAt || Date.now()).toLocaleString('en-IN')}</span>${escapeHtml(data.text || text)}`;
       el.appendChild(bubble);
       el.scrollTop = el.scrollHeight;
       markRead({caseId:currentCaseId,lastMessageAt:data.createdAt||new Date().toISOString()});
