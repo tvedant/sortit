@@ -295,6 +295,10 @@ app.use(express.static(path.join(__dirname,'public')));
 const hitLog=new Map();
 function rateLimit(bucket,max,windowMs){return(req,res,next)=>{const key=`${bucket}:${req.ip}`;const now=Date.now();const hits=(hitLog.get(key)||[]).filter(t=>now-t<windowMs);if(hits.length>=max)return res.status(429).json({error:'Too many requests. Please try again in a bit.'});hits.push(now);hitLog.set(key,hits);next();};}
 
+// Express 4 does not automatically forward rejected async route promises to the error middleware.
+// Keep every async API failure inside Express so one bad request can never take down the process.
+function asyncHandler(fn){return function(req,res,next){Promise.resolve(fn(req,res,next)).catch(next);};}
+
 function signToken(user){return jwt.sign({uid:user.id,email:user.email,name:user.name},JWT_SECRET,{expiresIn:'7d'});}
 function requireAuth(req,res,next){const token=req.cookies.token;if(!token)return res.status(401).json({error:'Please log in first.'});try{req.user=jwt.verify(token,JWT_SECRET);next();}catch(_){return res.status(401).json({error:'Your session has expired. Please log in again.'});}}
 function signStaffToken(staff){return jwt.sign({uid:staff.id||null,email:staff.email,name:staff.name,role:staff.role,staff:true},JWT_SECRET,{expiresIn:'12h'});}
@@ -485,7 +489,16 @@ app.post('/api/my/leads/:leadId/human-support',requireAuth,rateLimit('human-supp
 
 app.post('/api/my/cases/:caseId/payment-order',requireAuth,async(req,res)=>{try{const record=await findCase(req.params.caseId,req.user.uid);if(!record)return res.status(404).json({error:'Case not found.'});if(record.paymentStatus==='paid')return res.json({ok:true,alreadyPaid:true,caseId:record.caseId});const order=await createPaymentOrder(record);res.json({ok:true,caseId:record.caseId,orderId:order.orderId,amountPaise:record.amountPaise,keyId:PAYMENTS_LIVE?RAZORPAY_KEY_ID:null,testMode:!PAYMENTS_LIVE});}catch(e){console.error(e);res.status(502).json({error:'Could not start payment.'});}});
 app.post('/api/my/cases/:caseId/verify-payment',requireAuth,async(req,res)=>{const{razorpay_order_id,razorpay_payment_id,razorpay_signature}=req.body||{};const record=await findCase(req.params.caseId,req.user.uid);if(!record)return res.status(404).json({error:'Case not found.'});if(!PAYMENTS_LIVE)return res.status(400).json({error:'Live payments are not configured. Use the test-mode confirmation instead.'});const expected=crypto.createHmac('sha256',RAZORPAY_KEY_SECRET).update(`${razorpay_order_id}|${razorpay_payment_id}`).digest('hex');const providedSig=String(razorpay_signature||''); if(providedSig.length!==expected.length || !crypto.timingSafeEqual(Buffer.from(expected),Buffer.from(providedSig)))return res.status(400).json({error:'Payment verification failed. Please contact support.'});const nextStatus=record.leadId?'in-progress':'awaiting_details';await updateCase(record.caseId,{paymentStatus:'paid',razorpayPaymentId:razorpay_payment_id,status:nextStatus,updatedAt:new Date().toISOString()});if(record.leadId)await importLeadTranscriptIntoCase(record,record.leadId,req.user.name);res.json({ok:true,caseId:record.caseId,humanSupport:Boolean(record.leadId)});});
-app.post('/api/my/cases/:caseId/mock-pay',requireAuth,async(req,res)=>{if(PAYMENTS_LIVE)return res.status(400).json({error:'Live payments are configured — use real checkout instead.'});const record=await findCase(req.params.caseId,req.user.uid);if(!record)return res.status(404).json({error:'Case not found.'});const nextStatus=record.leadId?'in-progress':'awaiting_details';await updateCase(record.caseId,{paymentStatus:'paid',razorpayPaymentId:`test_pay_${crypto.randomUUID().slice(0,8)}`,status:nextStatus,updatedAt:new Date().toISOString()});if(record.leadId)await importLeadTranscriptIntoCase(record,record.leadId,req.user.name);res.json({ok:true,caseId:record.caseId,humanSupport:Boolean(record.leadId)});});
+app.post('/api/my/cases/:caseId/mock-pay',requireAuth,asyncHandler(async(req,res)=>{
+  if(PAYMENTS_LIVE)return res.status(400).json({error:'Live payments are configured — use real checkout instead.'});
+  const record=await findCase(req.params.caseId,req.user.uid);
+  if(!record)return res.status(404).json({error:'Case not found.'});
+  if(record.paymentStatus==='paid')return res.json({ok:true,alreadyPaid:true,caseId:record.caseId,humanSupport:Boolean(record.leadId)});
+  const nextStatus=record.leadId?'in-progress':'awaiting_details';
+  await updateCase(record.caseId,{paymentStatus:'paid',razorpayPaymentId:`test_pay_${crypto.randomUUID().slice(0,8)}`,status:nextStatus,updatedAt:new Date().toISOString()});
+  if(record.leadId)await importLeadTranscriptIntoCase(record,record.leadId,req.user.name);
+  res.json({ok:true,caseId:record.caseId,humanSupport:Boolean(record.leadId)});
+}));
 
 app.post('/api/my/cases/:caseId/details',requireAuth,upload.array('proofs',5),async(req,res)=>{try{const record=await findCase(req.params.caseId,req.user.uid);if(!record)return res.status(404).json({error:'Case not found.'});if((record.paymentStatus||record.payment_status)!=='paid')return res.status(402).json({error:'Please complete the ₹59 filing fee first.'});const{category,description}=req.body||{};if(!description||description.trim().length<20)return res.status(400).json({error:'Please describe what happened in at least 20 characters.'});const files=[];for(const file of req.files||[]){const filename=`${Date.now()}-${crypto.randomBytes(8).toString('hex')}-${file.originalname.replace(/[^a-zA-Z0-9._-]/g,'_').slice(-80)}`;const storagePath=`${record.caseId}/${filename}`;if(DB_ENABLED){await uploadToStorage(file,storagePath);const f={id:crypto.randomUUID(),caseId:record.caseId,filename,originalName:file.originalname,size:file.size,mimeType:file.mimetype,storagePath,createdAt:new Date().toISOString()};await createCaseFile(f);files.push(f);}else{const dir=path.join(UPLOADS_DIR,record.caseId);fs.mkdirSync(dir,{recursive:true});fs.writeFileSync(path.join(dir,filename),file.buffer);files.push({filename,originalName:file.originalname,size:file.size});}}
 const cat=(category||'other').slice(0,40);const desc=description.trim().slice(0,4000);const summary=buildSummary({category:cat,description:desc});await updateCase(record.caseId,{category:cat,description:desc,summary,status:'submitted',updatedAt:new Date().toISOString()});
@@ -493,20 +506,63 @@ const leadId=String(req.body?.leadId||'').trim();if(leadId)await importLeadTrans
 res.json({ok:true,caseId:record.caseId,summary});}catch(e){console.error(e);res.status(500).json({error:'Could not save case details or evidence.'});}});
 
 function stripInternal(c){const x=caseFromDb(c);const{userId,...rest}=x;return rest;}
-async function decorateCase(c){const x=caseFromDb(c);x.proofFiles=await listCaseFiles(x.caseId);return x;}
+async function decorateCase(c){
+  const x=caseFromDb(c);
+  try {
+    x.proofFiles=await listCaseFiles(x.caseId);
+  } catch (err) {
+    // A case must remain viewable even if evidence metadata is temporarily unavailable.
+    console.error('Case file metadata error:', err);
+    x.proofFiles=[];
+    x.proofFilesUnavailable=true;
+  }
+  return x;
+}
 app.get('/api/my/cases',requireAuth,async(req,res)=>{try{
   const rows=await listCasesForUser(req.user.uid);
   // The list view does not need proof-file metadata. Avoid an N+1 case_files
   // query here so the dashboard stays fast even when a customer has many cases.
   res.json(rows.map(stripInternal));
 }catch(e){console.error('List customer cases error:',e);res.status(500).json({error:'Could not load your cases. Please refresh and try again.'});}});
-app.get('/api/my/cases/:caseId',requireAuth,async(req,res)=>{const r=await findCase(req.params.caseId,req.user.uid);if(!r)return res.status(404).json({error:'Case not found.'});res.json(stripInternal(await decorateCase(r)));});
+app.get('/api/my/cases/:caseId',requireAuth,asyncHandler(async(req,res)=>{
+  const r=await findCase(req.params.caseId,req.user.uid);
+  if(!r)return res.status(404).json({error:'Case not found.'});
+  res.json(stripInternal(await decorateCase(r)));
+}));
 
-async function authorizeFile(req,isAdmin){const record=isAdmin?await findCase(req.params.caseId):await findCase(req.params.caseId,req.user.uid);if(!record)return null;const files=await listCaseFiles(req.params.caseId);return files.find(f=>f.filename===req.params.filename)||null;}
-app.get('/api/my/cases/:caseId/files/:filename',requireAuth,async(req,res)=>{const f=await authorizeFile(req,false);if(!f)return res.status(404).json({error:'File not found.'});if(DB_ENABLED){try{return res.redirect(await signedStorageUrl(f.storagePath));}catch(e){return res.status(500).json({error:'Could not open file.'});}}const fp=path.join(UPLOADS_DIR,req.params.caseId,req.params.filename);if(!fp.startsWith(path.resolve(UPLOADS_DIR)+path.sep)||!fs.existsSync(fp))return res.status(404).json({error:'File not found.'});res.sendFile(fp);});
+async function authorizeFile(req,isAdmin){
+  const record=isAdmin?await findCase(req.params.caseId):await findCase(req.params.caseId,req.user.uid);
+  if(!record)return null;
+  const files=await listCaseFiles(req.params.caseId);
+  return files.find(f=>f.filename===req.params.filename)||null;
+}
 
-app.get('/api/my/cases/:caseId/messages',requireAuth,async(req,res)=>{if(!(await findCase(req.params.caseId,req.user.uid)))return res.status(404).json({error:'Case not found.'});res.json(await listMessages(req.params.caseId));});
-app.post('/api/my/cases/:caseId/messages',requireAuth,rateLimit('chat-send',30,5*60*1000),async(req,res)=>{const record=await findCase(req.params.caseId,req.user.uid);if(!record)return res.status(404).json({error:'Case not found.'});const{text}=req.body||{};if(!text||!text.trim())return res.status(400).json({error:'Message cannot be empty.'});const msg={id:crypto.randomUUID(),caseId:req.params.caseId,sender:'customer',senderName:req.user.name,text:text.trim().slice(0,2000),createdAt:new Date().toISOString()};res.status(201).json(await createMessage(msg));});
+app.get('/api/my/cases/:caseId/files/:filename',requireAuth,asyncHandler(async(req,res)=>{
+  const f=await authorizeFile(req,false);
+  if(!f)return res.status(404).json({error:'File not found.'});
+  if(DB_ENABLED){
+    try{return res.redirect(await signedStorageUrl(f.storagePath));}
+    catch(e){console.error('Customer file URL error:',e);return res.status(500).json({error:'Could not open file.'});}
+  }
+  const fp=path.join(UPLOADS_DIR,req.params.caseId,req.params.filename);
+  if(!fp.startsWith(path.resolve(UPLOADS_DIR)+path.sep)||!fs.existsSync(fp))return res.status(404).json({error:'File not found.'});
+  res.sendFile(fp);
+}));
+
+app.get('/api/my/cases/:caseId/messages',requireAuth,asyncHandler(async(req,res)=>{
+  const record=await findCase(req.params.caseId,req.user.uid);
+  if(!record)return res.status(404).json({error:'Case not found.'});
+  res.json(await listMessages(req.params.caseId));
+}));
+
+app.post('/api/my/cases/:caseId/messages',requireAuth,rateLimit('chat-send',30,5*60*1000),asyncHandler(async(req,res)=>{
+  const record=await findCase(req.params.caseId,req.user.uid);
+  if(!record)return res.status(404).json({error:'Case not found.'});
+  const{text}=req.body||{};
+  if(!text||!text.trim())return res.status(400).json({error:'Message cannot be empty.'});
+  const msg={id:crypto.randomUUID(),caseId:req.params.caseId,sender:'customer',senderName:req.user.name,text:text.trim().slice(0,2000),createdAt:new Date().toISOString()};
+  res.status(201).json(await createMessage(msg));
+}));
 
 // ADMIN / AGENT WORKSPACE
 async function listStaffCases(staff){
@@ -521,7 +577,7 @@ async function listStaffCases(staff){
   return [...mine,...open];
 }
 async function canStaffAccessCase(staff,record){return staff.role==='admin'||!record.assignedTo||record.assignedTo===staff.uid;}
-app.get('/api/admin/cases',requireStaff,async(req,res)=>{const rows=await listStaffCases(req.staff);const out=[];for(const r of rows)out.push(await decorateCase(r));res.json(out);});
+app.get('/api/admin/cases',requireStaff,asyncHandler(async(req,res)=>{const rows=await listStaffCases(req.staff);const out=[];for(const r of rows)out.push(await decorateCase(r));res.json(out);}));
 app.patch('/api/admin/cases/:caseId/status',requireStaff,async(req,res)=>{const allowed=['awaiting_details','submitted','in-progress','won','closed'];if(!allowed.includes(req.body?.status))return res.status(400).json({error:`Status must be one of: ${allowed.join(', ')}`});const record=await findCase(req.params.caseId);if(!record)return res.status(404).json({error:'Case not found.'});if(!(await canStaffAccessCase(req.staff,caseFromDb(record))))return res.status(403).json({error:'This case is assigned to another agent.'});await updateCase(req.params.caseId,{status:req.body.status,updatedAt:new Date().toISOString()});res.json({ok:true});});
 app.patch('/api/admin/cases/:caseId/assign',requireAdmin,async(req,res)=>{try{
   const record=await findCase(req.params.caseId);if(!record)return res.status(404).json({error:'Case not found.'});
@@ -529,7 +585,7 @@ app.patch('/api/admin/cases/:caseId/assign',requireAdmin,async(req,res)=>{try{
   if(agentId){const agent=await findUserById(agentId);if(!agent||agent.role!=='agent')return res.status(400).json({error:'Agent not found.'});}
   await updateCase(req.params.caseId,{assignedTo:agentId,assignedAt:agentId?new Date().toISOString():null,updatedAt:new Date().toISOString()});res.json({ok:true,assignedTo:agentId});
 }catch(e){console.error(e);res.status(500).json({error:'Could not assign case.'});}});
-app.get('/api/admin/cases/:caseId/messages',requireStaff,async(req,res)=>{const record=await findCase(req.params.caseId);if(!record)return res.status(404).json({error:'Case not found.'});if(!(await canStaffAccessCase(req.staff,caseFromDb(record))))return res.status(403).json({error:'This case is assigned to another agent.'});res.json(await listMessages(req.params.caseId));});
+app.get('/api/admin/cases/:caseId/messages',requireStaff,asyncHandler(async(req,res)=>{const record=await findCase(req.params.caseId);if(!record)return res.status(404).json({error:'Case not found.'});if(!(await canStaffAccessCase(req.staff,caseFromDb(record))))return res.status(403).json({error:'This case is assigned to another agent.'});res.json(await listMessages(req.params.caseId));}));
 app.post('/api/admin/cases/:caseId/messages',requireStaff,async(req,res)=>{try{const{text}=req.body||{};if(!text||!text.trim())return res.status(400).json({error:'Message cannot be empty.'});const record=await findCase(req.params.caseId);if(!record)return res.status(404).json({error:'Case not found.'});const c=caseFromDb(record);if(!(await canStaffAccessCase(req.staff,c)))return res.status(403).json({error:'This case is assigned to another agent.'});
   // An agent replying to an unassigned case claims it, preventing two agents from working it simultaneously.
   if(req.staff.role==='agent'&&!c.assignedTo)await updateCase(c.caseId,{assignedTo:req.staff.uid,assignedAt:new Date().toISOString(),updatedAt:new Date().toISOString()});
@@ -542,6 +598,16 @@ app.get('/admin-login',(req,res)=>res.sendFile(path.join(__dirname,'public','adm
 
 app.get('/api/config',(req,res)=>res.json({paymentsLive:PAYMENTS_LIVE,caseFeeRupees:CASE_FEE_PAISE/100,aiChatLive:AI_CHAT_LIVE,googleLogin:!!GOOGLE_CLIENT_ID,googleClientId:GOOGLE_CLIENT_ID,database:'supabase'}));
 app.get('/api/health',(req,res)=>res.json({ok:true,time:new Date().toISOString(),database:DB_ENABLED?'supabase':'json-fallback'}));
-app.use((err,req,res,next)=>{console.error(err);if(err instanceof multer.MulterError)return res.status(400).json({error:err.message});if(err.message==='CORS origin not allowed')return res.status(403).json({error:err.message});res.status(500).json({error:'Unexpected server error.'});});
+app.use((err,req,res,next)=>{
+  console.error('Unhandled request error:',err);
+  if(res.headersSent)return next(err);
+  if(err instanceof multer.MulterError)return res.status(400).json({error:err.message});
+  if(err.message==='CORS origin not allowed')return res.status(403).json({error:err.message});
+  res.status(500).json({error:'Unexpected server error. Please try again.'});
+});
+
+// Log unexpected process-level failures without deliberately terminating the service.
+// Request-level async failures are handled by asyncHandler above.
+process.on('unhandledRejection',(err)=>console.error('Unhandled promise rejection:',err));
 
 app.listen(PORT,'0.0.0.0',()=>{console.log(`RefundWaapsi server running on port ${PORT}`);console.log(`Database: ${DB_ENABLED?'SUPABASE':'JSON FALLBACK'}`);console.log(`Payments: ${PAYMENTS_LIVE?'LIVE':'TEST MODE'}`);console.log(`Lead chat: ${AI_CHAT_LIVE?'AI':'SCRIPTED'}`);});
