@@ -250,7 +250,7 @@
 
       await loadCases();
       if (caseListPollTimer) clearInterval(caseListPollTimer);
-      caseListPollTimer = setInterval(() => { if (document.visibilityState === 'visible' && !currentCaseId) loadCases().catch(e => console.error('case list refresh', e)); }, 5000);
+      caseListPollTimer = setInterval(() => { if (document.visibilityState === 'visible' && !currentCaseId) loadCases().catch(e => console.error('case list refresh', e)); }, 3000);
 
       const leadId = new URLSearchParams(window.location.search).get('leadId');
       if (leadId) {
@@ -594,7 +594,355 @@
   init();
 </script>
 <script id="razorpay-checkout" src="https://checkout.razorpay.com/v1/checkout.js" defer></script>
-<script src="/rw-chat.js"></script>
-<script src="/rw-fx.js" defer></script>
+<script>/* rw-chat.js — stable chat: incremental rendering, no loading flashes, own messages on the right.
+   Loads AFTER the page's inline script and replaces its chat/list functions. */
+(() => {
+'use strict';
+const D = document, $ = id => D.getElementById(id);
+const dash = !!$('screenList'), admin = !!$('agentManager');
+if (!dash && !admin) return;
+
+/* ---------- sides: mine = right (blue), everyone else = left ---------- */
+const mineBg = dash ? '#2C5F8A' : '#2457a6';
+const S = D.createElement('style');
+S.textContent = `
+.chat-msg.customer,.chat-msg.agent,.chat-msg.admin,.msg.customer,.msg.agent,.msg.admin{align-self:flex-start}
+.chat-msg.mine,.msg.mine{align-self:flex-end;background:${mineBg}!important;border-color:${dash ? '#1A1611' : mineBg}!important;color:#fff}
+.chat-msg.mine .who,.msg.mine .who{color:#fff;opacity:.8}
+.chat-messages,.messages{overscroll-behavior:contain}`;
+D.head.append(S);
+
+/* ---------- helpers ---------- */
+const keyOf = m => m.id || m._id || (m.createdAt + '|' + m.text);
+const throttled = (fn, gap) => { let last = 0, t; return () => { const w = last + gap - Date.now(); clearTimeout(t); if (w <= 0) { last = Date.now(); fn(); } else t = setTimeout(() => { last = Date.now(); fn(); }, w); }; };
+const time = m => new Date(m.createdAt).toLocaleString('en-IN');
+
+// Read receipts: send once per (case, latest message). Stops any read -> stream event -> read loop.
+const _mr = window.markRead; let lastMR = '';
+window.markRead = c => { const k = (c && c.caseId) + '|' + (c && c.lastMessageAt); if (k === lastMR) return Promise.resolve(); lastMR = k; return _mr(c); };
+
+// Incremental renderer: only appends what is new. Existing bubbles are never touched, so nothing flickers.
+function makeChat(box, build, emptyClass, emptyText) {
+  let keys = [], id = null;
+  const empty = () => { const e = D.createElement('div'); e.className = emptyClass + ' rw-empty'; e.textContent = emptyText; return e; };
+  const near = () => box.scrollTop + box.clientHeight >= box.scrollHeight - 60;
+  const down = smooth => box.scrollTo({ top: box.scrollHeight, behavior: smooth ? 'smooth' : 'auto' });
+  return {
+    bottom() { down(false); },
+    reset(n) { if (n === id) return; id = n; keys = []; box.replaceChildren(); },
+    add(m, force) { const k = keyOf(m); if (keys.includes(k)) return; const e = box.querySelector('.rw-empty'); if (e) e.remove(); box.append(build(m)); keys.push(k); if (force || near()) down(true); },
+    sync(list) {
+      const nk = list.map(keyOf);
+      if (!nk.length) { if (!box.firstElementChild) box.append(empty()); return; }
+      const same = keys.length <= nk.length && keys.every((k, i) => k === nk[i]);
+      if (same && keys.length === nk.length) return;
+      const first = !keys.length, stick = first || near();
+      const e = box.querySelector('.rw-empty'); if (e) e.remove();
+      if (same) list.slice(keys.length).forEach(m => box.append(build(m)));
+      else box.replaceChildren(...list.map(build));
+      keys = nk; if (stick) down(!first);
+    }
+  };
+}
+const bubble = (cls, who, text) => { const el = D.createElement('div'); el.className = cls; const w = D.createElement('span'); w.className = 'who'; w.textContent = who; el.append(w, D.createTextNode(text)); return el; };
+
+/* ================= CUSTOMER DASHBOARD ================= */
+if (dash) {
+  const chat = makeChat($('chatMessages'), m => {
+    const s = m.sender === 'admin' ? 'admin' : m.sender === 'agent' ? 'agent' : 'customer', mine = s === 'customer';
+    const label = mine ? 'You' : (m.senderName || (s === 'admin' ? 'Super Admin' : 'Agent'));
+    return bubble(`chat-msg ${s}${mine ? ' mine' : ''}`, [label, mine ? '' : (s === 'admin' ? 'SUPER ADMIN' : 'AGENT'), time(m)].filter(Boolean).join(' · '), m.text);
+  }, 'chat-empty', 'No messages yet — say hello!');
+
+  let busy = false, again = false;
+  window.loadMessages = async function () {
+    if (!currentCaseId) return;
+    if (busy) { again = true; return; }
+    busy = true; const cid = currentCaseId;
+    try {
+      const res = await fetch(`/api/my/cases/${encodeURIComponent(cid)}/messages`, { cache: 'no-store' });
+      if (!res.ok || cid !== currentCaseId) return;
+      const list = await res.json(); chat.reset(cid); chat.sync(list);
+      const last = list[list.length - 1]; if (last && last.createdAt) markRead({ caseId: cid, lastMessageAt: last.createdAt });
+    } catch (e) { console.debug('loadMessages', e); }
+    finally { busy = false; if (again) { again = false; loadMessages(); } }
+  };
+  const _ov = window.openCaseView;
+  window.openCaseView = function (id) {   // open instantly; fetch messages in parallel with the case details
+    chat.reset(id); currentCaseId = id; $('caseViewId').textContent = id; $('caseViewStatus').textContent = ''; $('caseViewSummary').textContent = ''; $('caseViewFiles').textContent = '';
+    showScreen('case'); loadMessages();
+    return _ov.apply(this, arguments).then(() => chat.bottom());
+  };
+  window.openChatStream = function (caseId) {
+    closeChatStream(); const run = throttled(() => loadMessages(), 400);
+    const es = new EventSource(`/api/my/cases/${encodeURIComponent(caseId)}/stream`);
+    es.addEventListener('message', ev => { try { const d = JSON.parse(ev.data), m = d && (d.message || d); if (m && m.text && m.createdAt && m.sender) chat.add(m); } catch (_) {} run(); });
+    es.onerror = () => {}; chatStream = es;
+  };
+
+  // send (old listeners are bound to the old function, so swap the nodes)
+  const sb = $('chatSendBtn'), si = $('chatInput'), nb = sb.cloneNode(true), ni = si.cloneNode(true); sb.replaceWith(nb); si.replaceWith(ni);
+  const send = async () => {
+    const text = ni.value.trim(), note = $('chatNotice'); if (!text || !currentCaseId || nb.disabled) return;
+    note.textContent = ''; nb.disabled = true; nb.textContent = 'Sending…';
+    try {
+      const res = await fetch(`/api/my/cases/${encodeURIComponent(currentCaseId)}/messages`, { method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json' }, body: JSON.stringify({ text }) });
+      const d = await res.json().catch(() => ({})); if (!res.ok) throw new Error(d.error || `Could not send message (HTTP ${res.status}).`);
+      const at = d.createdAt || new Date().toISOString(); ni.value = '';
+      chat.add({ ...d, text: d.text || text, createdAt: at, sender: 'customer' }, true); markRead({ caseId: currentCaseId, lastMessageAt: at });
+    } catch (e) { ni.value = text; note.textContent = e.message || 'Could not send message. Please try again.'; }
+    finally { nb.disabled = false; nb.textContent = 'Send'; ni.focus(); }
+  };
+  nb.addEventListener('click', send); ni.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.isComposing) send(); });
+
+  // case list: loader only on the very first load; re-render only when data really changed; keep last good list on errors
+  const row = c => { const p = c.lastMessageText ? `${senderLabel(c)}: ${c.lastMessageText}` : 'No messages yet', n = Number(c.unreadCount || 0);
+    return `<div class="case-row ${n ? 'unread' : ''}" data-case="${escapeHtml(c.caseId)}" data-status="${escapeHtml(c.status || '')}"><div style="min-width:0;flex:1"><div class="case-id">${escapeHtml(c.caseId)}</div><div class="case-meta">${c.createdAt ? new Date(c.createdAt).toLocaleString('en-IN') : 'Date unavailable'}${c.category ? ' • ' + escapeHtml(c.category) : ''}</div><div class="case-preview">${escapeHtml(p)}</div></div><div class="case-actions">${n ? `<span class="unread-pill" title="${n} unread message${n === 1 ? '' : 's'}">${n > 99 ? '99+' : n}</span>` : ''}<span class="status-badge status-${escapeHtml(c.status || '')}">${escapeHtml(statusLabel(c.status || ''))}</span></div></div>`; };
+  let listBusy = false, listKey = null;
+  window.loadCases = async function () {
+    if (listBusy) return; listBusy = true; const el = $('caseList');
+    try {
+      if (!el.firstElementChild) el.innerHTML = '<div class="loading-state">Loading your cases…</div>';
+      const res = await fetch('/api/my/cases', { cache: 'no-store' }), payload = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(payload.error || 'Could not load your cases.');
+      const cases = (Array.isArray(payload) ? payload : []).sort((a, b) => new Date(b.lastMessageAt || b.updatedAt || b.createdAt || 0) - new Date(a.lastMessageAt || a.updatedAt || a.createdAt || 0));
+      const key = JSON.stringify(cases.map(c => [c.caseId, c.status, c.unreadCount, c.lastMessageAt, c.lastMessageText, c.lastMessageSender, c.lastMessageSenderName, c.category, c.createdAt]));
+      if (key === listKey) return; listKey = key;
+      if (!cases.length) { el.innerHTML = '<div class="empty-state">No cases yet. Click "Open a New Case" to file your first one.</div>'; return; }
+      el.innerHTML = cases.map(row).join('');
+      el.querySelectorAll('.case-row').forEach(r => r.addEventListener('click', () => resumeCase(r.dataset.case, r.dataset.status)));
+    } catch (err) {
+      console.error('loadCases:', err);
+      if (listKey === null || !el.querySelector('.case-row')) { listKey = null; el.innerHTML = `<div class="empty-state"><strong>Could not load your cases.</strong><br><span style="font-size:13px;">${escapeHtml(err.message || 'Please refresh and try again.')}</span><br><button class="btn secondary" style="margin-top:16px;" onclick="loadCases()">Try Again</button></div>`; }
+    } finally { listBusy = false; }
+  };
+}
+
+/* ================= SUPPORT WORKSPACE (admin / agents) ================= */
+if (admin) {
+  const isMine = m => (m.senderId && m.senderId === staff.uid) || (!m.senderId && m.sender === staff.role);
+  const chat = makeChat($('messages'), m => {
+    const s = m.sender === 'customer' ? 'customer' : m.sender === 'admin' ? 'admin' : 'agent', mine = isMine(m);
+    const label = mine ? 'You' : (m.senderName || (s === 'customer' ? 'Customer' : s === 'admin' ? 'Super Admin' : 'Agent'));
+    return bubble(`msg ${s}${mine ? ' mine' : ''}`, [label, mine ? '' : (s === 'admin' ? 'SUPER ADMIN' : s === 'agent' ? 'AGENT' : 'CUSTOMER'), time(m)].filter(Boolean).join(' · '), m.text);
+  }, 'empty', 'No messages yet. Start the conversation.');
+
+  let busy = false, again = false;
+  window.loadMessages = async function () {
+    if (!current) return;
+    if (busy) { again = true; return; }
+    busy = true; const cid = current.caseId;
+    try {
+      const list = await api('/api/admin/cases/' + encodeURIComponent(cid) + '/messages');
+      if (!current || current.caseId !== cid) return;
+      chat.reset(cid); chat.sync(list);
+      const last = list[list.length - 1];
+      if (last && last.createdAt) { await markRead({ ...current, lastMessageAt: last.createdAt });
+        const r = cases.find(c => c.caseId === cid); if (r && (r.unreadCount || r.unread)) { r.unreadCount = 0; r.unread = false; renderList(); } }
+    } catch (e) { console.error('loadMessages', e); }
+    finally { busy = false; if (again) { again = false; loadMessages(); } }
+  };
+  const _oc = window.openCase;
+  window.openCase = function (id) { chat.reset(id); const p = _oc.apply(this, arguments); loadMessages(); return p; };   // messages load in parallel with details
+  const _rl = window.renderList;   // unread total in the tab title
+  window.renderList = function () { _rl.apply(this, arguments); const n = cases.reduce((a, c) => a + Number(c.unreadCount || 0), 0); D.title = (n ? `(${n}) ` : '') + 'RefundWaapsi — Support Workspace'; };
+  window.openChatStream = function (caseId) {
+    closeChatStream(); const run = throttled(() => { loadMessages(); loadCases(true).catch(() => {}); }, 500);
+    const es = new EventSource('/api/admin/cases/' + encodeURIComponent(caseId) + '/stream');
+    es.addEventListener('message', ev => { try { const d = JSON.parse(ev.data), m = d && (d.message || d); if (m && m.text && m.createdAt && m.sender) chat.add(m); } catch (_) {} run(); });
+    es.onerror = () => {}; chatStream = es;
+  };
+  $('send').onclick = async () => {
+    const t = $('composer').value.trim(); if (!t || !current) return; $('send').disabled = true;
+    try {
+      const sent = await api('/api/admin/cases/' + encodeURIComponent(current.caseId) + '/messages', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text: t }) });
+      const at = sent.createdAt || new Date().toISOString(); $('composer').value = '';
+      chat.add({ ...sent, text: sent.text || t, createdAt: at, sender: staff.role, senderId: staff.uid, senderName: staff.name }, true);
+      Object.assign(current, { lastMessageText: sent.text || t, lastMessageAt: at, lastMessageSender: staff.role, lastMessageSenderName: staff.name, unread: false });
+      await markRead(current); renderList();
+    } catch (e) { alert(e.message); } finally { $('send').disabled = false; }
+  };
+}
+D.addEventListener('visibilitychange', () => { if (D.visibilityState !== 'visible') return; if (admin) loadCases(true).catch(() => {}); else if (currentCaseId) loadMessages(); else loadCases(); });
+})();
+</script>
+<script>/* RefundWaapsi FX — drop-in motion + speed layer (no dependencies).
+   Same design, zero changes to your API/payment/chat logic. */
+(() => {
+'use strict';
+const D = document, R = D.documentElement, raf = requestAnimationFrame;
+const $ = (s, c = D) => c.querySelector(s), $$ = (s, c = D) => [...c.querySelectorAll(s)];
+const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const fine = matchMedia('(hover:hover) and (pointer:fine)').matches;
+const isHome = !!$('#heroSection'), isDash = !!$('#screenList'), isAdmin = !!$('#agentManager');
+const EASE = 'cubic-bezier(.22,1,.36,1)', SPRING = 'cubic-bezier(.34,1.56,.64,1)';
+const io = (el, fn, o = { threshold: .25 }) => { const x = new IntersectionObserver(([e]) => { if (e.isIntersecting) { x.disconnect(); fn(e.target); } }, o); x.observe(el); };
+
+/* ---------- 1. STYLES (compositor-only: transform / opacity / translate / scale) ---------- */
+const st = D.createElement('style');
+st.textContent = `
+body::before{mix-blend-mode:normal!important;opacity:.045!important;transform:translateZ(0)}
+.rw-off,.rw-off *{animation-play-state:paused!important}
+.fighter,.float-particle,.marquee-inner,.ticker-inner{will-change:transform}
+button:active:not(:disabled),.btn:active{scale:.97}
+.loading-state{background:linear-gradient(100deg,#E8DBB8 30%,#F6EDD3 50%,#E8DBB8 70%) 0 0/300% 100%;animation:rw-shim 1.3s linear infinite}
+@keyframes rw-shim{to{background-position:-300% 0}}
+@keyframes rw-screen{from{opacity:0;translate:0 20px}}
+@keyframes rw-pop{from{opacity:0;scale:.9;translate:0 12px}}
+.rw-screen{animation:rw-screen .55s ${EASE} backwards}
+.rw-pop{animation:rw-pop .5s ${SPRING} backwards;animation-delay:calc(var(--i,0)*50ms)}
+.case-row,.case{transition:translate .3s ${EASE},box-shadow .3s ease,background .2s ease}
+.case-row:hover{translate:6px 0;box-shadow:8px 8px 0 rgba(0,0,0,.18)}
+.rw-w{display:inline-block;overflow:hidden;vertical-align:top;padding:.06em .05em .1em;margin:-.06em -.05em -.1em}
+.rw-w>i{display:inline-block;font-style:normal;transform:translateY(112%) rotate(7deg);transform-origin:0 100%}
+.rw-go .rw-w>i{transform:none;transition:transform .85s ${EASE};transition-delay:calc(var(--i)*60ms)}
+.scroll-progress{width:100%!important;transform:scaleX(0);transform-origin:0 50%;will-change:transform}
+nav{transition:box-shadow .3s ease,translate .5s ${EASE}!important}
+nav.rw-hide{translate:0 -110%}
+.btn,.cta-small{transition:transform .12s ease,box-shadow .12s ease,translate .4s ${SPRING}}
+.rw-cur{position:fixed;left:0;top:0;width:18px;height:18px;margin:-9px 0 0 -9px;border:3px solid #1A1611;background:#C1272D;border-radius:50%;pointer-events:none;z-index:9999;will-change:transform;opacity:0;transition:width .25s ${EASE},height .25s ${EASE},margin .25s ${EASE},background .25s,opacity .2s}
+.rw-cur.on{opacity:1}.rw-cur.big{width:46px;height:46px;margin:-23px 0 0 -23px;background:rgba(232,163,61,.55)}
+@supports(animation-timeline:view()){
+.rope-divider{animation:rw-rope linear both;animation-timeline:view();animation-range:cover}
+@keyframes rw-rope{from{background-position:0 0}to{background-position:283px 0}}
+.gen-box,.poll-caption-box,.chat-lead-card,.price-card{animation:rw-rise linear both;animation-timeline:view();animation-range:entry 0% entry 55%}
+@keyframes rw-rise{from{opacity:0;translate:0 70px;scale:.94}}
+.ring{animation:rw-par linear both;animation-timeline:scroll(root);animation-range:0 100vh}
+@keyframes rw-par{to{translate:0 60px;rotate:2deg}}
+}`;
+D.head.append(st);
+
+/* ---------- 2. SPEED: skip identical re-renders, prefetch on intent ---------- */
+// Your polls/SSE re-set innerHTML every few seconds even when nothing changed. Ignore identical writes:
+// no DOM churn, no scroll resets, no hover flicker.
+const dedupe = el => { if (!el) return; const d = Object.getOwnPropertyDescriptor(Element.prototype, 'innerHTML'); let last = '';
+  Object.defineProperty(el, 'innerHTML', { configurable: true, get() { return d.get.call(this); },
+    set(v) { if (v === last && this.firstElementChild) return; last = v; d.set.call(this, v); } }); };
+['caseList', 'chatMessages', 'messages'].forEach(id => dedupe(D.getElementById(id)));
+
+const seen = new Set();
+D.addEventListener('pointerover', e => { const a = e.target.closest && e.target.closest('a[href^="/"]');
+  if (!a || seen.has(a.href) || a.pathname.startsWith('/api')) return; seen.add(a.href);
+  const l = D.createElement('link'); l.rel = 'prefetch'; l.href = a.href; D.head.append(l); }, { passive: true });
+
+/* ---------- 3. APP PAGES: screen / list / chat / number motion ---------- */
+const onReveal = (s, fn) => { let hid = s.classList.contains('hidden');
+  new MutationObserver(() => { const h = s.classList.contains('hidden'); if (hid && !h) fn(s); hid = h; }).observe(s, { attributes: true, attributeFilter: ['class'] }); };
+if (!reduce) {
+  $$('#screenList,#screenPay,#screenDetails,#screenCase').forEach(s => onReveal(s, el => { el.classList.remove('rw-screen'); void el.offsetWidth; el.classList.add('rw-screen'); }));
+
+  const watchList = (el, sel) => { if (!el) return; let had = false;
+    new MutationObserver(() => { const rows = $$(sel, el);
+      if (rows.length && !had) rows.slice(0, 14).forEach((r, i) => { r.style.setProperty('--i', i); r.classList.add('rw-pop'); });
+      had = rows.length > 0; }).observe(el, { childList: true }); };
+  watchList($('#caseList'), '.case-row,.case');
+
+  const watchChat = el => { if (!el) return; let prev = 0;
+    new MutationObserver(() => { const k = [...el.children].filter(c => /msg/.test(c.className)), n = k.length;
+      if (n > prev) k.slice(prev > 0 ? prev : Math.max(0, n - 10)).forEach((b, i) => { b.style.setProperty('--i', prev > 0 ? 0 : i); b.classList.add('rw-pop'); });
+      prev = n; }).observe(el, { childList: true }); };
+  watchChat($('#chatMessages')); watchChat($('#messages'));
+
+  // Admin stat counters roll to their new value
+  ['total', 'unassigned', 'mine', 'open'].forEach(id => { const el = D.getElementById(id); if (!el || !isAdmin) return;
+    let cur = +el.textContent || 0, busy = false;
+    new MutationObserver(() => { if (busy) return; const to = +el.textContent; if (isNaN(to) || to === cur) return;
+      busy = true; const from = cur, t0 = performance.now(); cur = to;
+      (function s(n) { const p = Math.min((n - t0) / 700, 1); el.textContent = Math.round(from + (to - from) * (1 - Math.pow(1 - p, 3)));
+        if (p < 1) raf(s); else { el.textContent = to; busy = false; } })(t0);
+    }).observe(el, { childList: true }); });
+}
+
+if (!isHome && !isDash) return;   // everything below is landing/dashboard flair
+
+/* ---------- 4. TEXT: poster-slam word reveals ---------- */
+function split(el) { let n = 0; const label = el.textContent.replace(/\s+/g, ' ').trim();
+  (function walk(node) { [...node.childNodes].forEach(c => {
+    if (c.nodeType === 3) { const f = D.createDocumentFragment();
+      c.textContent.split(/(\s+)/).forEach(t => { if (!t) return; if (/^\s+$/.test(t)) { f.append(' '); return; }
+        const w = D.createElement('span'), i = D.createElement('i'); w.className = 'rw-w'; w.setAttribute('aria-hidden', 'true');
+        i.textContent = t; i.style.setProperty('--i', n++); w.append(i); f.append(w); });
+      c.replaceWith(f);
+    } else if (c.nodeType === 1 && c.tagName !== 'BR') walk(c); }); })(el);
+  el.setAttribute('aria-label', label); }
+if (!reduce) {
+  $$('.hero-title,.section-title').forEach(t => split(t));
+  const go = t => t.classList.add('rw-go');
+  const hero = $('.hero-title'); if (hero) Promise.race([D.fonts ? D.fonts.ready : 0, new Promise(r => setTimeout(r, 400))]).then(() => raf(() => go(hero)));
+  $$('.section-title').forEach(t => io(t, go, { threshold: .4 }));
+}
+
+/* ---------- 5. LANDING PAGE ---------- */
+if (isHome) {
+  // eased anchor scroll that re-measures every frame (robust while layout settles)
+  var busy = false;
+  D.addEventListener('click', e => { const a = e.target.closest('a[href^="#"]'); if (!a || reduce) return;
+    const id = a.getAttribute('href').slice(1), t = id ? D.getElementById(id) : null; if (id && !t) return;
+    e.preventDefault(); const y0 = scrollY, t0 = performance.now(); let stop = false; busy = true; R.style.scrollBehavior = 'auto';
+    const off = t ? parseFloat(getComputedStyle(t).scrollMarginTop) || 0 : 0, dur = Math.min(1500, 500 + Math.abs(t ? t.getBoundingClientRect().top : y0) * .3);
+    const cancel = () => stop = true; addEventListener('wheel', cancel, { once: true, passive: true }); addEventListener('touchstart', cancel, { once: true, passive: true });
+    (function step(now) { const p = Math.min((now - t0) / dur, 1), k = p < .5 ? 4 * p * p * p : 1 - Math.pow(-2 * p + 2, 3) / 2;
+      const dest = t ? t.getBoundingClientRect().top + scrollY - off : 0; scrollTo(0, y0 + (dest - y0) * k);
+      if (p < 1 && !stop) raf(step); else { R.style.scrollBehavior = ''; busy = false; } })(t0);
+    history.pushState(null, '', id ? '#' + id : location.pathname); });
+
+  // pause off-screen animation work
+  $$('.hero,.marquee-track,.ticker').forEach(el => new IntersectionObserver(([e]) => el.classList.toggle('rw-off', !e.isIntersecting)).observe(el));
+
+  // poll bars grow in
+  const pb = $('#pollBars'); if (pb && !reduce) io(pb, () => $$('.poll-fill', pb).forEach((f, i) => { f.style.transformOrigin = '0 50%';
+    f.animate([{ transform: 'scaleX(0)' }, { transform: 'scaleX(1)' }], { duration: 900, delay: i * 90, easing: EASE, fill: 'backwards' }); }), { threshold: .3 });
+
+  // K.O. / hit screen-shake + haptics
+  const v = $('#villain'), ring = $('.ring');
+  if (v && ring && !reduce) new MutationObserver(() => { const ko = v.classList.contains('ko'); if (!ko && !v.classList.contains('hit')) return;
+    const a = ko ? 14 : 5; ring.animate([{ transform: 'none' }, { transform: `translate(${a}px,${-a / 2}px)` }, { transform: `translate(${-a}px,${a / 2}px)` }, { transform: `translate(${a / 2}px,0)` }, { transform: 'none' }], { duration: 320, easing: 'ease-out' });
+    if (navigator.vibrate) navigator.vibrate(ko ? [30, 40, 60] : 15); }).observe(v, { attributes: true, attributeFilter: ['class'] });
+
+  // comic-book burst on every button hit
+  const W = ['POW!', 'BAM!', 'ZAP!', 'WHAM!', 'BOOM!'];
+  if (!reduce) D.addEventListener('pointerdown', e => { if (!e.target.closest('.btn,.cta-small,.poll-chip')) return;
+    const b = D.createElement('div'), r = Math.random() * 40 - 20; b.textContent = W[Math.random() * W.length | 0];
+    b.style.cssText = `position:fixed;left:${e.clientX}px;top:${e.clientY}px;z-index:9998;pointer-events:none;font:400 30px Anton,sans-serif;color:#E8A33D;-webkit-text-stroke:2px #1A1611;text-shadow:3px 3px 0 #1A1611;translate:-50% -50%`;
+    D.body.append(b); b.animate([{ opacity: 0, transform: `scale(.2) rotate(${r - 20}deg)` }, { opacity: 1, transform: `scale(1.3) rotate(${r}deg)`, offset: .25 }, { opacity: 0, transform: `translateY(-60px) scale(1) rotate(${r}deg)` }], { duration: 650, easing: EASE }).onfinish = () => b.remove(); }, { passive: true });
+
+  var nav = $('#siteNav'), bar = $('#scrollProgress'), anims = $$('.marquee-inner,.ticker-inner').flatMap(e => e.getAnimations());
+  var fighters = [['.fighter.you', 14], ['.fighter.villain', -14], ['.you-label', 6], ['.villain-label', -6], ['.villain-tagline', -9]].map(([s, k]) => [$(s), k]).filter(x => x[0]);
+  var heroOn = true; const h = $('#heroSection'); if (h) new IntersectionObserver(([e]) => heroOn = e.isIntersecting).observe(h);
+}
+
+/* ---------- 6. POINTER: magnetic buttons + cursor follower ---------- */
+let mx = innerWidth / 2, my = innerHeight / 2, cx = mx, cy = my, px = 0, py = 0, tx = 0, ty = 0, cur = null;
+if (fine && !reduce) {
+  $$('.btn,.cta-small,.logo').forEach(el => {
+    el.addEventListener('pointermove', e => { const b = el.getBoundingClientRect(); el.style.translate = `${(e.clientX - b.left - b.width / 2) * .18}px ${(e.clientY - b.top - b.height / 2) * .28}px`; }, { passive: true });
+    el.addEventListener('pointerleave', () => el.style.translate = '');
+  });
+  cur = D.createElement('div'); cur.className = 'rw-cur'; cur.setAttribute('aria-hidden', 'true'); D.body.append(cur);
+  addEventListener('pointermove', e => { mx = e.clientX; my = e.clientY; tx = mx / innerWidth - .5; ty = my / innerHeight - .5; cur.classList.add('on');
+    cur.classList.toggle('big', !!e.target.closest('a,button,.btn,.poll-chip,.shame-card,.case-row,select,input,textarea')); }, { passive: true });
+  D.addEventListener('pointerleave', () => cur.classList.remove('on'));
+}
+
+/* ---------- 7. ONE rAF LOOP drives everything scroll/pointer-linked ---------- */
+if (!reduce && (cur || isHome)) {
+  let lastY = scrollY, vel = 0, max = R.scrollHeight - innerHeight, rate = 1, hidden = false;
+  new ResizeObserver(() => max = R.scrollHeight - innerHeight).observe(D.body);
+  (function loop() {
+    if (cur) { cx += (mx - cx) * .22; cy += (my - cy) * .22; cur.style.transform = `translate3d(${cx}px,${cy}px,0)`; }
+    if (isHome) {
+      const y = scrollY; vel += ((y - lastY) - vel) * .15; lastY = y;
+      if (bar) bar.style.transform = `scaleX(${max > 0 ? Math.min(y / max, 1) : 0})`;
+      const r = 1 + Math.min(Math.abs(vel) * .35, 6);                       // marquees speed up with scroll velocity
+      if (Math.abs(r - rate) > .02) { rate = r; anims.forEach(a => a.playbackRate = r); }
+      const hide = !busy && y > 240 && vel > 3 && !nav.classList.contains('mobile-open');   // nav tucks away on scroll-down
+      if (hide !== hidden && (hide || vel < -2 || y < 240 || busy)) { hidden = hide; nav.classList.toggle('rw-hide', hide); }
+      if (heroOn) { px += (tx - px) * .08; py += (ty - py) * .08; fighters.forEach(([el, k]) => el.style.translate = `${px * k * 2}px ${py * k}px`); }
+    }
+    raf(loop);
+  })();
+}
+})();
+</script>
 </body>
 </html>
