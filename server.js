@@ -307,8 +307,6 @@ async function getPersistedReadState(viewerId) {
 }
 
 async function markCaseRead(viewerId, caseId, requestedAt = null) {
-  // Read state is best-effort. Never let a missing/legacy viewer id break the chat UI.
-  if (!viewerId) return { ok:true, lastReadAt:null, persisted:false };
   let lastReadAt = requestedAt && !Number.isNaN(new Date(requestedAt).getTime()) ? new Date(requestedAt).toISOString() : null;
   if (!lastReadAt) {
     const messages = await listMessages(caseId);
@@ -551,26 +549,7 @@ function rateLimit(bucket,max,windowMs){return(req,res,next)=>{const key=`${buck
 function asyncHandler(fn){return function(req,res,next){Promise.resolve(fn(req,res,next)).catch(next);};}
 
 function signToken(user){return jwt.sign({uid:user.id,email:user.email,name:user.name},JWT_SECRET,{expiresIn:'7d'});}
-async function requireAuth(req,res,next){
-  const token=req.cookies.token;
-  if(!token)return res.status(401).json({error:'Please log in first.'});
-  try{
-    const payload=jwt.verify(token,JWT_SECRET);
-    // Repair legacy sessions that predate the uid claim. This keeps read-state
-    // persistence from ever attempting a NULL viewer_id.
-    if(!payload.uid && payload.email){
-      const user=await findUserByEmail(payload.email);
-      if(!user?.id)return res.status(401).json({error:'Your session needs to be refreshed. Please log in again.'});
-      req.user={uid:user.id,email:user.email,name:user.name};
-      res.cookie('token',signToken(user),{httpOnly:true,sameSite:'lax',secure:IS_PROD,maxAge:7*24*60*60*1000});
-    } else if(payload.uid){
-      req.user=payload;
-    } else {
-      return res.status(401).json({error:'Your session is invalid. Please log in again.'});
-    }
-    next();
-  }catch(_){return res.status(401).json({error:'Your session has expired. Please log in again.'});}
-}
+function requireAuth(req,res,next){const token=req.cookies.token;if(!token)return res.status(401).json({error:'Please log in first.'});try{req.user=jwt.verify(token,JWT_SECRET);next();}catch(_){return res.status(401).json({error:'Your session has expired. Please log in again.'});}}
 const MASTER_ADMIN_VIEWER_ID='00000000-0000-0000-0000-000000000001';
 function signStaffToken(staff){return jwt.sign({uid:staff.id||MASTER_ADMIN_VIEWER_ID,email:staff.email,name:staff.name,role:staff.role,staff:true},JWT_SECRET,{expiresIn:'12h'});}
 function requireStaff(req,res,next){const token=req.cookies.staff_token;if(!token)return res.status(401).json({error:'Please sign in to the staff portal.'});try{const staff=jwt.verify(token,JWT_SECRET);if(!staff.staff || !['admin','agent'].includes(staff.role))throw new Error('invalid');req.staff=staff;next();}catch(_){return res.status(401).json({error:'Your staff session has expired. Please sign in again.'});}}
