@@ -136,8 +136,87 @@ function casePatchToDb(p) {
 async function createCase(c){ if(!DB_ENABLED){const a=readJson(FILES.cases);a.push(c);writeJson(FILES.cases,a);return c;} return caseFromDb((await dbInsert('cases',[casePatchToDb(c)]))[0]); }
 async function updateCase(caseId, patch){ if(!DB_ENABLED){const a=readJson(FILES.cases);const i=a.findIndex(x=>x.caseId===caseId);if(i<0)return null;Object.assign(a[i],patch);writeJson(FILES.cases,a);return a[i];} return caseFromDb((await dbUpdate('cases',`case_id=eq.${encodeURIComponent(caseId)}`,casePatchToDb(patch)))[0]); }
 
-async function listMessages(caseId){ if(!DB_ENABLED) return readJson(FILES.messages).filter(m=>m.caseId===caseId); const rows=await dbSelect('messages',`case_id=eq.${encodeURIComponent(caseId)}&order=created_at.asc`); return rows.map(m=>({...m,caseId:m.case_id,senderName:m.sender_name,createdAt:m.created_at})); }
-async function createMessage(m){ if(!DB_ENABLED){const a=readJson(FILES.messages);a.push(m);writeJson(FILES.messages,a);return m;} const r=(await dbInsert('messages',[{id:m.id,case_id:m.caseId,sender:m.sender,sender_name:m.senderName,text:m.text,created_at:m.createdAt}]))[0]; return {...r,caseId:r.case_id,senderName:r.sender_name,createdAt:r.created_at}; }
+async function listMessages(caseId) {
+  if (!DB_ENABLED) {
+    return readJson(FILES.messages).filter(m => m.caseId === caseId);
+  }
+
+  const record = await findCase(caseId);
+  if (!record) return [];
+
+  const mapRows = rows => rows.map(m => ({
+    ...m,
+    caseId: m.case_id,
+    senderName: m.sender_name,
+    createdAt: m.created_at
+  }));
+
+  // Existing production databases may have messages.case_id as either
+  // varchar (public case ID) or uuid (cases.id). Support both safely.
+  try {
+    const rows = await dbSelect(
+      'messages',
+      `case_id=eq.${encodeURIComponent(caseId)}&order=created_at.asc`
+    );
+    return mapRows(rows);
+  } catch (firstError) {
+    const message = String(firstError?.message || firstError);
+    if (!/uuid|invalid input syntax|operator does not exist/i.test(message)) {
+      throw firstError;
+    }
+
+    const rows = await dbSelect(
+      'messages',
+      `case_id=eq.${encodeURIComponent(record.id)}&order=created_at.asc`
+    );
+    return mapRows(rows);
+  }
+}
+
+async function createMessage(m) {
+  if (!DB_ENABLED) {
+    const a = readJson(FILES.messages);
+    a.push(m);
+    writeJson(FILES.messages, a);
+    return m;
+  }
+
+  const record = await findCase(m.caseId);
+  if (!record) {
+    throw new Error(`Cannot create message: case ${m.caseId} was not found.`);
+  }
+
+  const base = {
+    id: m.id,
+    sender: m.sender,
+    sender_name: m.senderName,
+    text: m.text,
+    created_at: m.createdAt
+  };
+
+  const toMessage = r => ({
+    ...r,
+    caseId: r.case_id,
+    senderName: r.sender_name,
+    createdAt: r.created_at
+  });
+
+  // Prefer the public case ID because that is the schema used by the
+  // production schema. If an older deployment has a UUID case_id column,
+  // transparently retry with cases.id.
+  try {
+    const r = (await dbInsert('messages', [{ ...base, case_id: m.caseId }]))[0];
+    return toMessage(r);
+  } catch (firstError) {
+    const message = String(firstError?.message || firstError);
+    if (!/uuid|invalid input syntax|operator does not exist|foreign key/i.test(message)) {
+      throw firstError;
+    }
+
+    const r = (await dbInsert('messages', [{ ...base, case_id: record.id }]))[0];
+    return toMessage(r);
+  }
+}
 
 async function listCaseFiles(caseId) {
   if (!DB_ENABLED) {
