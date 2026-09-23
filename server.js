@@ -120,14 +120,15 @@ function casePatchToDb(p) {
 
   for (const [key, value] of Object.entries(p || {})) {
     if (key === 'caseId') {
-      // Existing production DB requires case_number as well as case_id.
+      // The existing production schema requires both identifiers.
       out.case_id = value;
       out.case_number = value;
       continue;
     }
 
-    const dbKey = map[key] || key;
-    if (value !== undefined) out[dbKey] = value;
+    if (value !== undefined) {
+      out[map[key] || key] = value;
+    }
   }
 
   return out;
@@ -138,8 +139,52 @@ async function updateCase(caseId, patch){ if(!DB_ENABLED){const a=readJson(FILES
 async function listMessages(caseId){ if(!DB_ENABLED) return readJson(FILES.messages).filter(m=>m.caseId===caseId); const rows=await dbSelect('messages',`case_id=eq.${encodeURIComponent(caseId)}&order=created_at.asc`); return rows.map(m=>({...m,caseId:m.case_id,senderName:m.sender_name,createdAt:m.created_at})); }
 async function createMessage(m){ if(!DB_ENABLED){const a=readJson(FILES.messages);a.push(m);writeJson(FILES.messages,a);return m;} const r=(await dbInsert('messages',[{id:m.id,case_id:m.caseId,sender:m.sender,sender_name:m.senderName,text:m.text,created_at:m.createdAt}]))[0]; return {...r,caseId:r.case_id,senderName:r.sender_name,createdAt:r.created_at}; }
 
-async function listCaseFiles(caseId){ if(!DB_ENABLED) return (readJson(FILES.cases).find(c=>c.caseId===caseId)||{}).proofFiles||[]; const rows=await dbSelect('case_files',`case_id=eq.${encodeURIComponent(caseId)}&order=created_at.asc`); return rows.map(f=>({id:f.id,filename:f.filename,originalName:f.original_name,size:f.size,mimeType:f.mime_type,storagePath:f.storage_path,createdAt:f.created_at})); }
-async function createCaseFile(f){ if(!DB_ENABLED)return f; return (await dbInsert('case_files',[{id:f.id,case_id:f.caseId,filename:f.filename,original_name:f.originalName,storage_path:f.storagePath,mime_type:f.mimeType,size:f.size,created_at:f.createdAt}]))[0]; }
+async function listCaseFiles(caseId) {
+  if (!DB_ENABLED) {
+    return (readJson(FILES.cases).find(c => c.caseId === caseId) || {}).proofFiles || [];
+  }
+
+  // caseId is the public RW-YYYY-XXXXXX identifier.
+  // case_files.case_id stores the UUID from cases.id.
+  const record = await findCase(caseId);
+  if (!record) return [];
+
+  const rows = await dbSelect(
+    'case_files',
+    `case_id=eq.${encodeURIComponent(record.id)}&order=created_at.asc`
+  );
+
+  return rows.map(f => ({
+    id: f.id,
+    filename: f.filename,
+    originalName: f.original_name,
+    size: f.size,
+    mimeType: f.mime_type,
+    storagePath: f.storage_path,
+    createdAt: f.created_at
+  }));
+}
+
+async function createCaseFile(f) {
+  if (!DB_ENABLED) return f;
+
+  // case_files.case_id is a UUID foreign key to cases.id.
+  const record = await findCase(f.caseId);
+  if (!record) {
+    throw new Error(`Cannot create case file: case ${f.caseId} was not found.`);
+  }
+
+  return (await dbInsert('case_files', [{
+    id: f.id,
+    case_id: record.id,
+    filename: f.filename,
+    original_name: f.originalName,
+    storage_path: f.storagePath,
+    mime_type: f.mimeType,
+    size: f.size,
+    created_at: f.createdAt
+  }]))[0];
+}
 
 async function uploadToStorage(file, storagePath) {
   const res = await fetch(`${SUPABASE_URL}/storage/v1/object/${STORAGE_BUCKET}/${storagePath.split('/').map(encodeURIComponent).join('/')}`, {
