@@ -208,7 +208,12 @@
   function readKey(caseId){return `rw_customer_seen_${currentUser?.email||'user'}_${caseId}`;}
   function readState(){const out={};const prefix=`rw_customer_seen_${currentUser?.email||'user'}_`;for(let i=0;i<localStorage.length;i++){const k=localStorage.key(i)||'';if(k.startsWith(prefix)){const v=localStorage.getItem(k);if(v)out[k.slice(prefix.length)]=v;}}return out;}
   function isUnread(c){return Number(c.unreadCount||0)>0;}
-  function markRead(c){if(c?.lastMessageAt)localStorage.setItem(readKey(c.caseId),c.lastMessageAt);}
+  async function markRead(c){
+    if(!c?.caseId)return;
+    const ts=c.lastMessageAt||null;
+    if(ts)localStorage.setItem(readKey(c.caseId),ts);
+    try{await fetch(`/api/my/cases/${encodeURIComponent(c.caseId)}/read`,{method:'POST',headers:{'Accept':'application/json'}});}catch(e){console.debug('read-state fallback',e.message);}
+  }
   function seedReadState(rows){for(const c of rows||[]){const k=readKey(c.caseId);if(!localStorage.getItem(k)&&c.lastMessageAt)localStorage.setItem(k,c.lastMessageAt);}}
   function senderLabel(c){if(!c.lastMessageSender)return '';if(c.lastMessageSender==='customer')return 'You';if(c.lastMessageSender==='admin')return c.lastMessageSenderName||'Super Admin';if(c.lastMessageSender==='agent')return c.lastMessageSenderName||'Agent';return c.lastMessageSenderName||'Customer';}
 
@@ -481,7 +486,8 @@
 
       showScreen('case');
       await loadMessages();
-      markRead(c);
+      await markRead(c);
+      clearUnreadLocal(caseId);
       if (chatPollTimer) clearInterval(chatPollTimer);
       chatPollTimer = setInterval(loadMessages, 4000);
     } catch (err) {
@@ -518,7 +524,10 @@
     }).join('');
       if (wasAtBottom) el.scrollTop = el.scrollHeight;
       const latest = messages[messages.length - 1];
-      if (latest?.createdAt) markRead({caseId: currentCaseId, lastMessageAt: latest.createdAt});
+      if (latest?.createdAt) {
+        const seen = localStorage.getItem(readKey(currentCaseId));
+        if (seen !== latest.createdAt) await markRead({caseId: currentCaseId, lastMessageAt: latest.createdAt});
+      }
     } catch (err) {
       console.error('loadMessages:', err);
     }
@@ -567,7 +576,7 @@
       bubble.innerHTML = `<span class="who">You · YOU · ${new Date(data.createdAt || Date.now()).toLocaleString('en-IN')}</span>${escapeHtml(data.text || text)}`;
       el.appendChild(bubble);
       el.scrollTop = el.scrollHeight;
-      markRead({caseId:currentCaseId,lastMessageAt:data.createdAt||new Date().toISOString()});
+      await markRead({caseId:currentCaseId,lastMessageAt:data.createdAt||new Date().toISOString()});
 
       // Reconcile with the database so the UI exactly matches persisted state.
       await loadMessages();
