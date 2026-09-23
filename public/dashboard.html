@@ -45,7 +45,7 @@
     display:flex; justify-content:space-between; align-items:center; gap:14px; cursor:pointer;
     box-shadow:4px 4px 0 rgba(0,0,0,0.15); flex-wrap:wrap;
   }
-  .case-row:hover{background:var(--paper-2);}
+  .case-row:hover{background:var(--paper-2);}.case-row.unread{border-color:var(--crimson);background:#fff9ed}.case-preview{font-size:12px;color:#5a4f3c;margin-top:6px;max-width:620px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.case-actions{display:flex;align-items:center;gap:8px}.unread-pill{background:var(--crimson);color:#fff;padding:4px 9px;border-radius:20px;font-size:10px;font-weight:800;text-transform:uppercase}
   .case-id{font-family:'Anton',sans-serif; font-size:16px;}
   .case-meta{font-size:12.5px; color:#5a4f3c; margin-top:2px;}
   .status-badge{padding:4px 12px; border-radius:20px; font-size:11px; font-weight:700; text-transform:uppercase;}
@@ -80,8 +80,9 @@
   .chat-wrap{border:3px solid var(--ink); background:#fff; margin-top:10px;}
   .chat-messages{height:320px; overflow-y:auto; padding:16px; display:flex; flex-direction:column; gap:10px;}
   .chat-msg{max-width:75%; padding:10px 14px; font-size:14px; line-height:1.4;}
-  .chat-msg.customer{align-self:flex-end; background:var(--blue); color:#fff;}
-  .chat-msg.agent{align-self:flex-start; background:var(--paper-2); border:2px solid var(--ink);}
+  .chat-msg.customer{align-self:flex-start; background:#fff; color:var(--ink); border:2px solid #cfc7bb;}
+  .chat-msg.agent{align-self:flex-end; background:#e9f0ff; border:2px solid #6d98d6;}
+  .chat-msg.admin{align-self:flex-end; background:#fff0c2; border:2px solid #d6a91d;}
   .chat-msg .who{font-size:10.5px; font-weight:700; opacity:.75; display:block; margin-bottom:3px; text-transform:uppercase;}
   .chat-empty{text-align:center; color:#999; font-size:13px; padding:30px 0;}
   .chat-input-row{display:flex; border-top:3px solid var(--ink);}
@@ -180,8 +181,8 @@
 
     <div class="panel" style="padding:0; overflow:hidden;">
       <div style="padding:20px 20px 0;">
-        <h2 style="font-size:20px;">Chat With Your Agent</h2>
-        <p class="sub">Messages refresh automatically every few seconds.</p>
+        <h2 style="font-size:20px;">Chat With RefundWaapsi</h2>
+        <p class="sub">Your messages are on the left. Agents and the RefundWaapsi team appear on the right.</p>
       </div>
       <div class="chat-wrap" style="border:none; border-top:2px solid var(--ink);">
         <div class="chat-messages" id="chatMessages"><div class="chat-empty">No messages yet — say hello!</div></div>
@@ -200,9 +201,13 @@
   let currentUser = null;
   let currentCaseId = null;
   let chatPollTimer = null;
+  let caseListPollTimer = null;
   let config = { paymentsLive: false, caseFeeRupees: 59 };
   let prefillLead = null;
   let prefillLeadId = null;
+  function readKey(caseId){return `rw_customer_seen_${currentUser?.email||'user'}_${caseId}`;}
+  function isUnread(c){if(!c.lastMessageAt)return false;const seen=localStorage.getItem(readKey(c.caseId));return !seen||new Date(c.lastMessageAt)>new Date(seen);}
+  function markRead(c){if(c?.lastMessageAt)localStorage.setItem(readKey(c.caseId),c.lastMessageAt);}
 
   const screens = {
     list: document.getElementById('screenList'),
@@ -240,6 +245,8 @@
       document.getElementById('testModeNotice').classList.toggle('hidden', config.paymentsLive);
 
       await loadCases();
+      if (caseListPollTimer) clearInterval(caseListPollTimer);
+      caseListPollTimer = setInterval(() => { if (document.visibilityState === 'visible' && !currentCaseId) loadCases().catch(e => console.error('case list refresh', e)); }, 5000);
 
       const leadId = new URLSearchParams(window.location.search).get('leadId');
       if (leadId) {
@@ -273,37 +280,8 @@
   }
 
   async function loadCases() {
-    const listEl = document.getElementById('caseList');
-    listEl.innerHTML = '<div class="loading-state">Loading your cases…</div>';
-
-    try {
-      const res = await fetch('/api/my/cases', { cache: 'no-store' });
-      const payload = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(payload.error || 'Could not load your cases.');
-
-      const cases = Array.isArray(payload) ? payload : [];
-      if (!cases.length) {
-        listEl.innerHTML = '<div class="empty-state">No cases yet. Click "Open a New Case" to file your first one.</div>';
-        return;
-      }
-
-      listEl.innerHTML = cases.map(c => `
-        <div class="case-row" data-case="${escapeHtml(c.caseId)}" data-status="${escapeHtml(c.status || '')}">
-          <div>
-            <div class="case-id">${escapeHtml(c.caseId)}</div>
-            <div class="case-meta">${c.createdAt ? new Date(c.createdAt).toLocaleString('en-IN') : 'Date unavailable'}${c.category ? ' • ' + escapeHtml(c.category) : ''}</div>
-          </div>
-          <span class="status-badge status-${escapeHtml(c.status || '')}">${escapeHtml(statusLabel(c.status || ''))}</span>
-        </div>
-      `).join('');
-
-      listEl.querySelectorAll('.case-row').forEach(row => {
-        row.addEventListener('click', () => resumeCase(row.dataset.case, row.dataset.status));
-      });
-    } catch (err) {
-      console.error('loadCases:', err);
-      listEl.innerHTML = `<div class="empty-state"><strong>Could not load your cases.</strong><br><span style="font-size:13px;">${escapeHtml(err.message || 'Please refresh and try again.')}</span><br><button class="btn secondary" style="margin-top:16px;" onclick="loadCases()">Try Again</button></div>`;
-    }
+    const listEl=document.getElementById('caseList');listEl.innerHTML='<div class="loading-state">Loading your cases…</div>';
+    try{const res=await fetch('/api/my/cases',{cache:'no-store'});const payload=await res.json().catch(()=>({}));if(!res.ok)throw new Error(payload.error||'Could not load your cases.');const cases=(Array.isArray(payload)?payload:[]).sort((a,b)=>new Date(b.lastMessageAt||b.updatedAt||b.createdAt||0)-new Date(a.lastMessageAt||a.updatedAt||a.createdAt||0));if(!cases.length){listEl.innerHTML='<div class="empty-state">No cases yet. Click "Open a New Case" to file your first one.</div>';return;}listEl.innerHTML=cases.map(c=>{const preview=c.lastMessageText?`${c.lastMessageSenderName||(c.lastMessageSender==='customer'?'You':'RefundWaapsi')}: ${c.lastMessageText}`:'No messages yet';return `<div class="case-row ${isUnread(c)?'unread':''}" data-case="${escapeHtml(c.caseId)}" data-status="${escapeHtml(c.status||'')}"><div style="min-width:0;flex:1"><div class="case-id">${escapeHtml(c.caseId)}</div><div class="case-meta">${c.createdAt?new Date(c.createdAt).toLocaleString('en-IN'):'Date unavailable'}${c.category?' • '+escapeHtml(c.category):''}</div><div class="case-preview">${escapeHtml(preview)}</div></div><div class="case-actions">${isUnread(c)?'<span class="unread-pill">Unread</span>':''}<span class="status-badge status-${escapeHtml(c.status||'')}">${escapeHtml(statusLabel(c.status||''))}</span></div></div>`;}).join('');listEl.querySelectorAll('.case-row').forEach(row=>row.addEventListener('click',()=>resumeCase(row.dataset.case,row.dataset.status)));}catch(err){console.error('loadCases:',err);listEl.innerHTML=`<div class="empty-state"><strong>Could not load your cases.</strong><br><span style="font-size:13px;">${escapeHtml(err.message||'Please refresh and try again.')}</span><br><button class="btn secondary" style="margin-top:16px;" onclick="loadCases()">Try Again</button></div>`;}
   }
 
   async function resumeCase(caseId, status) {
@@ -500,6 +478,7 @@
 
       showScreen('case');
       await loadMessages();
+      markRead(c);
       if (chatPollTimer) clearInterval(chatPollTimer);
       chatPollTimer = setInterval(loadMessages, 4000);
     } catch (err) {
@@ -527,12 +506,12 @@
       el.innerHTML = '<div class="chat-empty">No messages yet — say hello!</div>';
       return;
     }
-    el.innerHTML = messages.map(m => `
-      <div class="chat-msg ${m.sender}">
-        <span class="who">${m.sender === 'agent' ? 'Agent' : 'You'}</span>
-        ${escapeHtml(m.text)}
-      </div>
-    `).join('');
+    el.innerHTML = messages.map(m => {
+      const sender=m.sender==='admin'?'admin':m.sender==='agent'?'agent':'customer';
+      const label=m.senderName || (sender==='customer' ? (currentUser?.name || 'You') : sender==='admin' ? 'RefundWaapsi Admin' : 'Agent');
+      const roleLabel=sender==='admin'?'SUPER ADMIN':sender==='agent'?'AGENT':'YOU';
+      return `<div class="chat-msg ${sender}"><span class="who">${escapeHtml(label)} · ${roleLabel} · ${new Date(m.createdAt).toLocaleString('en-IN')}</span>${escapeHtml(m.text)}</div>`;
+    }).join('');
       if (wasAtBottom) el.scrollTop = el.scrollHeight;
     } catch (err) {
       console.error('loadMessages:', err);
@@ -579,9 +558,10 @@
       if (empty) empty.remove();
       const bubble = document.createElement('div');
       bubble.className = 'chat-msg customer';
-      bubble.innerHTML = `<span class="who">You</span>${escapeHtml(data.text || text)}`;
+      bubble.innerHTML = `<span class="who">${escapeHtml(currentUser?.name || 'You')} · ${new Date(data.createdAt || Date.now()).toLocaleString('en-IN')}</span>${escapeHtml(data.text || text)}`;
       el.appendChild(bubble);
       el.scrollTop = el.scrollHeight;
+      markRead({caseId:currentCaseId,lastMessageAt:data.createdAt||new Date().toISOString()});
 
       // Reconcile with the database so the UI exactly matches persisted state.
       await loadMessages();
