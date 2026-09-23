@@ -136,41 +136,114 @@ function casePatchToDb(p) {
 async function createCase(c){ if(!DB_ENABLED){const a=readJson(FILES.cases);a.push(c);writeJson(FILES.cases,a);return c;} return caseFromDb((await dbInsert('cases',[casePatchToDb(c)]))[0]); }
 async function updateCase(caseId, patch){ if(!DB_ENABLED){const a=readJson(FILES.cases);const i=a.findIndex(x=>x.caseId===caseId);if(i<0)return null;Object.assign(a[i],patch);writeJson(FILES.cases,a);return a[i];} return caseFromDb((await dbUpdate('cases',`case_id=eq.${encodeURIComponent(caseId)}`,casePatchToDb(patch)))[0]); }
 
+let MESSAGE_SCHEMA_CACHE = null;
+let MESSAGE_SCHEMA_CACHE_AT = 0;
+const MESSAGE_SCHEMA_TTL_MS = 5 * 60 * 1000;
+
+async function getMessageSchema() {
+  if (!DB_ENABLED) return null;
+  const now = Date.now();
+  if (MESSAGE_SCHEMA_CACHE && now - MESSAGE_SCHEMA_CACHE_AT < MESSAGE_SCHEMA_TTL_MS) {
+    return MESSAGE_SCHEMA_CACHE;
+  }
+
+  try {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/`, {
+      method: 'GET',
+      headers: {
+        apikey: SUPABASE_SECRET_KEY,
+        Authorization: `Bearer ${SUPABASE_SECRET_KEY}`,
+        Accept: 'application/openapi+json, application/json'
+      }
+    });
+    if (!res.ok) throw new Error(`Supabase schema discovery failed: ${res.status}`);
+    const spec = await res.json();
+    const definition = spec?.definitions?.messages || spec?.components?.schemas?.messages;
+    const properties = definition?.properties || {};
+    const columns = new Set(Object.keys(properties));
+    if (!columns.size) throw new Error('messages table columns were not exposed by PostgREST');
+    MESSAGE_SCHEMA_CACHE = columns;
+    MESSAGE_SCHEMA_CACHE_AT = now;
+    return columns;
+  } catch (err) {
+    console.warn('Message schema discovery unavailable:', err.message);
+    return MESSAGE_SCHEMA_CACHE || null;
+  }
+}
+
+function firstExistingColumn(columns, candidates) {
+  if (!columns) return null;
+  return candidates.find(name => columns.has(name)) || null;
+}
+
+function normalizeMessageRow(row, columns = null) {
+  if (!row) return row;
+  const senderKey = firstExistingColumn(columns, ['sender', 'role', 'sender_type', 'author_type']) || 'sender';
+  const senderNameKey = firstExistingColumn(columns, ['sender_name', 'author_name', 'senderName', 'name']);
+  const textKey = firstExistingColumn(columns, ['text', 'message', 'content', 'body']);
+  const createdKey = firstExistingColumn(columns, ['created_at', 'sent_at', 'timestamp', 'createdAt']) || 'created_at';
+
+  return {
+    ...row,
+    caseId: row.case_id ?? row.caseId,
+    sender: row[senderKey] || 'agent',
+    senderName: senderNameKey ? (row[senderNameKey] || '') : '',
+    text: textKey ? (row[textKey] || '') : '',
+    createdAt: row[createdKey] || new Date().toISOString()
+  };
+}
+
+function messagePatchForSchema(m, columns, caseDbId) {
+  const out = {};
+  const setIf = (candidates, value) => {
+    const key = firstExistingColumn(columns, candidates);
+    if (key && value !== undefined) out[key] = value;
+    return key;
+  };
+
+  const caseKey = setIf(['case_id', 'caseId'], m.caseId);
+  if (!caseKey && columns?.has('case_uuid')) out.case_uuid = caseDbId;
+
+  setIf(['id', 'message_id'], m.id);
+  setIf(['sender', 'role', 'sender_type', 'author_type'], m.sender);
+  setIf(['sender_name', 'author_name', 'senderName', 'name'], m.senderName);
+  setIf(['text', 'message', 'content', 'body'], m.text);
+  setIf(['created_at', 'sent_at', 'timestamp', 'createdAt'], m.createdAt);
+
+  return out;
+}
+
 async function listMessages(caseId) {
   if (!DB_ENABLED) {
-    return readJson(FILES.messages).filter(m => m.caseId === caseId);
+    return readJson(FILES.messages)
+      .filter(m => m.caseId === caseId)
+      .map(m => normalizeMessageRow(m));
   }
 
   const record = await findCase(caseId);
   if (!record) return [];
 
-  const mapRows = rows => rows.map(m => ({
-    ...m,
-    caseId: m.case_id,
-    senderName: m.sender_name,
-    createdAt: m.created_at
-  }));
+  const columns = await getMessageSchema();
+  const caseCandidates = columns
+    ? [firstExistingColumn(columns, ['case_id', 'caseId']), firstExistingColumn(columns, ['case_uuid'])].filter(Boolean)
+    : ['case_id'];
 
-  // Existing production databases may have messages.case_id as either
-  // varchar (public case ID) or uuid (cases.id). Support both safely.
-  try {
-    const rows = await dbSelect(
-      'messages',
-      `case_id=eq.${encodeURIComponent(caseId)}&order=created_at.asc`
-    );
-    return mapRows(rows);
-  } catch (firstError) {
-    const message = String(firstError?.message || firstError);
-    if (!/uuid|invalid input syntax|operator does not exist/i.test(message)) {
-      throw firstError;
+  let lastError = null;
+  for (const caseColumn of caseCandidates) {
+    for (const value of caseColumn === 'case_uuid' ? [record.id] : [caseId, record.id]) {
+      try {
+        const rows = await dbSelect(
+          'messages',
+          `${caseColumn}=eq.${encodeURIComponent(value)}&order=created_at.asc`
+        );
+        return rows.map(row => normalizeMessageRow(row, columns));
+      } catch (err) {
+        lastError = err;
+      }
     }
-
-    const rows = await dbSelect(
-      'messages',
-      `case_id=eq.${encodeURIComponent(record.id)}&order=created_at.asc`
-    );
-    return mapRows(rows);
   }
+
+  throw lastError || new Error('Could not read case messages.');
 }
 
 async function createMessage(m) {
@@ -186,36 +259,52 @@ async function createMessage(m) {
     throw new Error(`Cannot create message: case ${m.caseId} was not found.`);
   }
 
-  const base = {
-    id: m.id,
-    sender: m.sender,
-    sender_name: m.senderName,
-    text: m.text,
-    created_at: m.createdAt
-  };
-
-  const toMessage = r => ({
-    ...r,
-    caseId: r.case_id,
-    senderName: r.sender_name,
-    createdAt: r.created_at
-  });
-
-  // Prefer the public case ID because that is the schema used by the
-  // production schema. If an older deployment has a UUID case_id column,
-  // transparently retry with cases.id.
-  try {
-    const r = (await dbInsert('messages', [{ ...base, case_id: m.caseId }]))[0];
-    return toMessage(r);
-  } catch (firstError) {
-    const message = String(firstError?.message || firstError);
-    if (!/uuid|invalid input syntax|operator does not exist|foreign key/i.test(message)) {
-      throw firstError;
-    }
-
-    const r = (await dbInsert('messages', [{ ...base, case_id: record.id }]))[0];
-    return toMessage(r);
+  let columns = await getMessageSchema();
+  if (!columns) {
+    throw new Error('Could not determine the production messages table schema.');
   }
+
+  // The production database has evolved independently of the bundled schema.
+  // Build the insert using only columns that actually exist in the live table.
+  // Prefer the public RW-... case ID; retry with cases.id if the FK is UUID.
+  const attempts = [];
+  const primary = messagePatchForSchema(m, columns, record.id);
+  attempts.push(primary);
+
+  const caseColumn = firstExistingColumn(columns, ['case_id', 'caseId']);
+  if (caseColumn && primary[caseColumn] === m.caseId && record.id !== m.caseId) {
+    attempts.push({ ...primary, [caseColumn]: record.id });
+  }
+
+  let lastError = null;
+  for (const payload of attempts) {
+    try {
+      const r = (await dbInsert('messages', [payload]))[0];
+      return normalizeMessageRow(r, columns);
+    } catch (err) {
+      lastError = err;
+      const message = String(err?.message || err);
+
+      // A cached PostgREST schema can be stale after a Supabase migration.
+      // Refresh once and retry with the current live columns.
+      if (/schema cache|column .* does not exist/i.test(message)) {
+        MESSAGE_SCHEMA_CACHE = null;
+        MESSAGE_SCHEMA_CACHE_AT = 0;
+        columns = await getMessageSchema();
+        if (columns) {
+          const refreshed = messagePatchForSchema(m, columns, record.id);
+          try {
+            const r = (await dbInsert('messages', [refreshed]))[0];
+            return normalizeMessageRow(r, columns);
+          } catch (refreshErr) {
+            lastError = refreshErr;
+          }
+        }
+      }
+    }
+  }
+
+  throw lastError || new Error('Could not create message.');
 }
 
 async function listCaseFiles(caseId) {
