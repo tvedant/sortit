@@ -363,8 +363,10 @@ async function getLatestMessageMeta(records, viewerRole, seenMap = {}, viewerId 
           const c=caseFromDb(r);
           if (!meta.has(String(c.caseId))) meta.set(String(c.caseId), {lastMessageText:'',lastMessageAt:null,lastMessageSender:'',lastMessageSenderName:'',lastMessageSenderId:null,unread:false,unreadCount:0,messageCount:0});
         }
+        // If a read position is known server-side (even one the DB could not save), never report messages at/before it as unread.
         for (const [cid, mm] of meta) {
-          if (!(seenMap && seenMap[cid]) && !mm.unreadCount && mm.lastMessageAt && mm.lastMessageSenderId !== viewerId && mm.lastMessageSender !== viewerRole) { mm.unreadCount = 1; mm.unread = true; }
+          const seen = seenMap && seenMap[cid];
+          if (seen && mm.unreadCount && mm.lastMessageAt && new Date(mm.lastMessageAt) <= new Date(seen)) { mm.unreadCount = 0; mm.unread = false; }
         }
         return meta;
       }
