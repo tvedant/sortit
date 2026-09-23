@@ -347,7 +347,48 @@ async function createPaymentOrder(record){
   return {orderId:record.razorpayOrderId||`test_order_${record.id.slice(0,8)}`};
 }
 
-app.post('/api/my/cases',requireAuth,rateLimit('case-create',10,30*60*1000),async(req,res)=>{try{let caseId=genCaseId();while(await findCase(caseId))caseId=genCaseId();const now=new Date().toISOString();const record={id:crypto.randomUUID(),caseId,userId:req.user.uid,userEmail:req.user.email,userName:req.user.name,category:null,description:null,summary:null,amountPaise:CASE_FEE_PAISE,paymentStatus:'pending',razorpayOrderId:null,razorpayPaymentId:null,leadId:null,status:'awaiting_payment',createdAt:now,updatedAt:now};if(!PAYMENTS_LIVE)record.razorpayOrderId=`test_order_${record.id.slice(0,8)}`;await createCase(record);const order=await createPaymentOrder(record);res.status(201).json({ok:true,caseId,orderId:order.orderId,amountPaise:record.amountPaise,keyId:PAYMENTS_LIVE?RAZORPAY_KEY_ID:null,testMode:!PAYMENTS_LIVE});}catch(e){console.error(e);res.status(502).json({error:'Could not create case/payment order.'});}});
+app.post('/api/my/cases',requireAuth,rateLimit('case-create',10,30*60*1000),async(req,res)=>{try{
+  let caseId=genCaseId();
+  while(await findCase(caseId)) caseId=genCaseId();
+
+  const now=new Date().toISOString();
+  const demoMode=!PAYMENTS_LIVE;
+  const record={
+    id:crypto.randomUUID(),
+    caseId,
+    userId:req.user.uid,
+    userEmail:req.user.email,
+    userName:req.user.name,
+    category:null,
+    description:null,
+    summary:null,
+    amountPaise:CASE_FEE_PAISE,
+    paymentStatus:demoMode?'paid':'pending',
+    razorpayOrderId:demoMode?`test_order_${crypto.randomUUID().slice(0,8)}`:null,
+    razorpayPaymentId:demoMode?`test_pay_${crypto.randomUUID().slice(0,8)}`:null,
+    leadId:null,
+    status:demoMode?'in-progress':'awaiting_payment',
+    createdAt:now,
+    updatedAt:now
+  };
+
+  await createCase(record);
+
+  if(demoMode){
+    return res.status(201).json({
+      ok:true,
+      caseId:record.caseId,
+      paymentStatus:'paid',
+      status:record.status,
+      amountPaise:record.amountPaise,
+      testMode:true,
+      demo:true
+    });
+  }
+
+  const order=await createPaymentOrder(record);
+  res.status(201).json({ok:true,caseId,orderId:order.orderId,amountPaise:record.amountPaise,keyId:RAZORPAY_KEY_ID,testMode:false,paymentStatus:'pending',status:record.status});
+}catch(e){console.error('Create case error:',e);res.status(500).json({error:'Could not create case. Please try again.'});}});
 
 app.post('/api/my/leads/:leadId/human-support',requireAuth,rateLimit('human-support',10,30*60*1000),async(req,res)=>{try{
   const raw=await findLead(req.params.leadId); if(!raw)return res.status(404).json({error:'Conversation not found.'});
@@ -374,7 +415,12 @@ res.json({ok:true,caseId:record.caseId,summary});}catch(e){console.error(e);res.
 
 function stripInternal(c){const x=caseFromDb(c);const{userId,...rest}=x;return rest;}
 async function decorateCase(c){const x=caseFromDb(c);x.proofFiles=await listCaseFiles(x.caseId);return x;}
-app.get('/api/my/cases',requireAuth,async(req,res)=>{const rows=await listCasesForUser(req.user.uid);const out=[];for(const r of rows)out.push(await decorateCase(r));res.json(out.map(stripInternal));});
+app.get('/api/my/cases',requireAuth,async(req,res)=>{try{
+  const rows=await listCasesForUser(req.user.uid);
+  // The list view does not need proof-file metadata. Avoid an N+1 case_files
+  // query here so the dashboard stays fast even when a customer has many cases.
+  res.json(rows.map(stripInternal));
+}catch(e){console.error('List customer cases error:',e);res.status(500).json({error:'Could not load your cases. Please refresh and try again.'});}});
 app.get('/api/my/cases/:caseId',requireAuth,async(req,res)=>{const r=await findCase(req.params.caseId,req.user.uid);if(!r)return res.status(404).json({error:'Case not found.'});res.json(stripInternal(await decorateCase(r)));});
 
 async function authorizeFile(req,isAdmin){const record=isAdmin?await findCase(req.params.caseId):await findCase(req.params.caseId,req.user.uid);if(!record)return null;const files=await listCaseFiles(req.params.caseId);return files.find(f=>f.filename===req.params.filename)||null;}
