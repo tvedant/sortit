@@ -77,6 +77,7 @@ async function supa(pathname, options = {}) {
   return data;
 }
 async function dbSelect(table, query = '') { return supa(`/rest/v1/${table}?select=*${query ? `&${query}` : ''}`); }
+async function dbSelectColumns(table, columns, query = '') { return supa(`/rest/v1/${table}?select=${encodeURIComponent(columns)}${query ? `&${query}` : ''}`); }
 async function dbInsert(table, rows) {
   return supa(`/rest/v1/${table}`, { method: 'POST', headers: { Prefer: 'return=representation' }, body: JSON.stringify(rows) });
 }
@@ -139,6 +140,10 @@ async function updateCase(caseId, patch){ if(!DB_ENABLED){const a=readJson(FILES
 let MESSAGE_SCHEMA_CACHE = null;
 let MESSAGE_SCHEMA_CACHE_AT = 0;
 const MESSAGE_SCHEMA_TTL_MS = 5 * 60 * 1000;
+let MESSAGE_META_CACHE = null;
+let MESSAGE_META_CACHE_AT = 0;
+const MESSAGE_META_TTL_MS = 2500;
+function invalidateMessageMetaCache(){ MESSAGE_META_CACHE = null; MESSAGE_META_CACHE_AT = 0; }
 
 async function getMessageSchema() {
   if (!DB_ENABLED) return null;
@@ -176,20 +181,31 @@ function firstExistingColumn(columns, candidates) {
   return candidates.find(name => columns.has(name)) || null;
 }
 
+function canonicalSender(value, senderName='') {
+  const v = String(value || '').trim().toLowerCase();
+  if (['customer','user','client','consumer'].includes(v)) return 'customer';
+  if (['admin','superadmin','super_admin','master_admin','administrator'].includes(v)) return 'admin';
+  if (['agent','support','staff','human','representative'].includes(v)) return 'agent';
+  const n = String(senderName || '').toLowerCase();
+  if (/(super\s*admin|administrator|master\s*admin)/i.test(n)) return 'admin';
+  return v || 'agent';
+}
+
 function normalizeMessageRow(row, columns = null) {
   if (!row) return row;
-  const senderKey = firstExistingColumn(columns, ['sender', 'role', 'sender_type', 'author_type']) || 'sender';
+  const senderKey = firstExistingColumn(columns, ['sender', 'role', 'sender_type', 'author_type']);
   const senderNameKey = firstExistingColumn(columns, ['sender_name', 'author_name', 'senderName', 'name']);
   const textKey = firstExistingColumn(columns, ['text', 'message', 'content', 'body']);
-  const createdKey = firstExistingColumn(columns, ['created_at', 'sent_at', 'timestamp', 'createdAt']) || 'created_at';
-
+  const createdKey = firstExistingColumn(columns, ['created_at', 'sent_at', 'timestamp', 'createdAt']);
+  const senderName = senderNameKey ? (row[senderNameKey] || '') : '';
   return {
     ...row,
-    caseId: row.case_id ?? row.caseId,
-    sender: row[senderKey] || 'agent',
-    senderName: senderNameKey ? (row[senderNameKey] || '') : '',
+    caseId: row.case_id ?? row.caseId ?? row.case_uuid,
+    sender: canonicalSender(senderKey ? row[senderKey] : '', senderName),
+    senderRole: canonicalSender(senderKey ? row[senderKey] : '', senderName),
+    senderName,
     text: textKey ? (row[textKey] || '') : '',
-    createdAt: row[createdKey] || new Date().toISOString()
+    createdAt: createdKey ? (row[createdKey] || new Date().toISOString()) : new Date().toISOString()
   };
 }
 
@@ -232,9 +248,10 @@ async function listMessages(caseId) {
   for (const caseColumn of caseCandidates) {
     for (const value of caseColumn === 'case_uuid' ? [record.id] : [caseId, record.id]) {
       try {
+        const createdColumn = firstExistingColumn(columns, ['created_at','sent_at','timestamp','createdAt']) || 'created_at';
         const rows = await dbSelect(
           'messages',
-          `${caseColumn}=eq.${encodeURIComponent(value)}&order=created_at.asc`
+          `${caseColumn}=eq.${encodeURIComponent(value)}&order=${encodeURIComponent(createdColumn)}.asc`
         );
         return rows.map(row => normalizeMessageRow(row, columns));
       } catch (err) {
@@ -246,11 +263,79 @@ async function listMessages(caseId) {
   throw lastError || new Error('Could not read case messages.');
 }
 
+
+async function getLatestMessageMeta(records, viewerRole) {
+  const rows = Array.isArray(records) ? records : [];
+  const meta = new Map();
+  if (!rows.length) return meta;
+
+  const put = (caseKey, message) => {
+    if (!caseKey || meta.has(caseKey)) return;
+    const sender = canonicalSender(message.sender, message.senderName);
+    meta.set(caseKey, {
+      lastMessageText: message.text || '',
+      lastMessageAt: message.createdAt || null,
+      lastMessageSender: sender,
+      lastMessageSenderName: message.senderName || '',
+      unread: sender !== viewerRole
+    });
+  };
+
+  if (!DB_ENABLED) {
+    const messages = readJson(FILES.messages)
+      .map(m => normalizeMessageRow(m))
+      .sort((a,b) => new Date(b.createdAt||0) - new Date(a.createdAt||0));
+    const byPublic = new Map(rows.map(r => { const c=caseFromDb(r); return [String(c.caseId),c]; }));
+    const byDb = new Map(rows.map(r => { const c=caseFromDb(r); return [String(c.id),c]; }));
+    for (const m of messages) {
+      const c = byPublic.get(String(m.caseId)) || byDb.get(String(m.caseId));
+      if (c) put(c.caseId,m);
+    }
+    return meta;
+  }
+
+  const now = Date.now();
+  let messages = MESSAGE_META_CACHE;
+  if (!messages || now - MESSAGE_META_CACHE_AT > MESSAGE_META_TTL_MS) {
+    const columns = await getMessageSchema();
+    if (!columns) return meta;
+    const caseColumn = firstExistingColumn(columns,['case_id','caseId','case_uuid']);
+    const senderColumn = firstExistingColumn(columns,['sender','role','sender_type','author_type']);
+    const senderNameColumn = firstExistingColumn(columns,['sender_name','author_name','senderName','name']);
+    const textColumn = firstExistingColumn(columns,['text','message','content','body']);
+    const createdColumn = firstExistingColumn(columns,['created_at','sent_at','timestamp','createdAt']);
+    if (!caseColumn || !createdColumn) return meta;
+    const selected = [caseColumn,senderColumn,senderNameColumn,textColumn,createdColumn].filter(Boolean).filter((v,i,a)=>a.indexOf(v)===i).join(',');
+    try {
+      messages = await dbSelectColumns('messages', selected, `order=${encodeURIComponent(createdColumn)}.desc&limit=3000`);
+      MESSAGE_META_CACHE = messages;
+      MESSAGE_META_CACHE_AT = now;
+    } catch (err) {
+      console.warn('Message metadata query failed:', err.message);
+      return meta;
+    }
+  }
+
+  const byPublic = new Map(rows.map(r => { const c=caseFromDb(r); return [String(c.caseId),c]; }));
+  const byDb = new Map(rows.map(r => { const c=caseFromDb(r); return [String(c.id),c]; }));
+  for (const raw of messages || []) {
+    const m = normalizeMessageRow(raw);
+    const c = byPublic.get(String(m.caseId)) || byDb.get(String(m.caseId));
+    if (c) put(c.caseId,m);
+  }
+  return meta;
+}
+
+function attachMessageMeta(records,meta){return records.map(r=>{const c=caseFromDb(r);return {...c,...(meta.get(c.caseId)||{lastMessageText:'',lastMessageAt:null,lastMessageSender:'',lastMessageSenderName:'',unread:false})};});}
+
 async function createMessage(m) {
   if (!DB_ENABLED) {
     const a = readJson(FILES.messages);
     a.push(m);
     writeJson(FILES.messages, a);
+    invalidateMessageMetaCache();
+    const cases=readJson(FILES.cases);const idx=cases.findIndex(c=>c.caseId===m.caseId);
+    if(idx>=0){cases[idx].updatedAt=m.createdAt||new Date().toISOString();writeJson(FILES.cases,cases);}
     return m;
   }
 
@@ -280,6 +365,8 @@ async function createMessage(m) {
   for (const payload of attempts) {
     try {
       const r = (await dbInsert('messages', [payload]))[0];
+      await updateCase(m.caseId,{updatedAt:m.createdAt||new Date().toISOString()});
+      invalidateMessageMetaCache();
       return normalizeMessageRow(r, columns);
     } catch (err) {
       lastError = err;
@@ -295,6 +382,8 @@ async function createMessage(m) {
           const refreshed = messagePatchForSchema(m, columns, record.id);
           try {
             const r = (await dbInsert('messages', [refreshed]))[0];
+            await updateCase(m.caseId,{updatedAt:m.createdAt||new Date().toISOString()});
+            invalidateMessageMetaCache();
             return normalizeMessageRow(r, columns);
           } catch (refreshErr) {
             lastError = refreshErr;
@@ -607,12 +696,12 @@ async function decorateCase(c){
   }
   return x;
 }
-app.get('/api/my/cases',requireAuth,async(req,res)=>{try{
+app.get('/api/my/cases',requireAuth,asyncHandler(async(req,res)=>{
   const rows=await listCasesForUser(req.user.uid);
-  // The list view does not need proof-file metadata. Avoid an N+1 case_files
-  // query here so the dashboard stays fast even when a customer has many cases.
-  res.json(rows.map(stripInternal));
-}catch(e){console.error('List customer cases error:',e);res.status(500).json({error:'Could not load your cases. Please refresh and try again.'});}});
+  const meta=await getLatestMessageMeta(rows,'customer');
+  const out=attachMessageMeta(rows,meta).sort((a,b)=>new Date(b.lastMessageAt||b.updatedAt||b.createdAt||0)-new Date(a.lastMessageAt||a.updatedAt||a.createdAt||0));
+  res.json(out.map(x=>{const{userId,...rest}=x;return rest;}));
+}));
 app.get('/api/my/cases/:caseId',requireAuth,asyncHandler(async(req,res)=>{
   const r=await findCase(req.params.caseId,req.user.uid);
   if(!r)return res.status(404).json({error:'Case not found.'});
@@ -666,7 +755,17 @@ async function listStaffCases(staff){
   return [...mine,...open];
 }
 async function canStaffAccessCase(staff,record){return staff.role==='admin'||!record.assignedTo||record.assignedTo===staff.uid;}
-app.get('/api/admin/cases',requireStaff,asyncHandler(async(req,res)=>{const rows=await listStaffCases(req.staff);const out=[];for(const r of rows)out.push(await decorateCase(r));res.json(out);}));
+app.get('/api/admin/cases',requireStaff,asyncHandler(async(req,res)=>{
+  const rows=await listStaffCases(req.staff);
+  const meta=await getLatestMessageMeta(rows,req.staff.role);
+  const out=attachMessageMeta(rows,meta).sort((a,b)=>new Date(b.lastMessageAt||b.updatedAt||b.createdAt||0)-new Date(a.lastMessageAt||a.updatedAt||a.createdAt||0));
+  res.json(out);
+}));
+app.get('/api/admin/cases/:caseId',requireStaff,asyncHandler(async(req,res)=>{
+  const record=await findCase(req.params.caseId);if(!record)return res.status(404).json({error:'Case not found.'});
+  const c=caseFromDb(record);if(!(await canStaffAccessCase(req.staff,c)))return res.status(403).json({error:'This case is assigned to another agent.'});
+  res.json(await decorateCase(record));
+}));
 app.patch('/api/admin/cases/:caseId/status',requireStaff,async(req,res)=>{const allowed=['awaiting_details','submitted','in-progress','won','closed'];if(!allowed.includes(req.body?.status))return res.status(400).json({error:`Status must be one of: ${allowed.join(', ')}`});const record=await findCase(req.params.caseId);if(!record)return res.status(404).json({error:'Case not found.'});if(!(await canStaffAccessCase(req.staff,caseFromDb(record))))return res.status(403).json({error:'This case is assigned to another agent.'});await updateCase(req.params.caseId,{status:req.body.status,updatedAt:new Date().toISOString()});res.json({ok:true});});
 app.patch('/api/admin/cases/:caseId/assign',requireAdmin,async(req,res)=>{try{
   const record=await findCase(req.params.caseId);if(!record)return res.status(404).json({error:'Case not found.'});
@@ -678,7 +777,7 @@ app.get('/api/admin/cases/:caseId/messages',requireStaff,asyncHandler(async(req,
 app.post('/api/admin/cases/:caseId/messages',requireStaff,async(req,res)=>{try{const{text}=req.body||{};if(!text||!text.trim())return res.status(400).json({error:'Message cannot be empty.'});const record=await findCase(req.params.caseId);if(!record)return res.status(404).json({error:'Case not found.'});const c=caseFromDb(record);if(!(await canStaffAccessCase(req.staff,c)))return res.status(403).json({error:'This case is assigned to another agent.'});
   // An agent replying to an unassigned case claims it, preventing two agents from working it simultaneously.
   if(req.staff.role==='agent'&&!c.assignedTo)await updateCase(c.caseId,{assignedTo:req.staff.uid,assignedAt:new Date().toISOString(),updatedAt:new Date().toISOString()});
-  const msg={id:crypto.randomUUID(),caseId:req.params.caseId,sender:'agent',senderName:req.staff.name,text:text.trim().slice(0,2000),createdAt:new Date().toISOString()};res.status(201).json(await createMessage(msg));
+  const msg={id:crypto.randomUUID(),caseId:req.params.caseId,sender:req.staff.role==='admin'?'admin':'agent',senderName:req.staff.name,text:text.trim().slice(0,2000),createdAt:new Date().toISOString()};res.status(201).json(await createMessage(msg));
 }catch(e){console.error(e);res.status(500).json({error:'Could not send message.'});}});
 app.get('/api/admin/cases/:caseId/files/:filename',requireStaff,async(req,res)=>{const record=await findCase(req.params.caseId);if(!record)return res.status(404).json({error:'Case not found.'});if(!(await canStaffAccessCase(req.staff,caseFromDb(record))))return res.status(403).json({error:'This case is assigned to another agent.'});const f=await authorizeFile(req,true);if(!f)return res.status(404).json({error:'File not found.'});if(DB_ENABLED){try{return res.redirect(await signedStorageUrl(f.storagePath));}catch(e){return res.status(500).json({error:'Could not open file.'});}}const fp=path.join(UPLOADS_DIR,req.params.caseId,req.params.filename);if(!fp.startsWith(path.resolve(UPLOADS_DIR)+path.sep)||!fs.existsSync(fp))return res.status(404).json({error:'File not found.'});res.sendFile(fp);});
 
