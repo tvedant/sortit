@@ -223,8 +223,10 @@ function messagePatchForSchema(m, columns, caseDbId) {
     return key;
   };
 
-  const caseKey = setIf(['case_id', 'caseId'], m.caseId);
-  if (!caseKey && columns?.has('case_uuid')) out.case_uuid = caseDbId;
+  const caseKey = firstExistingColumn(columns, ['case_id', 'caseId']);
+  if (caseKey === 'case_id') out.case_id = caseDbId;
+  else if (caseKey === 'caseId') out.caseId = m.caseId;
+  else if (columns?.has('case_uuid')) out.case_uuid = caseDbId;
 
   setIf(['id', 'message_id'], m.id);
   setIf(['sender', 'role', 'sender_type', 'author_type'], m.sender);
@@ -253,7 +255,8 @@ async function listMessages(caseId) {
 
   let lastError = null;
   for (const caseColumn of caseCandidates) {
-    for (const value of caseColumn === 'case_uuid' ? [record.id] : [caseId, record.id]) {
+    const values = caseColumn === 'case_id' || caseColumn === 'case_uuid' ? [record.id] : [caseId];
+    for (const value of values) {
       try {
         const createdColumn = firstExistingColumn(columns, ['created_at','sent_at','timestamp','createdAt']) || 'created_at';
         const rows = await dbSelect(
@@ -377,7 +380,11 @@ async function getLatestMessageMeta(records, viewerRole, seenMap = {}, viewerId 
       const columns=await getMessageSchema(); if(!columns)return meta;
       const caseColumn=firstExistingColumn(columns,['case_id','caseId','case_uuid']); const createdColumn=firstExistingColumn(columns,['created_at','sent_at','timestamp','createdAt']);
       if(!caseColumn||!createdColumn)return meta;
-      const selected=[caseColumn,'sender','sender_name','sender_id','text',createdColumn].filter((v,i,a)=>v&&a.indexOf(v)===i).join(',');
+      const senderColumn=firstExistingColumn(columns,['sender','role','sender_type','author_type']);
+      const senderNameColumn=firstExistingColumn(columns,['sender_name','author_name','senderName','name']);
+      const senderIdColumn=firstExistingColumn(columns,['sender_id','senderId','author_id']);
+      const textColumn=firstExistingColumn(columns,['text','message','content','body']);
+      const selected=[caseColumn,senderColumn,senderNameColumn,senderIdColumn,textColumn,createdColumn].filter((v,i,a)=>v&&a.indexOf(v)===i).join(',');
       messages=await dbSelectColumns('messages',selected,`order=${encodeURIComponent(createdColumn)}.desc&limit=10000`); MESSAGE_META_CACHE=messages; MESSAGE_META_CACHE_AT=now;
     }
     for(const raw of messages||[])consume(raw);
