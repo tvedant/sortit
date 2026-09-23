@@ -302,7 +302,11 @@
     const listEl=document.getElementById('caseList');
     if(!silent) listEl.innerHTML='<div class="loading-state">Loading your cases…</div>';
     try{
-      const res=await fetch('/api/my/cases',{cache:'no-store'});
+      const controller=new AbortController();
+      const timeout=setTimeout(()=>controller.abort(),12000);
+      let res;
+      try { res=await fetch('/api/my/cases',{cache:'no-store',signal:controller.signal}); }
+      finally { clearTimeout(timeout); }
       const payload=await res.json().catch(()=>({}));
       if(!res.ok)throw new Error(payload.error||'Could not load your cases.');
       const cases=(Array.isArray(payload)?payload:[]).sort((a,b)=>new Date(b.lastMessageAt||b.updatedAt||b.createdAt||0)-new Date(a.lastMessageAt||a.updatedAt||a.createdAt||0));
@@ -320,7 +324,11 @@
   async function openCaseView(caseId) {
     currentCaseId = caseId;
     try {
-      const res = await fetch(`/api/my/cases/${encodeURIComponent(caseId)}`, { cache: 'no-store' });
+      const controller=new AbortController();
+      const timeout=setTimeout(()=>controller.abort(),12000);
+      let res;
+      try { res = await fetch(`/api/my/cases/${encodeURIComponent(caseId)}`, { cache: 'no-store', signal:controller.signal }); }
+      finally { clearTimeout(timeout); }
       const c = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(c.error || 'Could not open this case.');
 
@@ -334,7 +342,7 @@
 
       showScreen('case');
       await loadMessages();
-      await markRead(c);
+      markRead(c).catch(()=>{});
       const listCase=document.querySelector(`.case-row[data-case=\"${CSS.escape(caseId)}\"]`);
       if(listCase){listCase.classList.remove('unread');const pill=listCase.querySelector('.unread-pill');if(pill)pill.remove();}
       openChatStream(caseId);
