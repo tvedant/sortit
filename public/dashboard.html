@@ -205,16 +205,11 @@
   let config = { paymentsLive: false, caseFeeRupees: 59 };
   let prefillLead = null;
   let prefillLeadId = null;
-  function readKey(caseId){return `rw_customer_seen_${currentUser?.email||'user'}_${caseId}`;}
-  function readState(){const out={};const prefix=`rw_customer_seen_${currentUser?.email||'user'}_`;for(let i=0;i<localStorage.length;i++){const k=localStorage.key(i)||'';if(k.startsWith(prefix)){const v=localStorage.getItem(k);if(v)out[k.slice(prefix.length)]=v;}}return out;}
-  function isUnread(c){return Number(c.unreadCount||0)>0;}
-  async function markRead(c){
-    if(!c?.caseId)return;
-    const ts=c.lastMessageAt||null;
-    if(ts)localStorage.setItem(readKey(c.caseId),ts);
-    try{await fetch(`/api/my/cases/${encodeURIComponent(c.caseId)}/read`,{method:'POST',headers:{'Accept':'application/json'}});}catch(e){console.debug('read-state fallback',e.message);}
-  }
-  function seedReadState(rows){for(const c of rows||[]){const k=readKey(c.caseId);if(!localStorage.getItem(k)&&c.lastMessageAt)localStorage.setItem(k,c.lastMessageAt);}}
+  function isUnread(c){return Number(c?.unreadCount||0)>0;}
+  let chatStream=null;
+  async function markRead(c){if(!c?.caseId)return;const ts=c.lastMessageAt||null;try{await fetch(`/api/my/cases/${encodeURIComponent(c.caseId)}/read`,{method:'POST',headers:{'Content-Type':'application/json','Accept':'application/json'},body:JSON.stringify({lastReadAt:ts})});}catch(e){console.debug('read-state',e.message);}}
+  function closeChatStream(){if(chatStream){chatStream.close();chatStream=null;}}
+  function openChatStream(caseId){closeChatStream();chatStream=new EventSource(`/api/my/cases/${encodeURIComponent(caseId)}/stream`);chatStream.addEventListener('message',async()=>{await loadMessages();loadCases(true).catch(()=>{});});chatStream.onerror=()=>{};}
   function senderLabel(c){if(!c.lastMessageSender)return '';if(c.lastMessageSender==='customer')return 'You';if(c.lastMessageSender==='admin')return c.lastMessageSenderName||'Super Admin';if(c.lastMessageSender==='agent')return c.lastMessageSenderName||'Agent';return c.lastMessageSenderName||'Customer';}
 
   const screens = {
@@ -224,6 +219,7 @@
     case: document.getElementById('screenCase'),
   };
   function showScreen(name) {
+    if (name !== 'case') closeChatStream();
     Object.values(screens).forEach(s => s.classList.add('hidden'));
     screens[name].classList.remove('hidden');
     if (name !== 'case' && chatPollTimer) { clearInterval(chatPollTimer); chatPollTimer = null; }
@@ -289,7 +285,7 @@
 
   async function loadCases() {
     const listEl=document.getElementById('caseList');listEl.innerHTML='<div class="loading-state">Loading your cases…</div>';
-    try{const res=await fetch('/api/my/cases',{cache:'no-store',headers:{'X-Read-State':JSON.stringify(readState())}});const payload=await res.json().catch(()=>({}));if(!res.ok)throw new Error(payload.error||'Could not load your cases.');const cases=(Array.isArray(payload)?payload:[]).sort((a,b)=>new Date(b.lastMessageAt||b.updatedAt||b.createdAt||0)-new Date(a.lastMessageAt||a.updatedAt||a.createdAt||0));seedReadState(cases);if(!cases.length){listEl.innerHTML='<div class="empty-state">No cases yet. Click "Open a New Case" to file your first one.</div>';return;}listEl.innerHTML=cases.map(c=>{const preview=c.lastMessageText?`${senderLabel(c)}: ${c.lastMessageText}`:'No messages yet';const count=Number(c.unreadCount||0);return `<div class="case-row ${count?'unread':''}" data-case="${escapeHtml(c.caseId)}" data-status="${escapeHtml(c.status||'')}"><div style="min-width:0;flex:1"><div class="case-id">${escapeHtml(c.caseId)}</div><div class="case-meta">${c.createdAt?new Date(c.createdAt).toLocaleString('en-IN'):'Date unavailable'}${c.category?' • '+escapeHtml(c.category):''}</div><div class="case-preview">${escapeHtml(preview)}</div></div><div class="case-actions">${count?`<span class="unread-pill" title="${count} unread message${count===1?'':'s'}">${count>99?'99+':count}</span>`:''}<span class="status-badge status-${escapeHtml(c.status||'')}">${escapeHtml(statusLabel(c.status||''))}</span></div></div>`;}).join('');listEl.querySelectorAll('.case-row').forEach(row=>row.addEventListener('click',()=>resumeCase(row.dataset.case,row.dataset.status)));}catch(err){console.error('loadCases:',err);listEl.innerHTML=`<div class="empty-state"><strong>Could not load your cases.</strong><br><span style="font-size:13px;">${escapeHtml(err.message||'Please refresh and try again.')}</span><br><button class="btn secondary" style="margin-top:16px;" onclick="loadCases()">Try Again</button></div>`;}
+    try{const res=await fetch('/api/my/cases',{cache:'no-store'});const payload=await res.json().catch(()=>({}));if(!res.ok)throw new Error(payload.error||'Could not load your cases.');const cases=(Array.isArray(payload)?payload:[]).sort((a,b)=>new Date(b.lastMessageAt||b.updatedAt||b.createdAt||0)-new Date(a.lastMessageAt||a.updatedAt||a.createdAt||0));if(!cases.length){listEl.innerHTML='<div class="empty-state">No cases yet. Click "Open a New Case" to file your first one.</div>';return;}listEl.innerHTML=cases.map(c=>{const preview=c.lastMessageText?`${senderLabel(c)}: ${c.lastMessageText}`:'No messages yet';const count=Number(c.unreadCount||0);return `<div class="case-row ${count?'unread':''}" data-case="${escapeHtml(c.caseId)}" data-status="${escapeHtml(c.status||'')}"><div style="min-width:0;flex:1"><div class="case-id">${escapeHtml(c.caseId)}</div><div class="case-meta">${c.createdAt?new Date(c.createdAt).toLocaleString('en-IN'):'Date unavailable'}${c.category?' • '+escapeHtml(c.category):''}</div><div class="case-preview">${escapeHtml(preview)}</div></div><div class="case-actions">${count?`<span class="unread-pill" title="${count} unread message${count===1?'':'s'}">${count>99?'99+':count}</span>`:''}<span class="status-badge status-${escapeHtml(c.status||'')}">${escapeHtml(statusLabel(c.status||''))}</span></div></div>`;}).join('');listEl.querySelectorAll('.case-row').forEach(row=>row.addEventListener('click',()=>resumeCase(row.dataset.case,row.dataset.status)));}catch(err){console.error('loadCases:',err);listEl.innerHTML=`<div class="empty-state"><strong>Could not load your cases.</strong><br><span style="font-size:13px;">${escapeHtml(err.message||'Please refresh and try again.')}</span><br><button class="btn secondary" style="margin-top:16px;" onclick="loadCases()">Try Again</button></div>`;}
   }
 
   async function resumeCase(caseId, status) {
@@ -487,15 +483,15 @@
       showScreen('case');
       await loadMessages();
       await markRead(c);
-      clearUnreadLocal(caseId);
+      const listCase=document.querySelector(`.case-row[data-case=\"${CSS.escape(caseId)}\"]`);
+      if(listCase){listCase.classList.remove('unread');const pill=listCase.querySelector('.unread-pill');if(pill)pill.remove();}
+      openChatStream(caseId);
       if (chatPollTimer) clearInterval(chatPollTimer);
-      chatPollTimer = setInterval(loadMessages, 4000);
+      chatPollTimer = setInterval(()=>loadMessages(), 30000);
     } catch (err) {
       console.error('openCaseView:', err);
-      if (chatPollTimer) {
-        clearInterval(chatPollTimer);
-        chatPollTimer = null;
-      }
+      if (chatPollTimer) { clearInterval(chatPollTimer); chatPollTimer = null; }
+      closeChatStream();
       currentCaseId = null;
       alert(err.message || 'Could not open this case. Please try again.');
       showScreen('list');
@@ -525,8 +521,7 @@
       if (wasAtBottom) el.scrollTop = el.scrollHeight;
       const latest = messages[messages.length - 1];
       if (latest?.createdAt) {
-        const seen = localStorage.getItem(readKey(currentCaseId));
-        if (seen !== latest.createdAt) await markRead({caseId: currentCaseId, lastMessageAt: latest.createdAt});
+        await markRead({caseId: currentCaseId, lastMessageAt: latest.createdAt});
       }
     } catch (err) {
       console.error('loadMessages:', err);
@@ -578,8 +573,9 @@
       el.scrollTop = el.scrollHeight;
       await markRead({caseId:currentCaseId,lastMessageAt:data.createdAt||new Date().toISOString()});
 
-      // Reconcile with the database so the UI exactly matches persisted state.
-      await loadMessages();
+      // The server pushes this message over SSE to every open participant.
+      // Avoid an immediate second GET here; keep the UI responsive.
+      setTimeout(()=>{ if(currentCaseId) loadCases().catch(()=>{}); }, 500);
     } catch (err) {
       // Preserve unsent text so a transient/network error does not destroy it.
       input.value = text;
