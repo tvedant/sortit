@@ -379,9 +379,35 @@
     }
   });
 
-  document.getElementById('backFromPay').addEventListener('click', (e) => { e.preventDefault(); loadCases(); showScreen('list'); });
-  document.getElementById('backFromDetails').addEventListener('click', (e) => { e.preventDefault(); loadCases(); showScreen('list'); });
-  document.getElementById('backFromCase').addEventListener('click', (e) => { e.preventDefault(); loadCases(); showScreen('list'); });
+  function leaveCaseView() {
+    // Stop the 4-second chat poll before returning to the case list.
+    // Otherwise the old case ID remains active and background requests can
+    // race with the dashboard reload.
+    if (chatPollTimer) {
+      clearInterval(chatPollTimer);
+      chatPollTimer = null;
+    }
+    currentCaseId = null;
+  }
+
+  document.getElementById('backFromPay').addEventListener('click', async (e) => {
+    e.preventDefault();
+    leaveCaseView();
+    showScreen('list');
+    await loadCases();
+  });
+  document.getElementById('backFromDetails').addEventListener('click', async (e) => {
+    e.preventDefault();
+    leaveCaseView();
+    showScreen('list');
+    await loadCases();
+  });
+  document.getElementById('backFromCase').addEventListener('click', async (e) => {
+    e.preventDefault();
+    leaveCaseView();
+    showScreen('list');
+    await loadCases();
+  });
 
   // ---- Payment ----
   document.getElementById('payBtn').addEventListener('click', async () => {
@@ -478,9 +504,14 @@
       chatPollTimer = setInterval(loadMessages, 4000);
     } catch (err) {
       console.error('openCaseView:', err);
+      if (chatPollTimer) {
+        clearInterval(chatPollTimer);
+        chatPollTimer = null;
+      }
+      currentCaseId = null;
       alert(err.message || 'Could not open this case. Please try again.');
-      await loadCases();
       showScreen('list');
+      await loadCases();
     }
   }
 
