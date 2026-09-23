@@ -15,8 +15,7 @@
     "express": "^4.19.2",
     "jsonwebtoken": "^9.0.2",
     "multer": "^2.0.0",
-    "razorpay": "^2.9.4",
-    "ws": "^8.18.3"
+    "razorpay": "^2.9.4"
   },
   "engines": {
     "node": ">=18"
