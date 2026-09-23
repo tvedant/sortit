@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>My Cases — RefundWaapsi</title>
-<link href="https://fonts.googleapis.com/css2?family=Anton&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Anton&family=Space+Grotesk:wght@400;500;600;700&display=swap" onload="this.rel='stylesheet'"><noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anton&family=Space+Grotesk:wght@400;500;600;700&display=swap"></noscript>
 <style>
   :root{
     --ink:#1A1611; --paper:#F0E6CC; --paper-2:#E8DBB8;
@@ -96,7 +96,7 @@
   .file-list{font-size:13px; margin-top:8px; color:#5a4f3c;}
   .hidden{display:none;}
 </style>
-</head>
+<meta name="theme-color" content="#F0E6CC"><style>@view-transition{navigation:auto}::view-transition-old(root){animation:.2s ease both rwo}::view-transition-new(root){animation:.45s cubic-bezier(.22,1,.36,1) both rwn}@keyframes rwo{to{opacity:0;transform:translateY(-12px)}}@keyframes rwn{from{opacity:0;transform:translateY(24px)}}</style><link rel="preconnect" href="https://checkout.razorpay.com"></head>
 <body>
 
 <nav>
@@ -284,7 +284,7 @@
   }
 
   async function loadCases() {
-    const listEl=document.getElementById('caseList');listEl.innerHTML='<div class="loading-state">Loading your cases…</div>';
+    const listEl=document.getElementById('caseList');if(!listEl.firstElementChild)listEl.innerHTML='<div class="loading-state">Loading your cases…</div>';
     try{const res=await fetch('/api/my/cases',{cache:'no-store'});const payload=await res.json().catch(()=>({}));if(!res.ok)throw new Error(payload.error||'Could not load your cases.');const cases=(Array.isArray(payload)?payload:[]).sort((a,b)=>new Date(b.lastMessageAt||b.updatedAt||b.createdAt||0)-new Date(a.lastMessageAt||a.updatedAt||a.createdAt||0));if(!cases.length){listEl.innerHTML='<div class="empty-state">No cases yet. Click "Open a New Case" to file your first one.</div>';return;}listEl.innerHTML=cases.map(c=>{const preview=c.lastMessageText?`${senderLabel(c)}: ${c.lastMessageText}`:'No messages yet';const count=Number(c.unreadCount||0);return `<div class="case-row ${count?'unread':''}" data-case="${escapeHtml(c.caseId)}" data-status="${escapeHtml(c.status||'')}"><div style="min-width:0;flex:1"><div class="case-id">${escapeHtml(c.caseId)}</div><div class="case-meta">${c.createdAt?new Date(c.createdAt).toLocaleString('en-IN'):'Date unavailable'}${c.category?' • '+escapeHtml(c.category):''}</div><div class="case-preview">${escapeHtml(preview)}</div></div><div class="case-actions">${count?`<span class="unread-pill" title="${count} unread message${count===1?'':'s'}">${count>99?'99+':count}</span>`:''}<span class="status-badge status-${escapeHtml(c.status||'')}">${escapeHtml(statusLabel(c.status||''))}</span></div></div>`;}).join('');listEl.querySelectorAll('.case-row').forEach(row=>row.addEventListener('click',()=>resumeCase(row.dataset.case,row.dataset.status)));}catch(err){console.error('loadCases:',err);listEl.innerHTML=`<div class="empty-state"><strong>Could not load your cases.</strong><br><span style="font-size:13px;">${escapeHtml(err.message||'Please refresh and try again.')}</span><br><button class="btn secondary" style="margin-top:16px;" onclick="loadCases()">Try Again</button></div>`;}
   }
 
@@ -594,5 +594,6 @@
   init();
 </script>
 <script id="razorpay-checkout" src="https://checkout.razorpay.com/v1/checkout.js" defer></script>
+<script src="/rw-fx.js" defer></script>
 </body>
 </html>
