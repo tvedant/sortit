@@ -264,69 +264,86 @@ async function listMessages(caseId) {
 }
 
 
-async function getLatestMessageMeta(records, viewerRole) {
+function parseReadState(raw) {
+  if (!raw) return {};
+  try {
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== 'object') return {};
+    const out = {};
+    for (const [key, value] of Object.entries(parsed).slice(0, 500)) {
+      if (typeof key === 'string' && typeof value === 'string' && !Number.isNaN(new Date(value).getTime())) out[key] = value;
+    }
+    return out;
+  } catch (_) { return {}; }
+}
+
+async function getLatestMessageMeta(records, viewerRole, seenMap = {}) {
   const rows = Array.isArray(records) ? records : [];
   const meta = new Map();
   if (!rows.length) return meta;
 
-  const put = (caseKey, message) => {
-    if (!caseKey || meta.has(caseKey)) return;
-    const sender = canonicalSender(message.sender, message.senderName);
-    meta.set(caseKey, {
-      lastMessageText: message.text || '',
-      lastMessageAt: message.createdAt || null,
-      lastMessageSender: sender,
-      lastMessageSenderName: message.senderName || '',
-      unread: sender !== viewerRole
-    });
+  const byPublic = new Map(rows.map(r => { const c=caseFromDb(r); return [String(c.caseId),c]; }));
+  const byDb = new Map(rows.map(r => { const c=caseFromDb(r); return [String(c.id),c]; }));
+  const grouped = new Map();
+
+  const consume = (raw) => {
+    const m = normalizeMessageRow(raw);
+    const c = byPublic.get(String(m.caseId)) || byDb.get(String(m.caseId));
+    if (!c) return;
+    const key = String(c.caseId);
+    const list = grouped.get(key) || [];
+    list.push(m);
+    grouped.set(key, list);
   };
 
   if (!DB_ENABLED) {
-    const messages = readJson(FILES.messages)
-      .map(m => normalizeMessageRow(m))
-      .sort((a,b) => new Date(b.createdAt||0) - new Date(a.createdAt||0));
-    const byPublic = new Map(rows.map(r => { const c=caseFromDb(r); return [String(c.caseId),c]; }));
-    const byDb = new Map(rows.map(r => { const c=caseFromDb(r); return [String(c.id),c]; }));
-    for (const m of messages) {
-      const c = byPublic.get(String(m.caseId)) || byDb.get(String(m.caseId));
-      if (c) put(c.caseId,m);
+    for (const m of readJson(FILES.messages)) consume(m);
+  } else {
+    const now = Date.now();
+    let messages = MESSAGE_META_CACHE;
+    if (!messages || now - MESSAGE_META_CACHE_AT > MESSAGE_META_TTL_MS) {
+      const columns = await getMessageSchema();
+      if (!columns) return meta;
+      const caseColumn = firstExistingColumn(columns,['case_id','caseId','case_uuid']);
+      const senderColumn = firstExistingColumn(columns,['sender','role','sender_type','author_type']);
+      const senderNameColumn = firstExistingColumn(columns,['sender_name','author_name','senderName','name']);
+      const textColumn = firstExistingColumn(columns,['text','message','content','body']);
+      const createdColumn = firstExistingColumn(columns,['created_at','sent_at','timestamp','createdAt']);
+      if (!caseColumn || !createdColumn) return meta;
+      const selected = [caseColumn,senderColumn,senderNameColumn,textColumn,createdColumn].filter(Boolean).filter((v,i,a)=>a.indexOf(v)===i).join(',');
+      try {
+        messages = await dbSelectColumns('messages', selected, `order=${encodeURIComponent(createdColumn)}.desc&limit=10000`);
+        MESSAGE_META_CACHE = messages;
+        MESSAGE_META_CACHE_AT = now;
+      } catch (err) {
+        console.warn('Message metadata query failed:', err.message);
+        return meta;
+      }
     }
-    return meta;
+    for (const raw of messages || []) consume(raw);
   }
 
-  const now = Date.now();
-  let messages = MESSAGE_META_CACHE;
-  if (!messages || now - MESSAGE_META_CACHE_AT > MESSAGE_META_TTL_MS) {
-    const columns = await getMessageSchema();
-    if (!columns) return meta;
-    const caseColumn = firstExistingColumn(columns,['case_id','caseId','case_uuid']);
-    const senderColumn = firstExistingColumn(columns,['sender','role','sender_type','author_type']);
-    const senderNameColumn = firstExistingColumn(columns,['sender_name','author_name','senderName','name']);
-    const textColumn = firstExistingColumn(columns,['text','message','content','body']);
-    const createdColumn = firstExistingColumn(columns,['created_at','sent_at','timestamp','createdAt']);
-    if (!caseColumn || !createdColumn) return meta;
-    const selected = [caseColumn,senderColumn,senderNameColumn,textColumn,createdColumn].filter(Boolean).filter((v,i,a)=>a.indexOf(v)===i).join(',');
-    try {
-      messages = await dbSelectColumns('messages', selected, `order=${encodeURIComponent(createdColumn)}.desc&limit=3000`);
-      MESSAGE_META_CACHE = messages;
-      MESSAGE_META_CACHE_AT = now;
-    } catch (err) {
-      console.warn('Message metadata query failed:', err.message);
-      return meta;
-    }
-  }
-
-  const byPublic = new Map(rows.map(r => { const c=caseFromDb(r); return [String(c.caseId),c]; }));
-  const byDb = new Map(rows.map(r => { const c=caseFromDb(r); return [String(c.id),c]; }));
-  for (const raw of messages || []) {
-    const m = normalizeMessageRow(raw);
-    const c = byPublic.get(String(m.caseId)) || byDb.get(String(m.caseId));
-    if (c) put(c.caseId,m);
+  for (const [caseId, list] of grouped) {
+    list.sort((a,b)=>new Date(b.createdAt||0)-new Date(a.createdAt||0));
+    const latest = list[0];
+    const seenAt = seenMap && seenMap[caseId] ? new Date(seenMap[caseId]).getTime() : null;
+    const unreadCount = seenAt === null || Number.isNaN(seenAt)
+      ? 0
+      : list.filter(m => canonicalSender(m.sender,m.senderName) !== viewerRole && new Date(m.createdAt||0).getTime() > seenAt).length;
+    meta.set(caseId, {
+      lastMessageText: latest?.text || '',
+      lastMessageAt: latest?.createdAt || null,
+      lastMessageSender: latest ? canonicalSender(latest.sender,latest.senderName) : '',
+      lastMessageSenderName: latest?.senderName || '',
+      unreadCount,
+      unread: unreadCount > 0,
+      messageCount: list.length
+    });
   }
   return meta;
 }
 
-function attachMessageMeta(records,meta){return records.map(r=>{const c=caseFromDb(r);return {...c,...(meta.get(c.caseId)||{lastMessageText:'',lastMessageAt:null,lastMessageSender:'',lastMessageSenderName:'',unread:false})};});}
+function attachMessageMeta(records,meta){return records.map(r=>{const c=caseFromDb(r);return {...c,...(meta.get(c.caseId)||{lastMessageText:'',lastMessageAt:null,lastMessageSender:'',lastMessageSenderName:'',unread:false,unreadCount:0,messageCount:0})};});}
 
 async function createMessage(m) {
   if (!DB_ENABLED) {
@@ -698,7 +715,8 @@ async function decorateCase(c){
 }
 app.get('/api/my/cases',requireAuth,asyncHandler(async(req,res)=>{
   const rows=await listCasesForUser(req.user.uid);
-  const meta=await getLatestMessageMeta(rows,'customer');
+  const seenMap=parseReadState(req.get('x-read-state'));
+  const meta=await getLatestMessageMeta(rows,'customer',seenMap);
   const out=attachMessageMeta(rows,meta).sort((a,b)=>new Date(b.lastMessageAt||b.updatedAt||b.createdAt||0)-new Date(a.lastMessageAt||a.updatedAt||a.createdAt||0));
   res.json(out.map(x=>{const{userId,...rest}=x;return rest;}));
 }));
@@ -757,7 +775,8 @@ async function listStaffCases(staff){
 async function canStaffAccessCase(staff,record){return staff.role==='admin'||!record.assignedTo||record.assignedTo===staff.uid;}
 app.get('/api/admin/cases',requireStaff,asyncHandler(async(req,res)=>{
   const rows=await listStaffCases(req.staff);
-  const meta=await getLatestMessageMeta(rows,req.staff.role);
+  const seenMap=parseReadState(req.get('x-read-state'));
+  const meta=await getLatestMessageMeta(rows,req.staff.role,seenMap);
   const out=attachMessageMeta(rows,meta).sort((a,b)=>new Date(b.lastMessageAt||b.updatedAt||b.createdAt||0)-new Date(a.lastMessageAt||a.updatedAt||a.createdAt||0));
   res.json(out);
 }));
