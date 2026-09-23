@@ -6,6 +6,8 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const multer = require('multer');
 const crypto = require('crypto');
+const http = require('http');
+const { WebSocketServer, WebSocket } = require('ws');
 const fs = require('fs');
 const path = require('path');
 
@@ -140,7 +142,17 @@ function casePatchToDb(p) {
   return out;
 }
 async function createCase(c){ if(!DB_ENABLED){const a=readJson(FILES.cases);a.push(c);writeJson(FILES.cases,a);return c;} return caseFromDb((await dbInsert('cases',[casePatchToDb(c)]))[0]); }
-async function updateCase(caseId, patch){ if(!DB_ENABLED){const a=readJson(FILES.cases);const i=a.findIndex(x=>x.caseId===caseId);if(i<0)return null;Object.assign(a[i],patch);writeJson(FILES.cases,a);return a[i];} return caseFromDb((await dbUpdate('cases',`case_id=eq.${encodeURIComponent(caseId)}`,casePatchToDb(patch)))[0]); }
+async function updateCase(caseId, patch){
+  let updated;
+  if(!DB_ENABLED){
+    const a=readJson(FILES.cases);const i=a.findIndex(x=>x.caseId===caseId);if(i<0)return null;
+    Object.assign(a[i],patch);writeJson(FILES.cases,a);updated=a[i];
+  } else {
+    updated=caseFromDb((await dbUpdate('cases',`case_id=eq.${encodeURIComponent(caseId)}`,casePatchToDb(patch)))[0]);
+  }
+  if(updated) broadcastCaseChanged(updated, Object.keys(patch||{}));
+  return updated;
+}
 
 let MESSAGE_SCHEMA_CACHE = null;
 let MESSAGE_SCHEMA_CACHE_AT = 0;
@@ -307,6 +319,8 @@ async function getPersistedReadState(viewerId) {
 }
 
 async function markCaseRead(viewerId, caseId, requestedAt = null) {
+  // Read state is best-effort. Never let a missing/legacy viewer id break the chat UI.
+  if (!viewerId) return { ok:true, lastReadAt:null, persisted:false };
   let lastReadAt = requestedAt && !Number.isNaN(new Date(requestedAt).getTime()) ? new Date(requestedAt).toISOString() : null;
   if (!lastReadAt) {
     const messages = await listMessages(caseId);
@@ -549,7 +563,26 @@ function rateLimit(bucket,max,windowMs){return(req,res,next)=>{const key=`${buck
 function asyncHandler(fn){return function(req,res,next){Promise.resolve(fn(req,res,next)).catch(next);};}
 
 function signToken(user){return jwt.sign({uid:user.id,email:user.email,name:user.name},JWT_SECRET,{expiresIn:'7d'});}
-function requireAuth(req,res,next){const token=req.cookies.token;if(!token)return res.status(401).json({error:'Please log in first.'});try{req.user=jwt.verify(token,JWT_SECRET);next();}catch(_){return res.status(401).json({error:'Your session has expired. Please log in again.'});}}
+async function requireAuth(req,res,next){
+  const token=req.cookies.token;
+  if(!token)return res.status(401).json({error:'Please log in first.'});
+  try{
+    const payload=jwt.verify(token,JWT_SECRET);
+    // Repair legacy sessions that predate the uid claim. This keeps read-state
+    // persistence from ever attempting a NULL viewer_id.
+    if(!payload.uid && payload.email){
+      const user=await findUserByEmail(payload.email);
+      if(!user?.id)return res.status(401).json({error:'Your session needs to be refreshed. Please log in again.'});
+      req.user={uid:user.id,email:user.email,name:user.name};
+      res.cookie('token',signToken(user),{httpOnly:true,sameSite:'lax',secure:IS_PROD,maxAge:7*24*60*60*1000});
+    } else if(payload.uid){
+      req.user=payload;
+    } else {
+      return res.status(401).json({error:'Your session is invalid. Please log in again.'});
+    }
+    next();
+  }catch(_){return res.status(401).json({error:'Your session has expired. Please log in again.'});}
+}
 const MASTER_ADMIN_VIEWER_ID='00000000-0000-0000-0000-000000000001';
 function signStaffToken(staff){return jwt.sign({uid:staff.id||MASTER_ADMIN_VIEWER_ID,email:staff.email,name:staff.name,role:staff.role,staff:true},JWT_SECRET,{expiresIn:'12h'});}
 function requireStaff(req,res,next){const token=req.cookies.staff_token;if(!token)return res.status(401).json({error:'Please sign in to the staff portal.'});try{const staff=jwt.verify(token,JWT_SECRET);if(!staff.staff || !['admin','agent'].includes(staff.role))throw new Error('invalid');req.staff=staff;next();}catch(_){return res.status(401).json({error:'Your staff session has expired. Please sign in again.'});}}
@@ -706,6 +739,7 @@ app.post('/api/my/cases',requireAuth,rateLimit('case-create',10,30*60*1000),asyn
   };
 
   await createCase(record);
+  broadcastCaseChanged(record, ['created']);
 
   if(demoMode){
     return res.status(201).json({
@@ -733,7 +767,7 @@ app.post('/api/my/leads/:leadId/human-support',requireAuth,rateLimit('human-supp
   }
   let caseId=genCaseId();while(await findCase(caseId))caseId=genCaseId();const now=new Date().toISOString();
   const record={id:crypto.randomUUID(),caseId,userId:req.user.uid,userEmail:req.user.email,userName:req.user.name,category:lead.category||'other',description:lead.story||'',summary:lead.summary||'Human support requested from the RefundWaapsi AI conversation.',amountPaise:CASE_FEE_PAISE,paymentStatus:'pending',razorpayOrderId:null,razorpayPaymentId:null,leadId:lead.id,status:'awaiting_payment',createdAt:now,updatedAt:now};
-  if(!PAYMENTS_LIVE)record.razorpayOrderId=`test_order_${record.id.slice(0,8)}`; await createCase(record); const order=await createPaymentOrder(record);
+  if(!PAYMENTS_LIVE)record.razorpayOrderId=`test_order_${record.id.slice(0,8)}`; await createCase(record); broadcastCaseChanged(record, ['created']); const order=await createPaymentOrder(record);
   res.status(201).json({ok:true,caseId,orderId:order.orderId,paymentStatus:'pending',status:record.status,amountPaise:record.amountPaise,keyId:PAYMENTS_LIVE?RAZORPAY_KEY_ID:null,testMode:!PAYMENTS_LIVE});
 }catch(e){console.error(e);res.status(500).json({error:'Could not start human support.'});}});
 
@@ -755,9 +789,15 @@ const cat=(category||'other').slice(0,40);const desc=description.trim().slice(0,
 const leadId=String(req.body?.leadId||'').trim();if(leadId)await importLeadTranscriptIntoCase(record,leadId,req.user.name);
 res.json({ok:true,caseId:record.caseId,summary});}catch(e){console.error(e);res.status(500).json({error:'Could not save case details or evidence.'});}});
 
+function dynamicSummary(c){
+  const x=caseFromDb(c); const base=String(x.summary||'').replace(/\n\nCurrent status: .*$/i,'').trim();
+  const labels={awaiting_payment:'Awaiting payment',awaiting_details:'Awaiting details',submitted:'Submitted', 'in-progress':'In progress',won:'Won',closed:'Closed'};
+  const status=labels[x.status]||x.status||'Open';
+  return base ? `${base}\n\nCurrent status: ${status}.` : `Case status: ${status}.`;
+}
 function stripInternal(c){const x=caseFromDb(c);const{userId,...rest}=x;return rest;}
 async function decorateCase(c){
-  const x=caseFromDb(c);
+  const x=caseFromDb(c); x.summary=dynamicSummary(x); x.displaySummary=x.summary;
   try {
     x.proofFiles=await listCaseFiles(x.caseId);
   } catch (err) {
@@ -831,6 +871,120 @@ app.post('/api/my/cases/:caseId/messages',requireAuth,rateLimit('chat-send',30,5
   res.status(201).json(saved);
 }));
 
+// WebSocket real-time hub. HTTP remains the source of truth; WebSockets only deliver
+// durable state-change events so clients can update without polling or page redraws.
+const WS_CLIENTS = new Set();
+function parseCookieHeader(header='') {
+  const out = {};
+  for (const part of String(header).split(';')) {
+    const idx = part.indexOf('=');
+    if (idx < 0) continue;
+    const k = part.slice(0, idx).trim();
+    const v = part.slice(idx + 1).trim();
+    try { out[k] = decodeURIComponent(v); } catch (_) { out[k] = v; }
+  }
+  return out;
+}
+function socketSend(client, payload) {
+  if (!client || client.ws.readyState !== WebSocket.OPEN) return false;
+  try { client.ws.send(JSON.stringify(payload)); return true; } catch (_) { return false; }
+}
+async function socketCanAccessCase(client, record) {
+  if (!record || !client?.auth) return false;
+  if (client.auth.staff) return client.auth.role === 'admin' || !record.assignedTo || record.assignedTo === client.auth.uid;
+  return record.userId === client.auth.uid;
+}
+async function broadcastCaseEventToAuthorized(record, event) {
+  if (!record) return;
+  for (const client of [...WS_CLIENTS]) {
+    if (await socketCanAccessCase(client, record)) socketSend(client, event);
+  }
+}
+function broadcastToSubscribedCase(caseId, event) {
+  const key=String(caseId);
+  for (const client of [...WS_CLIENTS]) {
+    if (client.cases.has(key)) socketSend(client, event);
+  }
+}
+function broadcastCaseChanged(record, changedFields=[]) {
+  if (!record) return;
+  const c=caseFromDb(record);
+  const event={type:'case.updated',caseId:String(c.caseId),changedFields,updatedAt:c.updatedAt||new Date().toISOString()};
+  // Fire-and-forget authorization checks; state is already durable in the DB.
+  broadcastCaseEventToAuthorized(c,event).catch(err=>console.warn('WS case broadcast:',err.message));
+}
+function broadcastChatMessage(message) {
+  const normalized=normalizeMessageRow(message);
+  broadcastToSubscribedCase(normalized.caseId,{type:'message.created',message:normalized});
+  // Also wake inboxes without exposing message contents to unrelated cases.
+  const caseId=String(normalized.caseId);
+  for (const client of [...WS_CLIENTS]) {
+    if (!client.cases.has(caseId)) {
+      // Authorization is resolved asynchronously from the authoritative case row.
+      findCase(caseId).then(record=>{ if(record && socketCanAccessCase(client,caseFromDb(record))) socketSend(client,{type:'inbox.changed',caseId}); }).catch(()=>{});
+    } else socketSend(client,{type:'inbox.changed',caseId});
+  }
+}
+function authenticateWebSocket(req) {
+  const cookies=parseCookieHeader(req.headers.cookie||'');
+  if (cookies.staff_token) {
+    try {
+      const payload=jwt.verify(cookies.staff_token,JWT_SECRET);
+      if (payload.staff && ['admin','agent'].includes(payload.role) && payload.uid) return payload;
+    } catch (_) {}
+  }
+  if (cookies.token) {
+    try {
+      const payload=jwt.verify(cookies.token,JWT_SECRET);
+      if (payload.uid) return {...payload,staff:false};
+    } catch (_) {}
+  }
+  return null;
+}
+function initWebSocket(server) {
+  const wss=new WebSocketServer({noServer:true,maxPayload:32*1024});
+  server.on('upgrade',(req,socket,head)=>{
+    try {
+      if (new URL(req.url,'http://localhost').pathname !== '/ws') return socket.destroy();
+      const auth=authenticateWebSocket(req);
+      if (!auth) { socket.write('HTTP/1.1 401 Unauthorized\\r\\nConnection: close\\r\\n\\r\\n'); return socket.destroy(); }
+      wss.handleUpgrade(req,socket,head,ws=>wss.emit('connection',ws,req,auth));
+    } catch (_) { socket.destroy(); }
+  });
+  wss.on('connection',(ws,req,auth)=>{
+    const client={ws,auth,cases:new Set(),connectedAt:Date.now()};
+    WS_CLIENTS.add(client);
+    socketSend(client,{type:'ready',serverTime:new Date().toISOString(),viewerId:auth.uid,role:auth.role||'customer'});
+    ws.on('message',async raw=>{
+      try {
+        const msg=JSON.parse(String(raw||'{}'));
+        if(msg.type==='ping'){socketSend(client,{type:'pong',serverTime:new Date().toISOString()});return;}
+        if(msg.type==='subscribe'){
+          const caseId=String(msg.caseId||'');
+          if(!caseId) return;
+          const record=await findCase(caseId);
+          if(!(await socketCanAccessCase(client,record?caseFromDb(record):null))) { socketSend(client,{type:'error',code:'FORBIDDEN',message:'You cannot access this case.'}); return; }
+          client.cases.add(caseId);
+          socketSend(client,{type:'subscribed',caseId});
+          return;
+        }
+        if(msg.type==='unsubscribe'){client.cases.delete(String(msg.caseId||''));return;}
+        if(msg.type==='sync'){
+          for(const caseId of [...client.cases]){
+            const record=await findCase(caseId);
+            if(record && await socketCanAccessCase(client,caseFromDb(record))) socketSend(client,{type:'case.updated',caseId,changedFields:['sync'],updatedAt:caseFromDb(record).updatedAt||null});
+          }
+        }
+      } catch (_) { socketSend(client,{type:'error',code:'BAD_MESSAGE',message:'Invalid WebSocket message.'}); }
+    });
+    ws.on('close',()=>WS_CLIENTS.delete(client));
+    ws.on('error',()=>WS_CLIENTS.delete(client));
+  });
+  const heartbeat=setInterval(()=>{ for(const client of [...WS_CLIENTS]) { if(client.ws.readyState===WebSocket.OPEN) { try{client.ws.ping();}catch(_){try{client.ws.close();}catch(__){}} } else WS_CLIENTS.delete(client); } },25000);
+  heartbeat.unref?.();
+  return wss;
+}
+
 // Lightweight server-push chat transport. Messages are pushed immediately to open conversations;
 // a slow fallback poll remains in the clients for resilience.
 const CHAT_STREAMS = new Map();
@@ -838,10 +992,6 @@ function addChatStream(caseId, viewerId, res) {
   const key=String(caseId); const set=CHAT_STREAMS.get(key)||new Set(); const client={viewerId,res}; set.add(client); CHAT_STREAMS.set(key,set); return client;
 }
 function removeChatStream(caseId, client) { const set=CHAT_STREAMS.get(String(caseId)); if(!set)return; set.delete(client); if(!set.size)CHAT_STREAMS.delete(String(caseId)); }
-function broadcastChatMessage(message) {
-  const set=CHAT_STREAMS.get(String(message.caseId)); if(!set)return; const payload=`event: message\ndata: ${JSON.stringify(message)}\n\n`;
-  for(const client of [...set]) { try { client.res.write(payload); } catch (_) { removeChatStream(message.caseId,client); } }
-}
 
 // ADMIN / AGENT WORKSPACE
 async function listStaffCases(staff){
@@ -914,4 +1064,6 @@ app.use((err,req,res,next)=>{
 // Request-level async failures are handled by asyncHandler above.
 process.on('unhandledRejection',(err)=>console.error('Unhandled promise rejection:',err));
 
-app.listen(PORT,'0.0.0.0',()=>{console.log(`RefundWaapsi server running on port ${PORT}`);console.log(`Database: ${DB_ENABLED?'SUPABASE':'JSON FALLBACK'}`);console.log(`Payments: ${PAYMENTS_LIVE?'LIVE':'TEST MODE'}`);console.log(`Lead chat: ${AI_CHAT_LIVE?'AI':'SCRIPTED'}`);});
+const httpServer=http.createServer(app);
+initWebSocket(httpServer);
+httpServer.listen(PORT,'0.0.0.0',()=>{console.log(`RefundWaapsi server running on port ${PORT}`);console.log(`Database: ${DB_ENABLED?'SUPABASE':'JSON FALLBACK'}`);console.log(`Payments: ${PAYMENTS_LIVE?'LIVE':'TEST MODE'}`);console.log(`Lead chat: ${AI_CHAT_LIVE?'AI':'SCRIPTED'}`);console.log('Realtime: WEBSOCKET /ws');});
