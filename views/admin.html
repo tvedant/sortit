@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RefundWaapsi — Admin</title>
+<style>
+  :root{
+    --bg:#F7F7F9; --ink:#15151C; --crimson:#E63946; --mustard:#FFB703; --blue:#3A86FF; --green:#2ECC71;
+    --border:#15151C;
+  }
+  *{box-sizing:border-box;}
+  body{font-family:'Segoe UI',Arial,sans-serif; background:var(--bg); color:var(--ink); margin:0; padding:28px;}
+  h1{margin:0 0 4px; font-size:24px;}
+  .sub{color:#666; margin-bottom:22px; font-size:14px;}
+  .top-tabs{display:flex; gap:8px; margin-bottom:20px;}
+  .top-tab{
+    font-size:14px; font-weight:700; padding:10px 18px; border:2px solid var(--border);
+    background:#fff; cursor:pointer;
+  }
+  .top-tab.active{background:var(--ink); color:#fff;}
+  .toolbar{display:flex; gap:10px; margin-bottom:18px; flex-wrap:wrap; align-items:center;}
+  select, button, input{font-family:inherit; font-size:13px; padding:8px 12px; border:2px solid var(--border); background:#fff; cursor:pointer;}
+  button.primary{background:var(--ink); color:#fff;}
+  table{width:100%; border-collapse:collapse; background:#fff; border:2px solid var(--border);}
+  th, td{padding:10px 12px; text-align:left; border-bottom:1px solid #ddd; font-size:13px; vertical-align:top;}
+  th{background:var(--ink); color:#fff; font-size:12px; text-transform:uppercase; letter-spacing:.5px;}
+  tr:last-child td{border-bottom:none;}
+  tr.clickable:hover{background:#f5f5f7; cursor:pointer;}
+  .status-badge{display:inline-block; padding:3px 10px; border-radius:20px; font-size:11px; font-weight:700; text-transform:uppercase;}
+  .status-new, .status-awaiting_payment{background:#ffe3e3; color:var(--crimson);}
+  .status-in-progress, .status-awaiting_details, .status-submitted, .status-captured, .status-human{background:#fff3cd; color:#8a6500;}
+  .status-won, .status-converted{background:#d4f7dc; color:#1e7d34;}
+  .status-closed{background:#e2e3e5; color:#555;}
+  .desc-cell{max-width:280px;}
+  .empty{padding:40px; text-align:center; color:#888;}
+  .status-select{font-size:12px; padding:4px 6px;}
+  .count-pill{background:var(--mustard); padding:4px 12px; border-radius:20px; font-weight:700; font-size:13px; border:2px solid var(--border);}
+  .panel-hidden{display:none;}
+
+  /* Case detail + chat modal */
+  .modal-overlay{
+    position:fixed; inset:0; background:rgba(0,0,0,0.5); display:flex; align-items:center; justify-content:center;
+    z-index:100; padding:20px;
+  }
+  .modal{background:#fff; border:2px solid var(--border); max-width:640px; width:100%; max-height:85vh; overflow-y:auto; padding:26px;}
+  .modal h2{margin:0 0 4px; font-size:20px;}
+  .modal .case-id{font-family:monospace; font-size:14px; color:#666; margin-bottom:16px;}
+  .modal-close{float:right; background:none; border:none; font-size:20px; cursor:pointer; padding:0;}
+  .field-row{margin-bottom:14px;}
+  .field-label{font-size:11px; font-weight:700; text-transform:uppercase; color:#888; display:block; margin-bottom:3px;}
+  .field-value{font-size:14px;}
+  .proof-link{display:inline-block; margin-right:10px; font-size:13px; color:var(--blue); text-decoration:none;}
+  .chat-box{border:2px solid var(--border); margin-top:16px;}
+  .chat-messages{height:220px; overflow-y:auto; padding:12px; display:flex; flex-direction:column; gap:8px;}
+  .chat-msg{max-width:75%; padding:8px 12px; font-size:13px; border-radius:4px;}
+  .chat-msg.customer{align-self:flex-start; background:#f0f0f2;}
+  .chat-msg.agent{align-self:flex-end; background:var(--blue); color:#fff;}
+  .chat-msg .who{font-size:9.5px; font-weight:700; opacity:.7; display:block; text-transform:uppercase; margin-bottom:2px;}
+  .chat-input-row{display:flex; border-top:2px solid var(--border);}
+  .chat-input-row input{flex:1; border:none; padding:10px 12px;}
+  .chat-input-row button{border:none; background:var(--ink); color:#fff; padding:0 16px;}
+</style>
+</head>
+<body>
+  <h1>🥊 RefundWaapsi — Admin</h1>
+  <p class="sub">AI chat leads and paid, tracked cases in one place.</p>
+
+  <div class="top-tabs">
+    <div class="top-tab active" data-panel="inquiries">Chat Leads</div>
+    <div class="top-tab" data-panel="cases">Tracked Cases (Paid)</div>
+  </div>
+
+  <!-- LEADS PANEL -->
+  <div id="panelInquiries">
+    <div class="toolbar">
+      <span class="count-pill" id="inqCountPill">0</span>
+      <select id="inqFilterStatus">
+        <option value="">All statuses</option>
+        <option value="in-progress">Still chatting</option>
+        <option value="captured">Captured / AI finished</option>
+        <option value="human">Human is handling</option>
+        <option value="converted">Converted (opened a case)</option>
+        <option value="closed">Closed</option>
+      </select>
+      <button class="primary" id="inqRefreshBtn">Refresh</button>
+    </div>
+    <div id="inqTableWrap"><div class="empty">Loading…</div></div>
+  </div>
+
+  <!-- CASES PANEL -->
+  <div id="panelCases" class="panel-hidden">
+    <div class="toolbar">
+      <span class="count-pill" id="caseCountPill">0</span>
+      <select id="caseFilterStatus">
+        <option value="">All statuses</option>
+        <option value="awaiting_details">Awaiting details</option>
+        <option value="submitted">Submitted</option>
+        <option value="in-progress">In progress</option>
+        <option value="won">Won</option>
+        <option value="closed">Closed</option>
+      </select>
+      <button class="primary" id="caseRefreshBtn">Refresh</button>
+    </div>
+    <div id="caseTableWrap"><div class="empty">Loading…</div></div>
+  </div>
+
+  <!-- LEAD TRANSCRIPT MODAL -->
+  <div class="modal-overlay panel-hidden" id="leadModalOverlay">
+    <div class="modal">
+      <button class="modal-close" id="leadModalCloseBtn">&times;</button>
+      <h2 id="leadModalName">Unnamed lead</h2>
+      <div class="case-id" id="leadModalContact">—</div>
+
+      <div class="field-row">
+        <span class="field-label">Status</span>
+        <select class="status-select" id="leadModalStatusSelect">
+          <option value="in-progress">Still chatting</option>
+          <option value="captured">Captured / AI finished</option>
+          <option value="human">Human is handling</option>
+          <option value="converted">Converted (opened a case)</option>
+          <option value="closed">Closed</option>
+        </select>
+      </div>
+
+      <div class="field-row">
+        <span class="field-label">Conversation</span>
+        <div class="chat-box">
+          <div class="chat-messages" id="leadModalTranscript" style="height:280px;"></div>
+          <div class="chat-input-row">
+            <input id="leadModalInput" type="text" maxlength="2000" placeholder="Reply to customer…">
+            <button id="leadModalSend" class="primary">Send</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- CASE DETAIL MODAL -->
+  <div class="modal-overlay panel-hidden" id="caseModalOverlay">
+    <div class="modal">
+      <button class="modal-close" id="modalCloseBtn">&times;</button>
+      <h2 id="modalCaseId">RW-0000-XXXXXX</h2>
+      <div class="case-id" id="modalCustomer">—</div>
+
+      <div class="field-row">
+        <span class="field-label">Status</span>
+        <select class="status-select" id="modalStatusSelect">
+          <option value="awaiting_details">Awaiting details</option>
+          <option value="submitted">Submitted</option>
+          <option value="in-progress">In progress</option>
+          <option value="won">Won</option>
+          <option value="closed">Closed</option>
+        </select>
+      </div>
+      <div class="field-row"><span class="field-label">Category</span><div class="field-value" id="modalCategory">—</div></div>
+      <div class="field-row"><span class="field-label">Description</span><div class="field-value" id="modalDescription">—</div></div>
+      <div class="field-row"><span class="field-label">Proofs</span><div class="field-value" id="modalProofs">None</div></div>
+      <div class="field-row"><span class="field-label">Summary</span><div class="field-value" id="modalSummary">—</div></div>
+
+      <div class="chat-box">
+        <div class="chat-messages" id="modalChatMessages"></div>
+        <div class="chat-input-row">
+          <input type="text" id="modalChatInput" placeholder="Reply as agent…" maxlength="2000">
+          <button id="modalChatSend">Send</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+<script>
+  // ---- Tab switching ----
+  document.querySelectorAll('.top-tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      document.querySelectorAll('.top-tab').forEach(t => t.classList.remove('active'));
+      tab.classList.add('active');
+      document.getElementById('panelInquiries').classList.toggle('panel-hidden', tab.dataset.panel !== 'inquiries');
+      document.getElementById('panelCases').classList.toggle('panel-hidden', tab.dataset.panel !== 'cases');
+    });
+  });
+
+  function escapeHtml(str) {
+    const div = document.createElement('div');
+    div.textContent = str || '';
+    return div.innerHTML;
+  }
+  function badge(status) {
+    return `<span class="status-badge status-${status}">${status.replace(/_|-/g, ' ')}</span>`;
+  }
+
+  // =========================================================================
+  // AI CHAT LEADS (captured from the homepage chat widget)
+  // =========================================================================
+  let allInquiries = [];
+  async function loadInquiries() {
+    document.getElementById('inqTableWrap').innerHTML = '<div class="empty">Loading…</div>';
+    try {
+      const res = await fetch('/api/admin/leads');
+      allInquiries = await res.json();
+      renderInquiries();
+    } catch (e) {
+      document.getElementById('inqTableWrap').innerHTML = '<div class="empty">Could not load. Try refreshing.</div>';
+    }
+  }
+  function renderInquiries() {
+    const filter = document.getElementById('inqFilterStatus').value;
+    const rows = filter ? allInquiries.filter(i => i.status === filter) : allInquiries;
+    document.getElementById('inqCountPill').textContent = `${rows.length} leads`;
+    const wrap = document.getElementById('inqTableWrap');
+    if (!rows.length) { wrap.innerHTML = '<div class="empty">Nothing here yet.</div>'; return; }
+    wrap.innerHTML = `
+      <table><thead><tr><th>Started</th><th>Name</th><th>Contact</th><th>Category</th><th>Story</th><th>Source</th><th>Status</th></tr></thead>
+      <tbody>
+        ${rows.map(i => `
+          <tr class="clickable" data-lead="${i.id}">
+            <td>${new Date(i.createdAt).toLocaleString('en-IN')}</td>
+            <td>${escapeHtml(i.name || '—')}</td>
+            <td>${escapeHtml(i.contact || '—')}</td>
+            <td>${escapeHtml(i.category || '—')}</td>
+            <td class="desc-cell">${escapeHtml(i.story || '(conversation still in progress — click to view)')}</td>
+            <td>${i.source === 'ai' ? '🤖 AI' : '📋 Guided'}</td>
+            <td>${badge(i.status)}</td>
+          </tr>
+        `).join('')}
+      </tbody></table>
+    `;
+    wrap.querySelectorAll('tr.clickable').forEach(row => {
+      row.addEventListener('click', () => openLeadModal(row.dataset.lead));
+    });
+  }
+
+  let leadModalTimer = null;
+  function renderLeadTranscript(lead) {
+    const el = document.getElementById('leadModalTranscript');
+    const wasAtBottom = el.scrollTop + el.clientHeight >= el.scrollHeight - 12;
+    el.innerHTML = (lead.transcript || []).map(t => {
+      const isCustomer = t.role === 'user';
+      const isHuman = t.role === 'human';
+      const cls = isCustomer ? 'customer' : 'agent';
+      const who = isCustomer ? (lead.name || 'Customer') : (isHuman ? 'RefundWaapsi Human' : 'AI Assistant');
+      return `<div class="chat-msg ${cls}"><span class="who">${escapeHtml(who)}</span>${escapeHtml(t.text)}</div>`;
+    }).join('');
+    if (wasAtBottom) el.scrollTop = el.scrollHeight;
+  }
+  async function refreshLeadModal() {
+    const leadId = document.getElementById('leadModalOverlay').dataset.leadId;
+    if (!leadId) return;
+    try {
+      const res = await fetch('/api/admin/leads');
+      if (!res.ok) return;
+      allInquiries = await res.json();
+      const lead = allInquiries.find(l => l.id === leadId);
+      if (!lead) return;
+      document.getElementById('leadModalName').textContent = lead.name || 'Unnamed lead';
+      document.getElementById('leadModalContact').textContent = lead.contact || 'No contact captured yet';
+      document.getElementById('leadModalStatusSelect').value = lead.status;
+      renderLeadTranscript(lead);
+    } catch (_) {}
+  }
+  function openLeadModal(leadId) {
+    const lead = allInquiries.find(l => l.id === leadId);
+    if (!lead) return;
+    document.getElementById('leadModalOverlay').dataset.leadId = leadId;
+    document.getElementById('leadModalName').textContent = lead.name || 'Unnamed lead';
+    document.getElementById('leadModalContact').textContent = lead.contact || 'No contact captured yet';
+    document.getElementById('leadModalStatusSelect').value = lead.status;
+    renderLeadTranscript(lead);
+    document.getElementById('leadModalOverlay').classList.remove('panel-hidden');
+    if (leadModalTimer) clearInterval(leadModalTimer);
+    leadModalTimer = setInterval(refreshLeadModal, 3500);
+  }
+  function closeLeadModal() {
+    document.getElementById('leadModalOverlay').classList.add('panel-hidden');
+    document.getElementById('leadModalOverlay').dataset.leadId = '';
+    if (leadModalTimer) { clearInterval(leadModalTimer); leadModalTimer = null; }
+  }
+  document.getElementById('leadModalCloseBtn').addEventListener('click', closeLeadModal);
+  document.getElementById('leadModalOverlay').addEventListener('click', e => { if (e.target.id === 'leadModalOverlay') closeLeadModal(); });
+  document.getElementById('leadModalStatusSelect').addEventListener('change', async e => {
+    const leadId = document.getElementById('leadModalOverlay').dataset.leadId;
+    const status = e.target.value;
+    const res = await fetch(`/api/admin/leads/${leadId}`, { method:'PATCH', headers:{'Content-Type':'application/json'}, body:JSON.stringify({status}) });
+    if (!res.ok) return;
+    const target = allInquiries.find(i => i.id === leadId);
+    if (target) target.status = status;
+    renderInquiries();
+  });
+  async function sendLeadHumanMessage() {
+    const leadId = document.getElementById('leadModalOverlay').dataset.leadId;
+    const input = document.getElementById('leadModalInput');
+    const text = input.value.trim();
+    if (!leadId || !text) return;
+    input.value = '';
+    const res = await fetch(`/api/admin/leads/${leadId}/messages`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({text}) });
+    if (!res.ok) { alert('Could not send message.'); return; }
+    await refreshLeadModal();
+  }
+  document.getElementById('leadModalSend').addEventListener('click', sendLeadHumanMessage);
+  document.getElementById('leadModalInput').addEventListener('keydown', e => { if (e.key === 'Enter') sendLeadHumanMessage(); });
+  document.getElementById('inqFilterStatus').addEventListener('change', renderInquiries);
+  document.getElementById('inqRefreshBtn').addEventListener('click', loadInquiries);
+
+  // =========================================================================
+  // TRACKED CASES (paid)
+  // =========================================================================
+  let allCases = [];
+  async function loadCases() {
+    document.getElementById('caseTableWrap').innerHTML = '<div class="empty">Loading…</div>';
+    try {
+      const res = await fetch('/api/admin/cases');
+      allCases = await res.json();
+      renderCases();
+    } catch (e) {
+      document.getElementById('caseTableWrap').innerHTML = '<div class="empty">Could not load. Try refreshing.</div>';
+    }
+  }
+  function renderCases() {
+    const filter = document.getElementById('caseFilterStatus').value;
+    const rows = filter ? allCases.filter(c => c.status === filter) : allCases;
+    document.getElementById('caseCountPill').textContent = `${rows.length} cases`;
+    const wrap = document.getElementById('caseTableWrap');
+    if (!rows.length) { wrap.innerHTML = '<div class="empty">No paid cases yet.</div>'; return; }
+    wrap.innerHTML = `
+      <table><thead><tr><th>Case ID</th><th>Customer</th><th>Category</th><th>Filed</th><th>Status</th></tr></thead>
+      <tbody>
+        ${rows.map(c => `
+          <tr class="clickable" data-case="${c.caseId}">
+            <td><strong>${c.caseId}</strong></td>
+            <td>${escapeHtml(c.userName)}<br><small>${escapeHtml(c.userEmail)}</small></td>
+            <td>${escapeHtml(c.category || '—')}</td>
+            <td>${new Date(c.createdAt).toLocaleString('en-IN')}</td>
+            <td>${badge(c.status)}</td>
+          </tr>
+        `).join('')}
+      </tbody></table>
+    `;
+    wrap.querySelectorAll('tr.clickable').forEach(row => {
+      row.addEventListener('click', () => openCaseModal(row.dataset.case));
+    });
+  }
+  document.getElementById('caseFilterStatus').addEventListener('change', renderCases);
+  document.getElementById('caseRefreshBtn').addEventListener('click', loadCases);
+
+  // ---- Case detail modal + agent chat ----
+  let modalCaseId = null;
+  let modalChatTimer = null;
+
+  async function openCaseModal(caseId) {
+    modalCaseId = caseId;
+    const c = allCases.find(x => x.caseId === caseId);
+    if (!c) return;
+
+    document.getElementById('modalCaseId').textContent = c.caseId;
+    document.getElementById('modalCustomer').textContent = `${c.userName} · ${c.userEmail}`;
+    document.getElementById('modalStatusSelect').value = c.status;
+    document.getElementById('modalCategory').textContent = c.category || '—';
+    document.getElementById('modalDescription').textContent = c.description || '—';
+    document.getElementById('modalSummary').textContent = c.summary || '—';
+    document.getElementById('modalProofs').innerHTML = (c.proofFiles && c.proofFiles.length)
+      ? c.proofFiles.map(f => `<a class="proof-link" target="_blank" href="/api/admin/cases/${c.caseId}/files/${f.filename}">📎 ${escapeHtml(f.originalName)}</a>`).join('')
+      : 'None';
+
+    document.getElementById('caseModalOverlay').classList.remove('panel-hidden');
+    await loadModalMessages();
+    if (modalChatTimer) clearInterval(modalChatTimer);
+    modalChatTimer = setInterval(loadModalMessages, 4000);
+  }
+
+  function closeCaseModal() {
+    document.getElementById('caseModalOverlay').classList.add('panel-hidden');
+    if (modalChatTimer) { clearInterval(modalChatTimer); modalChatTimer = null; }
+    modalCaseId = null;
+  }
+  document.getElementById('modalCloseBtn').addEventListener('click', closeCaseModal);
+  document.getElementById('caseModalOverlay').addEventListener('click', (e) => {
+    if (e.target.id === 'caseModalOverlay') closeCaseModal();
+  });
+
+  document.getElementById('modalStatusSelect').addEventListener('change', async (e) => {
+    if (!modalCaseId) return;
+    await fetch(`/api/admin/cases/${modalCaseId}/status`, {
+      method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status: e.target.value }),
+    });
+    const target = allCases.find(c => c.caseId === modalCaseId);
+    if (target) target.status = e.target.value;
+    renderCases();
+  });
+
+  async function loadModalMessages() {
+    if (!modalCaseId) return;
+    const res = await fetch(`/api/admin/cases/${modalCaseId}/messages`);
+    const messages = await res.json();
+    const el = document.getElementById('modalChatMessages');
+    if (!messages.length) { el.innerHTML = '<div style="text-align:center;color:#999;font-size:12px;padding:20px 0;">No messages yet.</div>'; return; }
+    const wasAtBottom = el.scrollTop + el.clientHeight >= el.scrollHeight - 10;
+    el.innerHTML = messages.map(m => `
+      <div class="chat-msg ${m.sender}"><span class="who">${m.sender}</span>${escapeHtml(m.text)}</div>
+    `).join('');
+    if (wasAtBottom) el.scrollTop = el.scrollHeight;
+  }
+
+  document.getElementById('modalChatSend').addEventListener('click', sendModalMessage);
+  document.getElementById('modalChatInput').addEventListener('keydown', (e) => { if (e.key === 'Enter') sendModalMessage(); });
+  async function sendModalMessage() {
+    const input = document.getElementById('modalChatInput');
+    const text = input.value.trim();
+    if (!text || !modalCaseId) return;
+    input.value = '';
+    await fetch(`/api/admin/cases/${modalCaseId}/messages`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text }),
+    });
+    await loadModalMessages();
+  }
+
+  loadInquiries();
+  loadCases();
+</script>
+</body>
+</html>

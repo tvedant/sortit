@@ -1,0 +1,466 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>My Cases — RefundWaapsi</title>
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#1A1611; --paper:#F0E6CC; --paper-2:#E8DBB8;
+    --crimson:#C1272D; --mustard:#E8A33D; --blue:#2C5F8A; --green:#4C7A3D;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; background:var(--paper); color:var(--ink); font-family:'Space Grotesk',sans-serif;
+    background-image:radial-gradient(circle, rgba(26,22,17,0.06) 1px, transparent 1.3px);
+    background-size:14px 14px; min-height:100vh;
+  }
+  h1,h2,h3{font-family:'Anton',sans-serif; font-weight:400; margin:0;}
+  .wrap{max-width:900px; margin:0 auto; padding:0 24px;}
+  nav{border-bottom:3px solid var(--ink); background:var(--paper);}
+  .nav-inner{display:flex; align-items:center; justify-content:space-between; padding:14px 24px; max-width:900px; margin:0 auto;}
+  .logo{display:flex; align-items:center; gap:10px; text-decoration:none; color:var(--ink); font-family:'Anton',sans-serif; font-size:20px;}
+  .logo-badge{width:32px;height:32px;border-radius:50%; background:var(--crimson); border:3px solid var(--ink); display:flex;align-items:center;justify-content:center; color:var(--paper); font-size:16px; transform:rotate(-8deg);}
+  .user-chip{font-size:13px; font-weight:600; display:flex; align-items:center; gap:12px;}
+  .logout-btn{background:none; border:2px solid var(--ink); padding:6px 12px; font-weight:700; cursor:pointer; font-size:12.5px;}
+  .logout-btn:hover{background:var(--crimson); color:var(--paper); border-color:var(--crimson);}
+  main{padding:40px 0 80px;}
+  .page-title{font-size:32px; margin-bottom:6px;}
+  .page-sub{font-size:14px; color:#5a4f3c; margin:0 0 30px;}
+
+  .btn{
+    font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:15px;
+    padding:12px 22px; border:3px solid var(--ink); cursor:pointer;
+    background:var(--ink); color:var(--paper); box-shadow:4px 4px 0 var(--crimson);
+    display:inline-flex; align-items:center; gap:8px; text-decoration:none;
+  }
+  .btn:hover{transform:translate(-2px,-2px); box-shadow:6px 6px 0 var(--crimson);}
+  .btn:disabled{opacity:.6; cursor:not-allowed; transform:none;}
+  .btn.secondary{background:var(--paper); color:var(--ink); box-shadow:4px 4px 0 var(--blue);}
+
+  .case-list{display:flex; flex-direction:column; gap:14px; margin-bottom:30px;}
+  .case-row{
+    border:3px solid var(--ink); background:var(--paper); padding:16px 18px;
+    display:flex; justify-content:space-between; align-items:center; gap:14px; cursor:pointer;
+    box-shadow:4px 4px 0 rgba(0,0,0,0.15); flex-wrap:wrap;
+  }
+  .case-row:hover{background:var(--paper-2);}
+  .case-id{font-family:'Anton',sans-serif; font-size:16px;}
+  .case-meta{font-size:12.5px; color:#5a4f3c; margin-top:2px;}
+  .status-badge{padding:4px 12px; border-radius:20px; font-size:11px; font-weight:700; text-transform:uppercase;}
+  .status-awaiting_payment{background:#fde2e2; color:var(--crimson);}
+  .status-awaiting_details{background:#fff3cd; color:#8a6500;}
+  .status-submitted{background:#dbe7f5; color:var(--blue);}
+  .status-in-progress{background:#fff3cd; color:#8a6500;}
+  .status-won{background:#d4f7dc; color:#1e7d34;}
+  .status-closed{background:#e2e3e5; color:#555;}
+  .empty-state{border:3px dashed var(--ink); padding:40px; text-align:center; color:#5a4f3c;}
+
+  .panel{border:3px solid var(--ink); background:var(--paper); padding:28px; box-shadow:6px 6px 0 var(--mustard); margin-bottom:24px;}
+  .panel h2{font-size:22px; margin-bottom:6px;}
+  .panel .sub{font-size:14px; color:#5a4f3c; margin:0 0 20px;}
+
+  .fee-box{display:flex; align-items:center; justify-content:space-between; border:2px dashed var(--ink); padding:16px 18px; margin-bottom:20px; background:var(--paper-2);}
+  .fee-amount{font-family:'Anton',sans-serif; font-size:28px;}
+
+  .form-label{display:block; font-size:12.5px; font-weight:700; margin:14px 0 5px; text-transform:uppercase; letter-spacing:.4px;}
+  .form-input{width:100%; padding:11px 12px; border:2px solid var(--ink); background:#fff; font-family:'Space Grotesk',sans-serif; font-size:14px; color:var(--ink);}
+  .form-input:focus{outline:none; box-shadow:3px 3px 0 var(--blue);}
+  textarea.form-input{resize:vertical; min-height:110px;}
+  .msg{font-size:13.5px; font-weight:700; min-height:18px; margin-top:12px;}
+  .msg.error{color:var(--crimson);}
+  .msg.success{color:var(--green);}
+
+  .summary-box{background:var(--paper-2); border:2px solid var(--ink); padding:18px; margin:16px 0; font-size:14.5px; line-height:1.55;}
+  .case-id-big{font-family:'Anton',sans-serif; font-size:30px; color:var(--crimson); margin:4px 0 16px;}
+
+  .chat-wrap{border:3px solid var(--ink); background:#fff; margin-top:10px;}
+  .chat-messages{height:320px; overflow-y:auto; padding:16px; display:flex; flex-direction:column; gap:10px;}
+  .chat-msg{max-width:75%; padding:10px 14px; font-size:14px; line-height:1.4;}
+  .chat-msg.customer{align-self:flex-end; background:var(--blue); color:#fff;}
+  .chat-msg.agent{align-self:flex-start; background:var(--paper-2); border:2px solid var(--ink);}
+  .chat-msg .who{font-size:10.5px; font-weight:700; opacity:.75; display:block; margin-bottom:3px; text-transform:uppercase;}
+  .chat-empty{text-align:center; color:#999; font-size:13px; padding:30px 0;}
+  .chat-input-row{display:flex; border-top:3px solid var(--ink);}
+  .chat-input{flex:1; border:none; padding:14px; font-family:'Space Grotesk',sans-serif; font-size:14px;}
+  .chat-input:focus{outline:none;}
+  .chat-send{border:none; background:var(--ink); color:var(--paper); padding:0 22px; font-weight:700; cursor:pointer;}
+  .chat-send:hover{background:var(--crimson);}
+
+  .back-link{display:inline-block; margin-bottom:20px; font-size:13px; text-decoration:none; color:#5a4f3c; font-weight:600;}
+  .back-link:hover{color:var(--crimson);}
+  .file-list{font-size:13px; margin-top:8px; color:#5a4f3c;}
+  .hidden{display:none;}
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="nav-inner">
+    <a href="/" class="logo"><span class="logo-badge">R</span> REFUNDWAAPSI</a>
+    <div class="user-chip">
+      <span id="userNameChip">…</span>
+      <button class="logout-btn" id="logoutBtn">Log Out</button>
+    </div>
+  </div>
+</nav>
+
+<main class="wrap">
+
+  <!-- SCREEN: LIST -->
+  <div id="screenList">
+    <h1 class="page-title">My Cases</h1>
+    <p class="page-sub">Every case you've filed, with its status and a direct chat with your agent.</p>
+    <button class="btn" id="newCaseBtn">+ Open a New Case (₹<span id="feeDisplay1">59</span>)</button>
+    <div class="case-list" id="caseList" style="margin-top:24px;"></div>
+  </div>
+
+  <!-- SCREEN: PAYMENT -->
+  <div id="screenPay" class="hidden">
+    <a href="#" class="back-link" id="backFromPay">← Back to my cases</a>
+    <div class="panel">
+      <h2 id="payTitle">Pay &amp; Connect</h2>
+      <p class="sub" id="paySub">A small filing fee keeps this queue serious and spam-free. Case ID: <strong id="payCaseId">—</strong></p>
+      <div class="fee-box">
+        <span>Case filing fee</span>
+        <span class="fee-amount">₹<span id="feeDisplay2">59</span></span>
+      </div>
+      <div id="testModeNotice" class="hidden" style="font-size:13px; background:#fff3cd; border:2px dashed var(--ink); padding:12px; margin-bottom:16px;">
+        <strong>Test mode:</strong> no live payment gateway is connected yet, so this button simulates a successful ₹59 payment instead of charging a real card.
+      </div>
+      <button class="btn" id="payBtn" style="width:100%; justify-content:center;">Pay ₹<span id="feeDisplay3">59</span> &amp; Continue</button>
+      <p class="msg" id="payMsg"></p>
+    </div>
+  </div>
+
+  <!-- SCREEN: DETAILS FORM -->
+  <div id="screenDetails" class="hidden">
+    <a href="#" class="back-link" id="backFromDetails">← Back to my cases</a>
+    <div class="panel">
+      <h2>Tell Us What Happened</h2>
+      <p class="sub">Case ID: <strong id="detailsCaseId">—</strong> — payment confirmed. Now let's get the details on record.</p>
+      <form id="detailsForm">
+        <label class="form-label" for="d-category">What kind of company gave you trouble?</label>
+        <select class="form-input" id="d-category">
+          <option value="ecommerce">🛒 E-commerce</option>
+          <option value="banking">🏦 Banking / EMI</option>
+          <option value="telecom">📶 Telecom</option>
+          <option value="travel">✈️ Travel / Cab</option>
+          <option value="food">🍔 Food Delivery</option>
+          <option value="insurance">🛡️ Insurance</option>
+          <option value="other">🤷 Something else</option>
+        </select>
+
+        <label class="form-label" for="d-desc">What happened? (at least 20 characters)</label>
+        <textarea class="form-input" id="d-desc" required minlength="20" maxlength="4000" placeholder="What did you buy or sign up for, what went wrong, and what have you tried so far?"></textarea>
+
+        <label class="form-label" for="d-proofs">Upload proofs (screenshots, receipts, PDFs — up to 5 files, 8MB each)</label>
+        <input class="form-input" type="file" id="d-proofs" multiple accept="image/png,image/jpeg,image/webp,application/pdf">
+
+        <button type="submit" class="btn" id="detailsSubmitBtn" style="width:100%; justify-content:center; margin-top:18px;">Submit Case Details 🥊</button>
+        <p class="msg" id="detailsMsg"></p>
+      </form>
+    </div>
+  </div>
+
+  <!-- SCREEN: SUMMARY + CHAT -->
+  <div id="screenCase" class="hidden">
+    <a href="#" class="back-link" id="backFromCase">← Back to my cases</a>
+    <div class="panel">
+      <span style="font-size:12px; font-weight:700; text-transform:uppercase; color:#5a4f3c;">Your Case ID</span>
+      <div class="case-id-big" id="caseViewId">RW-0000-XXXXXX</div>
+      <span class="status-badge" id="caseViewStatus">—</span>
+      <h3 style="margin-top:20px; font-size:16px;">Summary</h3>
+      <div class="summary-box" id="caseViewSummary">—</div>
+      <div class="file-list" id="caseViewFiles"></div>
+    </div>
+
+    <div class="panel" style="padding:0; overflow:hidden;">
+      <div style="padding:20px 20px 0;">
+        <h2 style="font-size:20px;">Chat With Your Agent</h2>
+        <p class="sub">Messages refresh automatically every few seconds.</p>
+      </div>
+      <div class="chat-wrap" style="border:none; border-top:2px solid var(--ink);">
+        <div class="chat-messages" id="chatMessages"><div class="chat-empty">No messages yet — say hello!</div></div>
+        <div class="chat-input-row">
+          <input class="chat-input" id="chatInput" type="text" placeholder="Type a message…" maxlength="2000">
+          <button class="chat-send" id="chatSendBtn">Send</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<script>
+  let currentUser = null;
+  let currentCaseId = null;
+  let chatPollTimer = null;
+  let config = { paymentsLive: false, caseFeeRupees: 59 };
+  let prefillLead = null;
+  let prefillLeadId = null;
+
+  const screens = {
+    list: document.getElementById('screenList'),
+    pay: document.getElementById('screenPay'),
+    details: document.getElementById('screenDetails'),
+    case: document.getElementById('screenCase'),
+  };
+  function showScreen(name) {
+    Object.values(screens).forEach(s => s.classList.add('hidden'));
+    screens[name].classList.remove('hidden');
+    if (name !== 'case' && chatPollTimer) { clearInterval(chatPollTimer); chatPollTimer = null; }
+  }
+
+  function statusLabel(s) {
+    return ({
+      awaiting_payment: 'Awaiting Payment',
+      awaiting_details: 'Awaiting Details',
+      submitted: 'Submitted',
+      'in-progress': 'In Progress',
+      won: 'Won',
+      closed: 'Closed',
+    })[s] || s;
+  }
+
+  async function init() {
+    try {
+      const meRes = await fetch('/api/auth/me');
+      if (!meRes.ok) { window.location.href = '/login.html?next=/dashboard.html'; return; }
+      currentUser = await meRes.json();
+      document.getElementById('userNameChip').textContent = `Hi, ${currentUser.name.split(' ')[0]}`;
+
+      const configRes = await fetch('/api/config');
+      config = await configRes.json();
+      document.querySelectorAll('#feeDisplay1,#feeDisplay2,#feeDisplay3').forEach(el => el.textContent = config.caseFeeRupees);
+      document.getElementById('testModeNotice').classList.toggle('hidden', config.paymentsLive);
+
+      await loadCases();
+
+      const leadId = new URLSearchParams(window.location.search).get('leadId');
+      if (leadId) {
+        prefillLeadId = leadId;
+        try {
+          const leadRes = await fetch(`/api/my/leads/${leadId}`);
+          if (leadRes.ok) {
+            prefillLead = await leadRes.json();
+            const support = await fetch(`/api/my/leads/${leadId}/human-support`, {method:'POST'});
+            const supportData = await support.json();
+            if (!support.ok) throw new Error(supportData.error || 'Could not start human support.');
+            currentCaseId = supportData.caseId;
+            if (supportData.paymentStatus === 'paid') {
+              await openCaseView(currentCaseId);
+              return;
+            }
+            document.getElementById('payTitle').textContent='Connect a Human';
+            document.getElementById('paySub').innerHTML=`AI intake is complete. Pay the support fee to unlock a RefundWaapsi human in this same conversation. Case ID: <strong id="payCaseId">${supportData.caseId}</strong>`;
+            document.getElementById('payCaseId').textContent=supportData.caseId;
+            showScreen('pay');
+            window.__humanSupportOrder=supportData;
+            return;
+          }
+        } catch (e) { console.error(e); }
+      }
+
+      showScreen('list');
+    } catch (err) {
+      console.error(err);
+    }
+  }
+
+  async function loadCases() {
+    const res = await fetch('/api/my/cases');
+    const cases = await res.json();
+    const listEl = document.getElementById('caseList');
+    if (!cases.length) {
+      listEl.innerHTML = '<div class="empty-state">No cases yet. Click "Open a New Case" to file your first one.</div>';
+      return;
+    }
+    listEl.innerHTML = cases.map(c => `
+      <div class="case-row" data-case="${c.caseId}" data-status="${c.status}">
+        <div>
+          <div class="case-id">${c.caseId}</div>
+          <div class="case-meta">${new Date(c.createdAt).toLocaleString('en-IN')}${c.category ? ' • ' + c.category : ''}</div>
+        </div>
+        <span class="status-badge status-${c.status}">${statusLabel(c.status)}</span>
+      </div>
+    `).join('');
+    listEl.querySelectorAll('.case-row').forEach(row => {
+      row.addEventListener('click', () => resumeCase(row.dataset.case, row.dataset.status));
+    });
+  }
+
+  function resumeCase(caseId, status) {
+    currentCaseId = caseId;
+    if (status === 'awaiting_payment') {
+      document.getElementById('payCaseId').textContent = caseId;
+      showScreen('pay');
+    } else if (status === 'awaiting_details') {
+      document.getElementById('detailsCaseId').textContent = caseId;
+      showScreen('details');
+    } else {
+      openCaseView(caseId);
+    }
+  }
+
+  // ---- New case ----
+  document.getElementById('newCaseBtn').addEventListener('click', async () => {
+    const res = await fetch('/api/my/cases', { method: 'POST' });
+    const data = await res.json();
+    if (!res.ok) { alert(data.error || 'Could not start a new case.'); return; }
+    currentCaseId = data.caseId;
+    document.getElementById('payCaseId').textContent = data.caseId;
+    showScreen('pay');
+  });
+
+  document.getElementById('backFromPay').addEventListener('click', (e) => { e.preventDefault(); loadCases(); showScreen('list'); });
+  document.getElementById('backFromDetails').addEventListener('click', (e) => { e.preventDefault(); loadCases(); showScreen('list'); });
+  document.getElementById('backFromCase').addEventListener('click', (e) => { e.preventDefault(); loadCases(); showScreen('list'); });
+
+  // ---- Payment ----
+  document.getElementById('payBtn').addEventListener('click', async () => {
+    const btn = document.getElementById('payBtn');
+    const msg = document.getElementById('payMsg');
+    msg.textContent = ''; msg.className = 'msg'; btn.disabled = true; btn.textContent = 'Processing…';
+    const humanSupport = Boolean(window.__humanSupportOrder);
+    try {
+      if (!config.paymentsLive) {
+        const res = await fetch(`/api/my/cases/${currentCaseId}/mock-pay`, { method: 'POST' });
+        const data = await res.json(); if (!res.ok) throw new Error(data.error || 'Payment failed.');
+        window.__humanSupportOrder=null; applyLeadPrefill(); await openCaseView(currentCaseId);
+        return;
+      }
+      const orderRes = await fetch(`/api/my/cases/${currentCaseId}/payment-order`, { method: 'POST' });
+      const order = await orderRes.json(); if (!orderRes.ok) throw new Error(order.error || 'Could not start payment.');
+      const options = {
+        key: order.keyId, amount: order.amountPaise, currency:'INR', name:'RefundWaapsi',
+        description: humanSupport ? `Human support — ${order.caseId}` : `Case filing fee — ${order.caseId}`,
+        order_id: order.orderId,
+        handler: async function(response){
+          const verifyRes=await fetch(`/api/my/cases/${currentCaseId}/verify-payment`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(response)});
+          const verifyData=await verifyRes.json();
+          if(!verifyRes.ok){msg.textContent=verifyData.error||'Payment verification failed.';msg.className='msg error';return;}
+          window.__humanSupportOrder=null; applyLeadPrefill(); await openCaseView(currentCaseId);
+        },
+        theme:{color:'#C1272D'}
+      };
+      const rzp=new Razorpay(options); rzp.open();
+    } catch(err){msg.textContent=err.message||'Could not start payment.';msg.className='msg error';}
+    finally {btn.disabled=false;btn.textContent=`Pay ₹${config.caseFeeRupees} & Continue`;}
+  });
+
+  function applyLeadPrefill() {
+    if (!prefillLead) return;
+    if (prefillLead.category) document.getElementById('d-category').value = prefillLead.category;
+    if (prefillLead.story) document.getElementById('d-desc').value = prefillLead.story;
+    prefillLead = null; // use it once
+  }
+
+  // ---- Details + proof submission ----
+  document.getElementById('detailsForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const btn = document.getElementById('detailsSubmitBtn');
+    const msg = document.getElementById('detailsMsg');
+    msg.textContent = ''; msg.className = 'msg';
+
+    const description = document.getElementById('d-desc').value.trim();
+    if (description.length < 20) {
+      msg.textContent = 'Please add a bit more detail (at least 20 characters).';
+      msg.className = 'msg error';
+      return;
+    }
+
+    btn.disabled = true; btn.textContent = 'Submitting…';
+    const formData = new FormData();
+    formData.append('category', document.getElementById('d-category').value);
+    formData.append('description', description);
+    if (prefillLeadId) formData.append('leadId', prefillLeadId);
+    const files = document.getElementById('d-proofs').files;
+    for (let i = 0; i < files.length; i++) formData.append('proofs', files[i]);
+
+    try {
+      const res = await fetch(`/api/my/cases/${currentCaseId}/details`, { method: 'POST', body: formData });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Could not submit case details.');
+      openCaseView(currentCaseId);
+    } catch (err) {
+      msg.textContent = err.message; msg.className = 'msg error';
+    } finally {
+      btn.disabled = false; btn.textContent = 'Submit Case Details 🥊';
+    }
+  });
+
+  // ---- Case summary + chat ----
+  async function openCaseView(caseId) {
+    currentCaseId = caseId;
+    const res = await fetch(`/api/my/cases/${caseId}`);
+    const c = await res.json();
+    document.getElementById('caseViewId').textContent = c.caseId;
+    document.getElementById('caseViewStatus').textContent = statusLabel(c.status);
+    document.getElementById('caseViewStatus').className = `status-badge status-${c.status}`;
+    document.getElementById('caseViewSummary').textContent = c.summary || 'Summary will appear here once details are submitted.';
+    document.getElementById('caseViewFiles').textContent = c.proofFiles && c.proofFiles.length
+      ? `📎 ${c.proofFiles.length} file(s) attached: ${c.proofFiles.map(f => f.originalName).join(', ')}`
+      : '';
+    showScreen('case');
+    await loadMessages();
+    if (chatPollTimer) clearInterval(chatPollTimer);
+    chatPollTimer = setInterval(loadMessages, 4000);
+  }
+
+  async function loadMessages() {
+    if (!currentCaseId) return;
+    const res = await fetch(`/api/my/cases/${currentCaseId}/messages`);
+    if (!res.ok) return;
+    const messages = await res.json();
+    const el = document.getElementById('chatMessages');
+    const wasAtBottom = el.scrollTop + el.clientHeight >= el.scrollHeight - 10;
+    if (!messages.length) {
+      el.innerHTML = '<div class="chat-empty">No messages yet — say hello!</div>';
+      return;
+    }
+    el.innerHTML = messages.map(m => `
+      <div class="chat-msg ${m.sender}">
+        <span class="who">${m.sender === 'agent' ? 'Agent' : 'You'}</span>
+        ${escapeHtml(m.text)}
+      </div>
+    `).join('');
+    if (wasAtBottom) el.scrollTop = el.scrollHeight;
+  }
+
+  function escapeHtml(str) {
+    const div = document.createElement('div');
+    div.textContent = str;
+    return div.innerHTML;
+  }
+
+  document.getElementById('chatSendBtn').addEventListener('click', sendChatMessage);
+  document.getElementById('chatInput').addEventListener('keydown', (e) => { if (e.key === 'Enter') sendChatMessage(); });
+
+  async function sendChatMessage() {
+    const input = document.getElementById('chatInput');
+    const text = input.value.trim();
+    if (!text || !currentCaseId) return;
+    input.value = '';
+    try {
+      await fetch(`/api/my/cases/${currentCaseId}/messages`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text }),
+      });
+      await loadMessages();
+    } catch (err) {
+      alert('Could not send message. Please try again.');
+    }
+  }
+
+  document.getElementById('logoutBtn').addEventListener('click', async () => {
+    await fetch('/api/auth/logout', { method: 'POST' });
+    window.location.href = '/';
+  });
+
+  init();
+</script>
+<script id="razorpay-checkout" src="https://checkout.razorpay.com/v1/checkout.js" defer></script>
+</body>
+</html>

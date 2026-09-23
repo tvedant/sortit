@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Log In or Sign Up — RefundWaapsi</title>
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#1A1611; --paper:#F0E6CC; --paper-2:#E8DBB8;
+    --crimson:#C1272D; --mustard:#E8A33D; --blue:#2C5F8A; --green:#4C7A3D;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; min-height:100vh; display:flex; align-items:center; justify-content:center;
+    background:var(--paper); font-family:'Space Grotesk',sans-serif; color:var(--ink);
+    background-image:radial-gradient(circle, rgba(26,22,17,0.06) 1px, transparent 1.3px);
+    background-size:14px 14px; padding:24px;
+  }
+  .card{
+    width:100%; max-width:420px; background:var(--paper); border:3px solid var(--ink);
+    box-shadow:8px 8px 0 var(--mustard); padding:34px;
+  }
+  .logo{
+    display:flex; align-items:center; gap:10px; text-decoration:none; color:var(--ink);
+    font-family:'Anton',sans-serif; font-size:22px; margin-bottom:6px;
+  }
+  .logo-badge{
+    width:34px;height:34px;border-radius:50%; background:var(--crimson); border:3px solid var(--ink);
+    display:flex;align-items:center;justify-content:center; color:var(--paper); font-size:18px; transform:rotate(-8deg);
+  }
+  .sub{font-size:14px; color:#5a4f3c; margin:0 0 24px;}
+  .tabs{display:flex; border:2px solid var(--ink); margin-bottom:22px;}
+  .tab{flex:1; text-align:center; padding:10px; font-weight:700; cursor:pointer; background:var(--paper-2);}
+  .tab.active{background:var(--ink); color:var(--paper);}
+  .form-label{display:block; font-size:12.5px; font-weight:700; margin:14px 0 5px; text-transform:uppercase; letter-spacing:.4px;}
+  .form-input{
+    width:100%; padding:11px 12px; border:2px solid var(--ink); background:#fff;
+    font-family:'Space Grotesk',sans-serif; font-size:14px; color:var(--ink);
+  }
+  .form-input:focus{ outline:none; box-shadow:3px 3px 0 var(--blue); }
+  .btn{
+    width:100%; margin-top:20px; font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:16px;
+    padding:14px 26px; border:3px solid var(--ink); cursor:pointer;
+    background:var(--ink); color:var(--paper); box-shadow:5px 5px 0 var(--crimson);
+  }
+  .btn:hover{transform:translate(-2px,-2px); box-shadow:7px 7px 0 var(--crimson);}
+  .btn:disabled{opacity:.6; cursor:not-allowed;}
+  .msg{font-size:13.5px; font-weight:700; min-height:18px; margin-top:14px; text-align:center;}
+  .msg.error{color:var(--crimson);}
+  .msg.success{color:var(--green);}
+  .form-panel{display:none;}
+  .form-panel.active{display:block;}
+  .social-divider{display:flex;align-items:center;gap:10px;margin:18px 0 12px;color:#6a5f50;font-size:12px;font-weight:700;text-transform:uppercase;} .social-divider:before,.social-divider:after{content:'';height:1px;background:#9f927b;flex:1;}
+  .google-btn{width:100%;padding:12px 14px;border:2px solid var(--ink);background:#fff;color:var(--ink);font-family:'Space Grotesk',sans-serif;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:10px;}
+  .google-btn:hover{box-shadow:3px 3px 0 var(--blue);transform:translate(-1px,-1px);}
+  .google-icon{width:18px;height:18px;}
+  .back-link{display:inline-block; margin-top:18px; font-size:13px; text-decoration:none; color:#5a4f3c; font-weight:600;}
+  .back-link:hover{color:var(--crimson);}
+</style>
+</head>
+<body>
+  <div class="card">
+    <a href="/" class="logo"><span class="logo-badge">R</span> REFUNDWAAPSI</a>
+    <p class="sub">Log in to file a tracked case and chat with your agent.</p>
+
+    <div class="tabs">
+      <div class="tab active" data-tab="login">Log In</div>
+      <div class="tab" data-tab="signup">Sign Up</div>
+    </div>
+
+    <div class="form-panel active" id="loginPanel">
+      <form id="loginForm">
+        <label class="form-label" for="li-email">Email</label>
+        <input class="form-input" type="email" id="li-email" required>
+        <label class="form-label" for="li-password">Password</label>
+        <input class="form-input" type="password" id="li-password" required>
+        <button type="submit" class="btn" id="loginBtn">Log In</button>
+        <div class="social-divider">or</div>
+        <button type="button" class="google-btn" id="googleBtn"><span class="google-icon">G</span> Continue with Google</button>
+        <p class="msg" id="loginMsg"></p>
+      </form>
+    </div>
+
+    <div class="form-panel" id="signupPanel">
+      <form id="signupForm">
+        <label class="form-label" for="su-name">Full name</label>
+        <input class="form-input" type="text" id="su-name" required>
+        <label class="form-label" for="su-email">Email</label>
+        <input class="form-input" type="email" id="su-email" required>
+        <label class="form-label" for="su-password">Password</label>
+        <input class="form-input" type="password" id="su-password" minlength="6" required placeholder="At least 6 characters">
+        <button type="submit" class="btn" id="signupBtn">Create Account</button>
+        <p class="msg" id="signupMsg"></p>
+      </form>
+    </div>
+
+    <a href="/" class="back-link">← Back to homepage</a>
+  </div>
+
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<script>
+  const tabs = document.querySelectorAll('.tab');
+  const panels = { login: document.getElementById('loginPanel'), signup: document.getElementById('signupPanel') };
+  tabs.forEach(tab => {
+    tab.addEventListener('click', () => {
+      tabs.forEach(t => t.classList.remove('active'));
+      tab.classList.add('active');
+      Object.values(panels).forEach(p => p.classList.remove('active'));
+      panels[tab.dataset.tab].classList.add('active');
+    });
+  });
+
+  // If already logged in, skip straight to the dashboard (still claiming any lead chat)
+  fetch('/api/auth/me').then(async (r) => {
+    if (r.ok) {
+      const params = new URLSearchParams(window.location.search);
+      const leadId = params.get('leadId');
+      if (leadId) { try { await fetch(`/api/lead-chat/${leadId}/claim`, { method: 'POST' }); } catch (e) {} }
+      let dest = params.get('next') || '/dashboard.html';
+      if (leadId) dest += (dest.includes('?') ? '&' : '?') + 'leadId=' + encodeURIComponent(leadId);
+      window.location.href = dest;
+    }
+  }).catch(() => {});
+
+  const redirectAfterLogin = async () => {
+    const params = new URLSearchParams(window.location.search);
+    const leadId = params.get('leadId');
+    if (leadId) {
+      try { await fetch(`/api/lead-chat/${leadId}/claim`, { method: 'POST' }); } catch (e) { /* non-fatal */ }
+    }
+    let dest = params.get('next') || '/dashboard.html';
+    if (leadId) dest += (dest.includes('?') ? '&' : '?') + 'leadId=' + encodeURIComponent(leadId);
+    window.location.href = dest;
+  };
+
+  let googleClientId = '';
+  async function setupGoogle(){
+    try{
+      const c=await (await fetch('/api/config')).json();
+      if(!c.googleLogin || !c.googleClientId){document.getElementById('googleBtn').style.display='none';return;}
+      googleClientId=c.googleClientId;
+      const wait=()=>{ if(window.google?.accounts?.id){window.google.accounts.id.initialize({client_id:googleClientId,callback:window.handleGoogleCredential});} else setTimeout(wait,250); };
+      wait();
+    }catch(_){document.getElementById('googleBtn').style.display='none';}
+  }
+  window.handleGoogleCredential = async function(response) {
+    const btn=document.getElementById('googleBtn'), msg=document.getElementById('loginMsg');
+    btn.disabled=true; msg.textContent='Signing in with Google…'; msg.className='msg';
+    try {
+      const res=await fetch('/api/auth/google',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({credential:response.credential})});
+      const data=await res.json(); if(!res.ok) throw new Error(data.error||'Google sign-in failed.');
+      msg.textContent='Signed in! Redirecting…'; msg.className='msg success'; await redirectAfterLogin();
+    } catch(err){msg.textContent=err.message;msg.className='msg error';btn.disabled=false;}
+  };
+  document.getElementById('googleBtn').addEventListener('click',()=>{
+    if(!window.google?.accounts?.id){document.getElementById('loginMsg').textContent='Google sign-in is still loading. Please try again.';return;}
+    window.google.accounts.id.prompt();
+  });
+  setupGoogle();
+
+  document.getElementById('loginForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const btn = document.getElementById('loginBtn');
+    const msg = document.getElementById('loginMsg');
+    msg.textContent = ''; msg.className = 'msg';
+    btn.disabled = true; btn.textContent = 'Logging in…';
+    try {
+      const res = await fetch('/api/auth/login', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: document.getElementById('li-email').value,
+          password: document.getElementById('li-password').value,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Login failed.');
+      msg.textContent = 'Logged in! Redirecting…'; msg.className = 'msg success';
+      redirectAfterLogin();
+    } catch (err) {
+      msg.textContent = err.message; msg.className = 'msg error';
+      btn.disabled = false; btn.textContent = 'Log In';
+    }
+  });
+
+  document.getElementById('signupForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const btn = document.getElementById('signupBtn');
+    const msg = document.getElementById('signupMsg');
+    msg.textContent = ''; msg.className = 'msg';
+    btn.disabled = true; btn.textContent = 'Creating account…';
+    try {
+      const res = await fetch('/api/auth/signup', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: document.getElementById('su-name').value,
+          email: document.getElementById('su-email').value,
+          password: document.getElementById('su-password').value,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Sign up failed.');
+      msg.textContent = 'Account created! Redirecting…'; msg.className = 'msg success';
+      redirectAfterLogin();
+    } catch (err) {
+      msg.textContent = err.message; msg.className = 'msg error';
+      btn.disabled = false; btn.textContent = 'Create Account';
+    }
+  });
+</script>
+</body>
+</html>
