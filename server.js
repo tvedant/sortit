@@ -198,10 +198,11 @@ function canonicalSender(value, senderName='') {
 
 function normalizeMessageRow(row, columns = null) {
   if (!row) return row;
-  const senderKey = firstExistingColumn(columns, ['sender', 'role', 'sender_type', 'author_type']);
-  const senderNameKey = firstExistingColumn(columns, ['sender_name', 'author_name', 'senderName', 'name']);
-  const textKey = firstExistingColumn(columns, ['text', 'message', 'content', 'body']);
-  const createdKey = firstExistingColumn(columns, ['created_at', 'sent_at', 'timestamp', 'createdAt']);
+  const pick = c => columns ? firstExistingColumn(columns, c) : (c.find(k => row[k] !== undefined) || null);
+  const senderKey = pick(['sender', 'role', 'sender_type', 'author_type']);
+  const senderNameKey = pick(['sender_name', 'author_name', 'senderName', 'name']);
+  const textKey = pick(['text', 'message', 'content', 'body']);
+  const createdKey = pick(['created_at', 'sent_at', 'timestamp', 'createdAt']);
   const senderName = senderNameKey ? (row[senderNameKey] || '') : '';
   return {
     ...row,
@@ -314,6 +315,7 @@ async function markCaseRead(viewerId, caseId, requestedAt = null) {
     lastReadAt = latest?.createdAt || null;
   }
   if (!lastReadAt) return { ok:true, lastReadAt:null };
+  { const mem = MEM_READS.get(viewerId) || {}; if (!mem[caseId] || new Date(lastReadAt) > new Date(mem[caseId])) mem[caseId] = lastReadAt; MEM_READS.set(viewerId, mem); }
   if (DB_ENABLED) {
     try {
       await dbUpsert('case_reads',[{viewer_id:viewerId,case_id:caseId,last_read_at:lastReadAt,updated_at:new Date().toISOString()}], 'viewer_id,case_id');
@@ -325,9 +327,12 @@ async function markCaseRead(viewerId, caseId, requestedAt = null) {
   return { ok:true, lastReadAt, persisted:false };
 }
 
+const MEM_READS = new Map();
 async function resolveSeenMap(viewerId, fallbackMap) {
   const persisted = await getPersistedReadState(viewerId);
-  return persisted || fallbackMap || {};
+  const out = { ...(fallbackMap || {}), ...(persisted || {}) };
+  for (const [k, v] of Object.entries(MEM_READS.get(viewerId) || {})) if (!out[k] || new Date(v) > new Date(out[k])) out[k] = v;
+  return out;
 }
 
 async function getLatestMessageMeta(records, viewerRole, seenMap = {}, viewerId = null) {
@@ -357,6 +362,9 @@ async function getLatestMessageMeta(records, viewerRole, seenMap = {}, viewerId 
         for (const r of rows) {
           const c=caseFromDb(r);
           if (!meta.has(String(c.caseId))) meta.set(String(c.caseId), {lastMessageText:'',lastMessageAt:null,lastMessageSender:'',lastMessageSenderName:'',lastMessageSenderId:null,unread:false,unreadCount:0,messageCount:0});
+        }
+        for (const [cid, mm] of meta) {
+          if (!(seenMap && seenMap[cid]) && !mm.unreadCount && mm.lastMessageAt && mm.lastMessageSenderId !== viewerId && mm.lastMessageSender !== viewerRole) { mm.unreadCount = 1; mm.unread = true; }
         }
         return meta;
       }
@@ -390,8 +398,8 @@ async function getLatestMessageMeta(records, viewerRole, seenMap = {}, viewerId 
     for(const raw of messages||[])consume(raw);
   }
   for(const [caseId,list] of grouped){
-    list.sort((a,b)=>new Date(b.createdAt||0)-new Date(a.createdAt||0)); const latest=list[0]; const seenAt=seenMap?.[caseId]?new Date(seenMap[caseId]).getTime():null;
-    const unreadCount=seenAt===null||Number.isNaN(seenAt)?0:list.filter(m=>{const t=new Date(m.createdAt||0).getTime(); return t>seenAt && (m.senderId ? m.senderId!==viewerId : canonicalSender(m.sender,m.senderName)!==viewerRole);}).length;
+    list.sort((a,b)=>new Date(b.createdAt||0)-new Date(a.createdAt||0)); const latest=list[0]; const seenAt=seenMap?.[caseId]?new Date(seenMap[caseId]).getTime():0;
+    const unreadCount=Number.isNaN(seenAt)?0:list.filter(m=>{const t=new Date(m.createdAt||0).getTime(); return t>seenAt && (m.senderId ? m.senderId!==viewerId : canonicalSender(m.sender,m.senderName)!==viewerRole);}).length;
     meta.set(caseId,{lastMessageText:latest?.text||'',lastMessageAt:latest?.createdAt||null,lastMessageSender:latest?canonicalSender(latest.sender,latest.senderName):'',lastMessageSenderName:latest?.senderName||'',lastMessageSenderId:latest?.senderId||null,unreadCount,unread:unreadCount>0,messageCount:list.length});
   }
   return meta;
