@@ -53,7 +53,7 @@ async function loadCases(silent=false){
 function renderAssign(c){const canManage=staff.role==='admin';$('assign').disabled=!canManage;$('assign').innerHTML=`<option value="">Unassigned</option>`+agents.map(a=>`<option value="${a.id}">${esc(a.name)}</option>`).join('');$('assign').value=c.assignedTo||'';}
 async function openCase(id){
   const c=cases.find(x=>x.caseId===id); if(!c)return;
-  current={...c}; markRead(current);
+  current={...c}; markRead(current).catch(()=>{});
   $('emptyDetail').classList.add('hidden'); $('detailContent').classList.remove('hidden'); renderDetail(current);
   if(timer)clearInterval(timer);
   timer=null;
@@ -62,7 +62,7 @@ async function openCase(id){
     current={...current,...detail};
     renderDetail(current);
     await loadMessages();
-    await markRead(current);
+    markRead(current).catch(()=>{});
   } catch(e) { console.error('openCase',e); }
   openChatStream(id);
   timer=setInterval(loadMessages,60000);
