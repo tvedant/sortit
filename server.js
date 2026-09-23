@@ -100,7 +100,38 @@ async function listCasesForUser(userId) { if (!DB_ENABLED) return readJson(FILES
 async function findCase(caseId, userId) { if (!DB_ENABLED) return readJson(FILES.cases).find(c=>c.caseId===caseId && (!userId || c.userId===userId)); const q=`case_id=eq.${encodeURIComponent(caseId)}${userId?`&user_id=eq.${encodeURIComponent(userId)}`:''}`; return (await dbSelect('cases',q))[0]||null; }
 async function listPaidCases() { if (!DB_ENABLED) return readJson(FILES.cases).filter(c=>c.paymentStatus==='paid'); return dbSelect('cases','payment_status=eq.paid&order=created_at.desc'); }
 function caseFromDb(r) { return r ? { ...r, caseId:r.case_id, userId:r.user_id, userEmail:r.user_email, userName:r.user_name, amountPaise:r.amount_paise, paymentStatus:r.payment_status, razorpayOrderId:r.razorpay_order_id, razorpayPaymentId:r.razorpay_payment_id, leadId:r.lead_id, assignedTo:r.assigned_to, assignedAt:r.assigned_at, proofFiles:[] , createdAt:r.created_at, updatedAt:r.updated_at } : r; }
-function casePatchToDb(p){ const out={}; const map={caseId:'case_id',userId:'user_id',userEmail:'user_email',userName:'user_name',amountPaise:'amount_paise',paymentStatus:'payment_status',razorpayOrderId:'razorpay_order_id',razorpayPaymentId:'razorpay_payment_id',leadId:'lead_id',assignedTo:'assigned_to',assignedAt:'assigned_at',createdAt:'created_at',updatedAt:'updated_at'}; for(const[k,v]of Object.entries(p)) out[map[k]||k]=v; return out; }
+function casePatchToDb(p) {
+  const out = {};
+  const map = {
+    caseId: 'case_id',
+    userId: 'user_id',
+    userEmail: 'user_email',
+    userName: 'user_name',
+    amountPaise: 'amount_paise',
+    paymentStatus: 'payment_status',
+    razorpayOrderId: 'razorpay_order_id',
+    razorpayPaymentId: 'razorpay_payment_id',
+    leadId: 'lead_id',
+    assignedTo: 'assigned_to',
+    assignedAt: 'assigned_at',
+    createdAt: 'created_at',
+    updatedAt: 'updated_at'
+  };
+
+  for (const [key, value] of Object.entries(p || {})) {
+    if (key === 'caseId') {
+      // Existing production DB requires case_number as well as case_id.
+      out.case_id = value;
+      out.case_number = value;
+      continue;
+    }
+
+    const dbKey = map[key] || key;
+    if (value !== undefined) out[dbKey] = value;
+  }
+
+  return out;
+}
 async function createCase(c){ if(!DB_ENABLED){const a=readJson(FILES.cases);a.push(c);writeJson(FILES.cases,a);return c;} return caseFromDb((await dbInsert('cases',[casePatchToDb(c)]))[0]); }
 async function updateCase(caseId, patch){ if(!DB_ENABLED){const a=readJson(FILES.cases);const i=a.findIndex(x=>x.caseId===caseId);if(i<0)return null;Object.assign(a[i],patch);writeJson(FILES.cases,a);return a[i];} return caseFromDb((await dbUpdate('cases',`case_id=eq.${encodeURIComponent(caseId)}`,casePatchToDb(patch)))[0]); }
 
