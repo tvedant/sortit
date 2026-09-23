@@ -307,6 +307,7 @@ async function getPersistedReadState(viewerId) {
 }
 
 async function markCaseRead(viewerId, caseId, requestedAt = null) {
+  if(!viewerId) throw new Error('Cannot persist read state without a viewer id.');
   let lastReadAt = requestedAt && !Number.isNaN(new Date(requestedAt).getTime()) ? new Date(requestedAt).toISOString() : null;
   if (!lastReadAt) {
     const messages = await listMessages(caseId);
@@ -385,7 +386,10 @@ async function getLatestMessageMeta(records, viewerRole, seenMap = {}, viewerId 
       const senderIdColumn=firstExistingColumn(columns,['sender_id','senderId','author_id']);
       const textColumn=firstExistingColumn(columns,['text','message','content','body']);
       const selected=[caseColumn,senderColumn,senderNameColumn,senderIdColumn,textColumn,createdColumn].filter((v,i,a)=>v&&a.indexOf(v)===i).join(',');
-      messages=await dbSelectColumns('messages',selected,`order=${encodeURIComponent(createdColumn)}.desc&limit=10000`); MESSAGE_META_CACHE=messages; MESSAGE_META_CACHE_AT=now;
+      const dbCaseIds=[...byDb.keys()].filter(v=>/^[0-9a-fA-F-]{36}$/.test(v));
+      if(!dbCaseIds.length)return meta;
+      const inFilter=`${caseColumn}=in.(${dbCaseIds.join(',')})`;
+      messages=await dbSelectColumns('messages',selected,`${inFilter}&order=${encodeURIComponent(createdColumn)}.desc&limit=5000`); MESSAGE_META_CACHE=messages; MESSAGE_META_CACHE_AT=now;
     }
     for(const raw of messages||[])consume(raw);
   }
@@ -549,7 +553,27 @@ function rateLimit(bucket,max,windowMs){return(req,res,next)=>{const key=`${buck
 function asyncHandler(fn){return function(req,res,next){Promise.resolve(fn(req,res,next)).catch(next);};}
 
 function signToken(user){return jwt.sign({uid:user.id,email:user.email,name:user.name},JWT_SECRET,{expiresIn:'7d'});}
-function requireAuth(req,res,next){const token=req.cookies.token;if(!token)return res.status(401).json({error:'Please log in first.'});try{req.user=jwt.verify(token,JWT_SECRET);next();}catch(_){return res.status(401).json({error:'Your session has expired. Please log in again.'});}}
+async function requireAuth(req,res,next){
+  const token=req.cookies.token;
+  if(!token)return res.status(401).json({error:'Please log in first.'});
+  try{
+    const payload=jwt.verify(token,JWT_SECRET);
+    // Repair legacy/customer sessions that were created before uid was included.
+    // Read-state persistence requires a real UUID, so never allow a null viewer_id
+    // to reach case_reads or the chat metadata RPC.
+    if(!payload.uid && payload.email){
+      const user=await findUserByEmail(payload.email);
+      if(!user?.id)return res.status(401).json({error:'Your session needs to be refreshed. Please log in again.'});
+      req.user={uid:user.id,email:user.email,name:user.name};
+      res.cookie('token',signToken(user),{httpOnly:true,sameSite:'lax',secure:IS_PROD,maxAge:7*24*60*60*1000});
+    } else if(payload.uid){
+      req.user=payload;
+    } else {
+      return res.status(401).json({error:'Your session is invalid. Please log in again.'});
+    }
+    next();
+  }catch(_){return res.status(401).json({error:'Your session has expired. Please log in again.'});}
+}
 const MASTER_ADMIN_VIEWER_ID='00000000-0000-0000-0000-000000000001';
 function signStaffToken(staff){return jwt.sign({uid:staff.id||MASTER_ADMIN_VIEWER_ID,email:staff.email,name:staff.name,role:staff.role,staff:true},JWT_SECRET,{expiresIn:'12h'});}
 function requireStaff(req,res,next){const token=req.cookies.staff_token;if(!token)return res.status(401).json({error:'Please sign in to the staff portal.'});try{const staff=jwt.verify(token,JWT_SECRET);if(!staff.staff || !['admin','agent'].includes(staff.role))throw new Error('invalid');req.staff=staff;next();}catch(_){return res.status(401).json({error:'Your staff session has expired. Please sign in again.'});}}
