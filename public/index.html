@@ -1094,18 +1094,18 @@ st.textContent = `
 .burst svg{position:absolute;inset:0;width:100%;height:100%}
 .burst span{position:relative;max-width:84px;font-family:'Anton',sans-serif;font-size:21px;line-height:1;color:var(--ink);text-align:center}
 .meter::before{content:'';position:absolute;inset:0;z-index:2;pointer-events:none;background:repeating-linear-gradient(90deg,transparent 0 calc(16.66% - 2px),rgba(26,22,17,.55) calc(16.66% - 2px) 16.66%)}
-.meter-fill{width:100%!important;transform:scaleX(0);transform-origin:0 50%;transition:transform 1s cubic-bezier(.2,.9,.3,1.12)!important}
+.meter-fill{width:100%!important;transform:scaleX(0);transform-origin:0 50%;transition:transform .35s cubic-bezier(.2,.9,.3,1.15)!important}
 .meter-fill::after{content:'';position:absolute;right:0;top:0;bottom:0;width:7px;background:#fff;opacity:.75;filter:blur(2px)}
 .meter.hot .meter-fill{animation:rwhot .45s ease-in-out infinite alternate}
 @keyframes rwhot{to{filter:brightness(1.4)}}
-.punch-btn[aria-busy=true]{opacity:.75}`;
+.punch-btn{touch-action:manipulation;user-select:none;-webkit-user-select:none;-webkit-tap-highlight-color:transparent}.punch-btn.rage{animation:rwrage .4s ease-in-out infinite alternate}@keyframes rwrage{to{filter:brightness(1.25) saturate(1.35)}}`;
 D.head.append(st);
 
 /* ---------- SVG stage + rigged fighters ---------- */
 const arm = (s, c) => `<g transform="translate(${s === 'f' ? 12 : -10} -140)"><g class="ua ${s}" style="transform:rotate(${c.base[s][0]}deg)"><rect x="-6" y="-7" width="40" height="14" rx="7" fill="${c.sleeve}" stroke="${INK}" stroke-width="3.5"/><g transform="translate(34 0)"><g class="fa ${s}" style="transform:rotate(${c.base[s][1]}deg)"><rect x="-6" y="-6.5" width="36" height="13" rx="6.5" fill="${c.forearm}" stroke="${INK}" stroke-width="3.5"/>${c.kase && s === 'b'
   ? `<circle cx="32" cy="0" r="8" fill="${c.skin}" stroke="${INK}" stroke-width="3"/><rect x="34" y="-14" width="30" height="28" rx="4" fill="#7a4b21" stroke="${INK}" stroke-width="3.5"/><path d="M42 -14 v-7 h14 v7" fill="none" stroke="${INK}" stroke-width="3"/><rect x="56" y="-5" width="6" height="10" fill="#E8A33D" stroke="${INK}" stroke-width="2"/>`
   : `<circle cx="34" cy="0" r="13" fill="${c.glove}" stroke="${INK}" stroke-width="3.5"/><circle cx="38" cy="-5" r="3.2" fill="#fff" opacity=".35"/>`}</g></g></g></g>`;
-const fighter = (id, c) => `<g id="${id}" class="f ${id}" transform="translate(${c.x} 372) scale(${c.dir} 1)"><ellipse cx="6" cy="3" rx="46" ry="9" fill="#000" opacity=".3"/><g class="body"><g class="bob">
+const fighter = (id, c) => `<g id="${id}" class="f ${id}" transform="translate(${c.x} 372) scale(${c.dir} 1)"><ellipse cx="6" cy="3" rx="46" ry="9" fill="#000" opacity=".3"/><g class="body"><g class="rx"><g class="bob">
 ${arm('b', c)}
 <rect x="-22" y="-84" width="18" height="78" rx="7" fill="${c.pants2}" stroke="${INK}" stroke-width="3.5"/><rect x="6" y="-84" width="18" height="78" rx="7" fill="${c.pants}" stroke="${INK}" stroke-width="3.5"/>
 ${c.id === 'you' ? `<rect x="-25" y="-90" width="52" height="38" rx="7" fill="#2C5F8A" stroke="${INK}" stroke-width="3.5"/><rect x="-25" y="-90" width="52" height="8" fill="#E8A33D" stroke="${INK}" stroke-width="2.5"/>` : ''}
@@ -1121,10 +1121,10 @@ ${c.id === 'you' ? `<path d="M-19 -38 Q-16 -68 4 -63 Q28 -66 27 -38 Q12 -54 -19 
 <path d="M23 -30 L29 -23 L23 -21" fill="${c.skin}" stroke="${INK}" stroke-width="2.5" stroke-linejoin="round"/>
 <path class="m1" d="M8 -14 Q14 -11 21 -14" fill="none" stroke="${INK}" stroke-width="3" stroke-linecap="round"/><ellipse class="m2" cx="14" cy="-13" rx="6" ry="5" fill="#7a1216" stroke="${INK}" stroke-width="2.5"/><path class="m3" d="M6 -18 Q14 -6 23 -19Z" fill="#fff" stroke="${INK}" stroke-width="3" stroke-linejoin="round"/></g></g>
 ${arm('f', c)}
-</g></g></g>`;
+</g></g></g></g>`;
 const crowd = [...Array(11)].map((_, i) => { const x = 20 + i * 40 + (i % 2) * 8, y = 92 + (i % 3) * 9; return `<g class="h" style="--d:${(-i * .13).toFixed(2)}s"><circle cx="${x}" cy="${y}" r="13" fill="${i % 4 ? '#0d0a07' : '#2a2018'}"/><rect x="${x - 15}" y="${y + 10}" width="30" height="40" rx="10" fill="${i % 4 ? '#0d0a07' : '#2a2018'}"/>${i % 3 === 0 ? `<rect x="${x + 10}" y="${y - 30}" width="8" height="26" rx="4" fill="${i % 2 ? '#E8A33D' : '#C1272D'}" stroke="#000" stroke-width="2"/>` : ''}</g>`; }).join('');
-const YOU = { id: 'you', x: 130, dir: 1, skin: '#f0c9a0', top: '#E8A33D', sleeve: '#f0c9a0', forearm: '#f0c9a0', glove: '#C1272D', pants: '#f0c9a0', pants2: '#d9b088', shoe: '#1A1611', base: { f: [64, -128], b: [76, -136] } };
-const CORP = { id: 'corp', x: 310, dir: -1, skin: '#f0c9a0', top: '#23324a', sleeve: '#23324a', forearm: '#23324a', glove: '#111', pants: '#1c2740', pants2: '#141c30', shoe: '#0d0a07', kase: true, base: { f: [64, -128], b: [86, -18] } };
+const YOU = { id: 'you', x: 150, dir: 1, skin: '#f0c9a0', top: '#E8A33D', sleeve: '#f0c9a0', forearm: '#f0c9a0', glove: '#C1272D', pants: '#f0c9a0', pants2: '#d9b088', shoe: '#1A1611', base: { f: [64, -128], b: [76, -136] } };
+const CORP = { id: 'corp', x: 290, dir: -1, skin: '#f0c9a0', top: '#23324a', sleeve: '#23324a', forearm: '#23324a', glove: '#111', pants: '#1c2740', pants2: '#141c30', shoe: '#0d0a07', kase: true, base: { f: [64, -128], b: [86, -18] } };
 $('stage').innerHTML = `<defs><linearGradient id="wall" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#0d0a07"/><stop offset="1" stop-color="#2C5F8A"/></linearGradient><linearGradient id="beam" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".5"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient><radialGradient id="glow"><stop offset="0" stop-color="#E8A33D" stop-opacity=".9"/><stop offset="1" stop-color="#E8A33D" stop-opacity="0"/></radialGradient></defs>
 <rect width="440" height="440" fill="url(#wall)"/><g class="crowd">${crowd}</g>
 <polygon points="70,0 120,0 250,340 20,340" fill="url(#beam)" opacity=".3"/><polygon points="320,0 370,0 430,340 210,340" fill="url(#beam)" opacity=".3"/>
@@ -1132,8 +1132,8 @@ $('stage').innerHTML = `<defs><linearGradient id="wall" x1="0" y1="0" x2="0" y2=
 <rect y="340" width="440" height="100" fill="#E8DBB8"/><path d="M0 340H440" stroke="${INK}" stroke-width="5"/><path d="M220 340L40 440M220 340L400 440" stroke="#C1272D" stroke-width="3" opacity=".5"/><ellipse cx="220" cy="392" rx="70" ry="16" fill="none" stroke="#2C5F8A" stroke-width="3" opacity=".5"/>
 ${fighter('you', YOU)}${fighter('corp', CORP)}`;
 
-const F = { you: { el: $('you'), dir: 1, hit: [158, 208], hp: 100, base: YOU.base, box: $('hpYou').parentNode, fill: $('hpYou').querySelector('i'), trail: $('hpYou').querySelector('b') },
-            corp: { el: $('corp'), dir: -1, hit: [284, 208], hp: 100, base: CORP.base, box: $('hpCorp').parentNode, fill: $('hpCorp').querySelector('i'), trail: $('hpCorp').querySelector('b') } };
+const F = { you: { el: $('you'), dir: 1, hit: [178, 206], hp: 100, base: YOU.base, box: $('hpYou').parentNode, fill: $('hpYou').querySelector('i'), trail: $('hpYou').querySelector('b') },
+            corp: { el: $('corp'), dir: -1, hit: [262, 206], hp: 100, base: CORP.base, box: $('hpCorp').parentNode, fill: $('hpCorp').querySelector('i'), trail: $('hpCorp').querySelector('b') } };
 const you = F.you, corp = F.corp, cam = $('cam'), bn = $('banner'), mf = $('meterFill'), mp = $('meterPct'), mc = $('meterCaption'), meter = mf.parentNode;
 
 /* ---------- animation core: time-scale (slow-mo), hit-stop, holds ---------- */
@@ -1201,106 +1201,116 @@ function burst(x, y, text, col = '#E8A33D') {
   const r = rnd(-14, 14); e.animate([{ opacity: 0, transform: `scale(.2) rotate(${r - 30}deg)` }, { opacity: 1, transform: `scale(1.15) rotate(${r}deg)`, offset: .22 }, { opacity: 1, transform: `scale(1) rotate(${r}deg)`, offset: .7 }, { opacity: 0, transform: `translateY(-22px) scale(.9) rotate(${r}deg)` }], { duration: 850, easing: EASE }).onfinish = () => e.remove();
 }
 
-/* ---------- combat primitives ---------- */
+/* ---------- combat: fully real-time. Every press acts on the same frame; nothing waits for a turn. ---------- */
 const K = {
-  jab: { arm: 'f', w: [82, -162], s: [2, -4], l: 54, d: 420 }, hook: { arm: 'f', w: [104, -150], s: [-34, -64], l: 60, d: 500 },
-  cross: { arm: 'b', w: [92, -158], s: [0, 0], l: 64, d: 480, tw: 8 }, upper: { arm: 'f', w: [116, -104], s: [-24, -80], l: 56, d: 540, j: -18 },
-  ko: { arm: 'b', w: [108, -170], s: [-4, -2], l: 74, d: 680, tw: 14 },
-  kase: { arm: 'b', w: [100, -24], s: [-46, 0], l: 58, d: 560 }, slap: { arm: 'f', w: [108, -152], s: [-12, -18], l: 56, d: 500 }, big: { arm: 'b', w: [122, -20], s: [-66, -4], l: 72, d: 640, tw: 10 }
+  jab:   { arm: 'f', w: [76, -150],  s: [2, -4],    l: 22, d: 280, iw: .12, is: .36 },
+  cross: { arm: 'b', w: [86, -150],  s: [0, 0],     l: 30, d: 300, iw: .12, is: .36, tw: 8 },
+  hook:  { arm: 'f', w: [92, -140],  s: [-34, -64], l: 28, d: 320, iw: .14, is: .38 },
+  upper: { arm: 'f', w: [104, -110], s: [-24, -80], l: 26, d: 340, iw: .16, is: .40, j: -14 },
+  ko:    { arm: 'b', w: [108, -170], s: [-4, -2],   l: 60, d: 700, iw: .30, is: .50, tw: 14 },
+  kase:  { arm: 'b', w: [104, -24],  s: [-46, 0],   l: 24, d: 640, iw: .50, is: .66 },
+  slap:  { arm: 'f', w: [108, -152], s: [-12, -18], l: 24, d: 600, iw: .50, is: .66 },
+  big:   { arm: 'b', w: [124, -20],  s: [-66, -4],  l: 30, d: 760, iw: .55, is: .70, tw: 10 }
 };
-function strike(f, k) {
-  const P0 = K[k], R = f.el, ua = R.querySelector(`.ua.${P0.arm}`), fa = R.querySelector(`.fa.${P0.arm}`), body = R.querySelector('.body'), [ub, fb] = f.base[P0.arm], tw = P0.tw || 6;
-  A(ua, [rot(ub), { ...rot(P0.w[0]), offset: .32 }, { ...rot(P0.s[0]), offset: .5 }, { ...rot(P0.s[0]), offset: .72 }, rot(ub)], { duration: P0.d });
-  A(fa, [rot(fb), { ...rot(P0.w[1]), offset: .32 }, { ...rot(P0.s[1]), offset: .5 }, { ...rot(P0.s[1]), offset: .72 }, rot(fb)], { duration: P0.d });
-  A(body, [{ transform: 'translate(0,0) rotate(0deg)' }, { transform: `translate(-12px,0) rotate(${-tw}deg)`, offset: .32 }, { transform: `translate(${P0.l}px,${P0.j || -4}px) rotate(${tw}deg)`, offset: .5 }, { transform: `translate(${P0.l}px,-2px) rotate(${tw / 2}deg)`, offset: .72 }, { transform: 'translate(0,0) rotate(0deg)' }], { duration: P0.d });
-  return sleep(P0.d * .5);
+const CUR = new WeakMap();
+// Start a pose animation from wherever the part is RIGHT NOW (no snapping), replacing the previous one on that part.
+function go(el, kf, dur) {
+  const from = getComputedStyle(el).transform, prev = CUR.get(el);
+  const a = el.animate([{ transform: from === '' ? 'none' : from, offset: 0, easing: 'ease-out' }, ...kf], { duration: dur, easing: 'linear' });
+  a.playbackRate = TS.v; live.add(a); const d = () => live.delete(a); a.finished.then(d, d); if (prev) prev.cancel(); CUR.set(el, a); return a;
+}
+const FAST = 'cubic-bezier(.1,.9,.2,1)', IO = 'cubic-bezier(.4,0,.2,1)';
+function swing(f, k) {
+  const P0 = K[k], R = f.el, ua = R.querySelector(`.ua.${P0.arm}`), fa = R.querySelector(`.fa.${P0.arm}`), body = R.querySelector('.body'), [ub, fb] = f.base[P0.arm], tw = P0.tw || 6, hold = Math.min(P0.is + .14, .95);
+  const kf = (w, sv, b) => [{ offset: P0.iw, transform: `rotate(${w}deg)`, easing: FAST }, { offset: P0.is, transform: `rotate(${sv}deg)` }, { offset: hold, transform: `rotate(${sv}deg)`, easing: IO }, { offset: 1, transform: `rotate(${b}deg)` }];
+  go(ua, kf(P0.w[0], P0.s[0], ub), P0.d); go(fa, kf(P0.w[1], P0.s[1], fb), P0.d);
+  go(body, [{ offset: P0.iw, transform: `translate(-6px,0) rotate(${-tw / 2}deg)`, easing: FAST }, { offset: P0.is, transform: `translate(${P0.l}px,${P0.j || -3}px) rotate(${tw}deg)` }, { offset: hold, transform: `translate(${P0.l}px,-1px) rotate(${tw / 2}deg)`, easing: IO }, { offset: 1, transform: 'translate(0,0) rotate(0deg)' }], P0.d);
+  return P0.d * P0.is;   // ms until the fist connects
 }
 function reel(f, p) {
-  const b = f.el.querySelector('.body'), h = f.el.querySelector('.hd'); f.el.dataset.face = 'hit';
-  A(b, [{ transform: 'translate(0,0) rotate(0deg)', filter: 'brightness(1)' }, { transform: `translate(${-14 * p}px,-4px) rotate(${-7 * p}deg)`, filter: 'brightness(2.3)', offset: .25 }, { transform: `translate(${-8 * p}px,0) rotate(${-3 * p}deg)`, filter: 'brightness(1)', offset: .6 }, { transform: 'translate(0,0) rotate(0deg)' }], { duration: 420 + p * 60 });
-  A(h, [rot(0), { ...rot(-22 * p), offset: .25 }, rot(0)], { duration: 520 });
-  setTimeout(() => { if (!done) f.el.dataset.face = ''; }, 520 / TS.v);
+  const rx = f.el.querySelector('.rx'), h = f.el.querySelector('.hd'); f.el.dataset.face = 'hit';
+  go(rx, [{ offset: .22, transform: `translate(${-9 * p}px,-3px) rotate(${-5 * p}deg)`, filter: 'brightness(2.2)', easing: 'ease-out' }, { offset: .6, transform: `translate(${-4 * p}px,0) rotate(${-2 * p}deg)`, filter: 'brightness(1)' }, { offset: 1, transform: 'translate(0,0) rotate(0deg)' }], 300 + p * 40);
+  go(h, [{ offset: .22, transform: `rotate(${-20 * p}deg)` }, { offset: 1, transform: 'rotate(0deg)' }], 380);
+  clearTimeout(f.ft); f.ft = setTimeout(() => { if (!over) f.el.dataset.face = ''; }, 380 / TS.v);
 }
+let lastBurst = 0;
 function impact(v, { p, word }) {
-  const [x, y] = v.hit; stop(p > 3 ? 140 : 70); camFx({ shake: 3 + p * 3, zoom: .03 * p, fx: x / 4.4, fy: y / 4.4, dur: 380 }); reel(v, p);
-  emit('spark', x, y, 10 + p * 6, { v0: 140, v1: 380, g: 200, life: .5 }); emit('star', x, y, 3 + p * 2, { v0: 60, v1: 230, g: 320 }); emit('puff', x, y + 40, 3, { v0: 10, v1: 60, g: -20, life: 1.2, r0: 8, r1: 13 });
-  emit('drop', x, y - 24, 6, { a0: -2.6, a1: -.5, v0: 90, v1: 220, g: 600, cols: ['#8fd3ff', '#fff'], r0: 3, r1: 5 });
-  if (v === corp) emit('paper', x, y - 10, 2 + p, { v0: 80, v1: 240, g: 260, life: 1.6 });
-  burst(x + (v === corp ? 22 : -22), y - 40, word, v === corp ? '#E8A33D' : '#F0E6CC'); sfx.thud(p); vib(p > 3 ? [30, 30, 60] : 20);
+  const [x, y] = v.hit, n = performance.now(); if (p > 3) stop(90); camFx({ shake: 2 + p * 2.5, zoom: .02 * p, fx: x / 4.4, fy: y / 4.4, dur: 300 }); reel(v, p);
+  emit('spark', x, y, 6 + p * 4, { v0: 140, v1: 380, g: 200, life: .45 }); emit('star', x, y, 2 + p, { v0: 60, v1: 230, g: 320 });
+  emit('drop', x, y - 24, 3 + p, { a0: -2.6, a1: -.5, v0: 90, v1: 220, g: 600, cols: ['#8fd3ff', '#fff'], r0: 3, r1: 5 });
+  if (p > 2) emit('puff', x, y + 40, 2, { v0: 10, v1: 60, g: -20, life: 1.1, r0: 8, r1: 13 }); if (v === corp) emit('paper', x, y - 10, 1 + (p > 2), { v0: 80, v1: 240, g: 260, life: 1.5 });
+  if (word && n - lastBurst > 110) { lastBurst = n; burst(x + (v === corp ? 22 : -22), y - 40, word, v === corp ? '#E8A33D' : '#F0E6CC'); }
+  sfx.thud(p); vib(p > 3 ? [30, 30, 60] : 12);
 }
 function setHP(f, v) { f.hp = Math.max(0, Math.min(100, v)); f.fill.style.transform = f.trail.style.transform = `scaleX(${f.hp / 100})`; f.box.classList.toggle('low', f.hp < 35); }
-let shown = 0;
-function setMeter(p, cap) {
-  const from = shown, t0 = performance.now(); shown = p; (function s(n) { const k = Math.min((n - t0) / 900, 1); mp.textContent = Math.round(from + (p - from) * (1 - Math.pow(1 - k, 3))) + '%'; if (k < 1) requestAnimationFrame(s); })(t0);
-  mf.style.transform = `scaleX(${p / 100})`; meter.classList.toggle('hot', p >= 68 && p < 100); setHP(corp, 100 - p);
-  if (cap != null) { mc.textContent = cap; mc.animate([{ opacity: 0, transform: 'translateY(-7px)' }, { opacity: 1, transform: 'none' }], { duration: 300, easing: EASE }); }
+let md = 0, mt = 0, mraf = 0, capI = -1;
+const CAPS = [[0, 'Ready to fight back?'], [8, 'Politely asking for a refund…'], [26, 'Sending a firmer email.'], [44, "CC'ing the grievance officer. This means business."], [62, 'Citing the Consumer Protection Act, 2019.'], [80, 'Filing with the consumer forum.'], [100, 'REFUND SECURED. 🎉']];
+function meterLoop() { md += (mt - md) * .22; if (Math.abs(mt - md) < .4) md = mt; mp.textContent = Math.round(md) + '%'; mraf = md === mt ? 0 : requestAnimationFrame(meterLoop); }
+function setMeter(p) {
+  mt = p; if (!mraf) mraf = requestAnimationFrame(meterLoop); mf.style.transform = `scaleX(${p / 100})`; meter.classList.toggle('hot', p >= 68 && p < 100); setHP(corp, 100 - p);
+  let i = 0; CAPS.forEach((c, j) => { if (p >= c[0]) i = j; }); if (i !== capI) { capI = i; mc.textContent = CAPS[i][1]; mc.animate([{ opacity: 0, transform: 'translateY(-7px)' }, { opacity: 1, transform: 'none' }], { duration: 260, easing: EASE }); }
 }
-function dodge(f) { A(f.el.querySelector('.body'), [{ transform: 'translate(0,0) rotate(0deg)' }, { transform: 'translate(-36px,10px) rotate(-16deg)', offset: .35 }, { transform: 'translate(-36px,10px) rotate(-16deg)', offset: .65 }, { transform: 'translate(0,0) rotate(0deg)' }], { duration: 560 }); emit('puff', 150, 356, 6, { v0: 20, v1: 90, g: -10, life: 1 }); burst(150, 170, 'SLIPPED!', '#8fd3ff'); }
-const aura = () => { const a = you.el.querySelector('.aura'); a.animate([{ opacity: 0, transform: 'scale(.5)' }, { opacity: 1, transform: 'scale(1.05)', offset: .5 }, { opacity: 0, transform: 'scale(1.4)' }], { duration: 1100, easing: EASE }); sfx.power(); emit('star', 130, 330, 18, { a0: -2.7, a1: -.4, v0: 120, v1: 340, g: 260, cols: ['#E8A33D', '#fff'], r0: 3, r1: 6 }); vib([20, 30, 80]); };
+function dodge(f) { go(f.el.querySelector('.rx'), [{ offset: .3, transform: 'translate(-34px,10px) rotate(-15deg)', easing: 'ease-out' }, { offset: .65, transform: 'translate(-34px,10px) rotate(-15deg)', easing: IO }, { offset: 1, transform: 'translate(0,0) rotate(0deg)' }], 520); emit('puff', 160, 356, 5, { v0: 20, v1: 90, g: -10, life: 1 }); burst(160, 170, 'SLIPPED!', '#8fd3ff'); sfx.whoosh(); }
+const aura = () => { const a = you.el.querySelector('.aura'); a.animate([{ opacity: 0, transform: 'scale(.5)' }, { opacity: 1, transform: 'scale(1.05)', offset: .5 }, { opacity: 0, transform: 'scale(1.4)' }], { duration: 1100, easing: EASE }); sfx.power(); emit('star', 150, 330, 18, { a0: -2.7, a1: -.4, v0: 120, v1: 340, g: 260, cols: ['#E8A33D', '#fff'], r0: 3, r1: 6 }); vib([20, 30, 80]); };
 
-async function knockdown() {
-  const b = you.el.querySelector('.body'); you.el.dataset.face = 'hit';
-  const dn = A(b, [{ transform: 'translate(0,0) rotate(0deg)' }, { transform: 'translate(-60px,-30px) rotate(-30deg)', offset: .35 }, { transform: 'translate(-92px,30px) rotate(-78deg)' }], { duration: 620, easing: 'cubic-bezier(.3,.7,.4,1)', fill: 'forwards' });
-  await sleep(650); emit('puff', 60, 350, 8, { v0: 30, v1: 120, g: -10, life: 1.2, r0: 8, r1: 14 }); sfx.thud(4); camFx({ shake: 9, dur: 320 });
-  for (const n of ['1', '2', '3']) await banner(n, 430, true);
-  await banner('GET UP!', 500); dn.cancel(); holds.splice(holds.indexOf(dn), 1); aura(); setHP(you, 62);
-  A(b, [{ transform: 'translate(-92px,30px) rotate(-78deg)' }, { transform: 'translate(-40px,4px) rotate(-20deg)', offset: .5 }, { transform: 'translate(0,-10px) rotate(6deg)', offset: .8 }, { transform: 'translate(0,0) rotate(0deg)' }], { duration: 760, easing: SPRING });
-  you.el.dataset.face = ''; burst(140, 170, 'SECOND WIND!', '#E8A33D'); await sleep(900);
+/* state */
+const WORDS = ['RTI!', 'LEGAL NOTICE!', 'GRIEVANCE!', 'CONSUMER ACT!', 'FORUM FILED!', 'CHARGEBACK!', 'REFUND!', 'SECTION 2(47)!'];
+const CWORDS = { kase: 'T&C APPLY!', slap: 'PLEASE HOLD…', big: 'ESCALATE: L2!' };
+const MOVES = ['jab', 'cross', 'jab', 'hook', 'cross', 'upper'], GAIN = { jab: 3.4, cross: 4.4, hook: 4.8, upper: 6.2 };
+let lastCorpAtk = 0, prog = 0, combo = 0, lastHit = 0, lastPunch = 0, lastPress = 0, lastPD = 0, mi = 0, wi = 0, over = false, canReset = false, aiOn = false, corpNext = 0, invuln = 0, boost = false, wind = false, atk = null;
+const done = false;   // (kept for reel's legacy guard)
+
+function hurt(d) { setHP(you, Math.max(18, you.hp - d)); if (you.hp <= 32 && !wind) secondWind(); }
+function secondWind() { wind = boost = true; invuln = performance.now() + 1800; aura(); setHP(you, 60); burst(170, 160, 'SECOND WIND!', '#E8A33D'); camFx({ shake: 6, dur: 300 }); btn.classList.add('rage'); }
+
+function land(k) {                       // a punch of yours connected
+  if (over) return; const n = performance.now(); combo = n - lastHit < 900 ? combo + 1 : 1; lastHit = n;
+  prog = Math.min(100, prog + GAIN[k] * (1 + Math.min(combo, 6) * .06) * (boost ? 1.35 : 1)); const fin = prog >= 100;
+  impact(corp, { p: k === 'upper' || combo % 5 === 0 ? 3 : 2, word: WORDS[wi++ % WORDS.length] }); setMeter(fin ? 100 : Math.round(prog));
+  if (fin) return victory();
+  if (combo >= 3 && n - lastCorpAtk < 2000) corpNext = Math.max(corpNext, n + 650);                                    // a combo keeps him stunned
+  if (atk && n < atk.end && Math.random() < .25) { clearTimeout(atk.t); atk = null; burst(corp.hit[0] - 6, 150, 'INTERRUPTED!', '#8fd3ff'); }   // you break his wind-up
 }
-async function counter(c) {
-  const t = strike(corp, c.k); sfx.whoosh();
-  if (c.miss) { await sleep(K[c.k].d * .26); dodge(you); await t; burst(196, 200, 'MISSED!', '#F0E6CC'); await sleep(420); return; }
-  await t; impact(you, { p: c.down ? 4 : 3, word: c.word }); setHP(you, you.hp - c.dmg);
-  if (c.down) await knockdown(); else await sleep(340);
+function corpAttack(n) {                 // he fights back on his own clock
+  lastCorpAtk = n; const k = ['kase', 'slap', 'kase', 'big'][Math.random() * 4 | 0], at = swing(corp, k);
+  atk = { end: n + at, t: setTimeout(() => { atk = null; if (over) return; const m = performance.now();
+    if (m < invuln || (m - lastPunch > 350 && Math.random() < .35)) dodge(you); else { impact(you, { p: k === 'big' ? 4 : 3, word: CWORDS[k] }); hurt(k === 'big' ? 15 : 9); } }, at / TS.v) };
 }
+function ai() { if (!aiOn || over) return; const n = performance.now(); if (n >= corpNext && !document.hidden) { corpAttack(n); corpNext = n + rnd(850, 1250) - Math.min(prog * 2, 150); } requestAnimationFrame(ai); }
+
 async function victory() {
-  done = true; stop(200); slow(.22, 1300); camFx({ shake: 18, zoom: .4, fx: 66, fy: 48, dur: 1500 }); flash(); vib([60, 40, 60, 40, 200]);
-  A(corp.el.querySelector('.body'), [{ transform: 'translate(0,0) rotate(0deg)' }, { transform: 'translate(-50px,-90px) rotate(-40deg)', offset: .45 }, { transform: 'translate(-104px,16px) rotate(-100deg)' }], { duration: 950, easing: 'cubic-bezier(.2,.7,.3,1)', fill: 'forwards' });
-  corp.el.dataset.face = 'hit'; emit('paper', 290, 190, 26, { a0: -3, a1: -.2, v0: 120, v1: 420, g: 300, life: 2.4 }); emit('spark', 290, 200, 40, { v0: 200, v1: 520, g: 150, life: .8 });
+  over = true; aiOn = false; canReset = false; if (atk) { clearTimeout(atk.t); atk = null; }
+  stop(200); slow(.22, 1300); camFx({ shake: 18, zoom: .4, fx: 62, fy: 48, dur: 1500 }); flash(); vib([60, 40, 60, 40, 200]);
+  A(corp.el.querySelector('.rx'), [{ transform: 'translate(0,0) rotate(0deg)' }, { transform: 'translate(-50px,-90px) rotate(-40deg)', offset: .45 }, { transform: 'translate(-104px,16px) rotate(-100deg)' }], { duration: 950, easing: 'cubic-bezier(.2,.7,.3,1)', fill: 'forwards' });
+  corp.el.dataset.face = 'hit'; emit('paper', 262, 190, 26, { a0: -3, a1: -.2, v0: 120, v1: 420, g: 300, life: 2.4 }); emit('spark', 262, 200, 40, { v0: 200, v1: 520, g: 150, life: .8 });
   await wait(1400); ring.classList.add('cheer'); sfx.bell(); sfx.cheer(); banner('K.O.!', 1100, true);
   emit('conf', 220, 40, 110, { a0: 1.2, a1: 1.9, v0: 60, v1: 260, g: 260, life: 3, cols: ['#E8A33D', '#C1272D', '#2C5F8A', '#F0E6CC'], r0: 3, r1: 6 });
   you.el.dataset.face = 'win'; A(you.el.querySelector('.ua.f'), [rot(64), rot(-118)], { duration: 500, easing: SPRING, fill: 'forwards' }); A(you.el.querySelector('.fa.f'), [rot(-128), rot(-22)], { duration: 500, easing: SPRING, fill: 'forwards' });
-  A(you.el.querySelector('.body'), [{ transform: 'translate(0,0)' }, { transform: 'translate(0,-20px)', offset: .45 }, { transform: 'translate(0,0)' }], { duration: 560, iterations: 6, easing: 'ease-out' });
-  await wait(1300); banner('YOU WIN!', 1400); mc.textContent = 'REFUND SECURED. 🎉'; btn.textContent = 'Rematch 🔁'; btn.removeAttribute('aria-busy'); busy = false;
-}
-
-/* ---------- the match ---------- */
-const ROUNDS = [
-  { atk: 'jab', hits: [15], word: ['RTI!'], cap: 'Politely asking for a refund…', ctr: { k: 'kase', word: 'T&C APPLY!', dmg: 14 } },
-  { atk: 'hook', hits: [32], word: ['LEGAL NOTICE!'], cap: 'Sending a firmer email.', ctr: { k: 'slap', word: 'PLEASE HOLD…', dmg: 14 } },
-  { atk: 'cross', hits: [50], word: ['GRIEVANCE!'], cap: "CC'ing the grievance officer. This means business.", ctr: { k: 'kase', miss: true } },
-  { atk: 'upper', hits: [68], word: ['CONSUMER ACT!'], cap: 'Citing the Consumer Protection Act, 2019.', ctr: { k: 'big', word: 'ESCALATE: L2!', dmg: 30, down: true } },
-  { combo: ['jab', 'hook', 'cross'], hits: [74, 79, 84], word: ['REFUND!', 'CHARGEBACK!', 'FORUM FILED!'], cap: 'Filing with the consumer forum.' },
-  { atk: 'ko', hits: [100], word: ['K.O.!'], cap: 'REFUND SECURED. 🎉', win: true }
-];
-const LABELS = ['Throw a Punch 👊', 'Hit Back Harder 🥊', 'Land the Hook 🥊', 'Uppercut Time ⬆️', 'Finish Him 💥'];
-let stage = 0, busy = false, queued = false, done = false;
-
-async function exchange() {
-  if (done && !busy) return reset();
-  if (busy) { queued = true; return; }
-  busy = true; btn.setAttribute('aria-busy', 'true'); ctx();
-  const r = ROUNDS[stage++]; await banner(stage === 1 ? 'FIGHT!' : r.win ? 'FINISH HIM!' : `ROUND ${stage}`, 600, true); if (stage === 1) sfx.bell();
-  const seq = r.combo || [r.atk];
-  for (let i = 0; i < seq.length; i++) {
-    sfx.whoosh(); await strike(you, seq[i]);
-    impact(corp, { p: r.win ? 4 : seq.length > 1 ? 2 : stage > 3 ? 3 : 2, word: r.word[i] }); setMeter(r.hits[i], i === seq.length - 1 ? r.cap : null);
-    if (r.win) return victory(); await sleep(seq.length > 1 ? 250 : 420);
-  }
-  if (r.ctr) { await sleep(160); await counter(r.ctr); }
-  busy = false; btn.removeAttribute('aria-busy'); btn.textContent = LABELS[stage];
-  if (queued) { queued = false; exchange(); }
+  A(you.el.querySelector('.rx'), [{ transform: 'translate(0,0)' }, { transform: 'translate(0,-20px)', offset: .45 }, { transform: 'translate(0,0)' }], { duration: 560, iterations: 6, easing: 'ease-out' });
+  await wait(1200); banner('YOU WIN!', 1400); btn.textContent = 'Rematch 🔁'; btn.classList.remove('rage'); canReset = true;
 }
 function reset() {
-  holds.splice(0).forEach(a => { try { a.cancel(); } catch (e) {} }); ring.classList.remove('cheer'); [you, corp].forEach(f => f.el.dataset.face = '');
-  stage = 0; done = busy = queued = false; setHP(you, 100); shown = 0; setMeter(0, 'Ready to fight back?'); btn.textContent = LABELS[0]; btn.removeAttribute('aria-busy');
+  holds.splice(0).forEach(a => { try { a.cancel(); } catch (e) {} }); ring.classList.remove('cheer'); btn.classList.remove('rage'); [you, corp].forEach(f => f.el.dataset.face = '');
+  prog = combo = mi = wi = 0; over = canReset = aiOn = boost = wind = false; invuln = 0; atk = null; setHP(you, 100); md = mt = 0; capI = -1; setMeter(0); mp.textContent = '0%'; btn.textContent = 'Throw a Punch 👊';
 }
-btn.addEventListener('click', exchange);
+
+/* ---------- input: acts on pointer-DOWN, same frame, no queue, no turns ---------- */
+function press() {
+  const n = performance.now(); if (n - lastPress < 55) return; lastPress = n;
+  if (over) { if (canReset) reset(); return; }
+  ctx(); btn.animate([{ transform: 'scale(.94)' }, { transform: 'scale(1)' }], { duration: 160, easing: EASE });
+  if (!aiOn) { aiOn = true; lastCorpAtk = n; corpNext = n + 900; requestAnimationFrame(ai); banner('FIGHT!', 650, true); sfx.bell(); btn.textContent = 'Keep Punching! 👊'; }
+  lastPunch = n; const k = MOVES[mi++ % MOVES.length]; sfx.whoosh(); const at = swing(you, k); setTimeout(() => land(k), at / TS.v);
+}
+btn.addEventListener('pointerdown', e => { if (e.pointerType === 'mouse' && e.button !== 0) return; lastPD = performance.now(); e.preventDefault(); press(); });
+btn.addEventListener('keydown', e => { if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); lastPD = performance.now(); press(); } });
+btn.addEventListener('click', () => { if (performance.now() - lastPD > 700) press(); });   // assistive tech / synthetic clicks
+const warm = () => { try { nz(ctx()); } catch (e) {} }; btn.addEventListener('pointerover', warm, { once: true }); btn.addEventListener('touchstart', warm, { once: true, passive: true });
 
 /* intro: fighters walk in when the ring scrolls into view */
 new IntersectionObserver(([e], o) => { if (!e.isIntersecting) return; o.disconnect(); if (reduce) return;
-  A(you.el.querySelector('.body'), [{ transform: 'translate(-150px,0)' }, { transform: 'translate(0,0)' }], { duration: 900, easing: SPRING }); A(corp.el.querySelector('.body'), [{ transform: 'translate(-150px,0)' }, { transform: 'translate(0,0)' }], { duration: 900, easing: SPRING, delay: 120 }); }, { threshold: .35 }).observe(ring);
-setMeter(0, 'Ready to fight back?');
+  A(you.el.querySelector('.rx'), [{ transform: 'translate(-150px,0)' }, { transform: 'translate(0,0)' }], { duration: 900, easing: SPRING }); A(corp.el.querySelector('.rx'), [{ transform: 'translate(-150px,0)' }, { transform: 'translate(0,0)' }], { duration: 900, easing: SPRING, delay: 120 }); }, { threshold: .35 }).observe(ring);
+setMeter(0);
 })();
 </script>
 <script>/* RefundWaapsi FX — drop-in motion + speed layer (no dependencies).
