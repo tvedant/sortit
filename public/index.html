@@ -577,14 +577,13 @@
         <div class="ring-bg"></div>
         <div class="ring-post rp-tl"></div><div class="ring-post rp-tr"></div>
         <div class="ring-post rp-bl"></div><div class="ring-post rp-br"></div>
-        <div class="you-label">YOU</div>
-        <div class="villain-label">CHALTAHAI CORP PVT. LTD.</div>
-        <div class="villain-tagline">"Your Trust, Our Loophole"</div>
-        <div class="fighter you">🥊</div>
-        <div class="fighter villain" id="villain">🤵</div>
-        <div class="fist" id="flyingFist">👊</div>
-        <div class="punch-fx" id="punchFx">POW!</div>
-        <div class="ko-stars" id="koStars">💫💥💫</div>
+        <div class="cam" id="cam"><svg id="stage" viewBox="0 0 440 440" preserveAspectRatio="xMidYMid slice" role="img" aria-label="Cartoon boxing match: you versus a corporate executive in a suit and tie"></svg><canvas id="fxCanvas" aria-hidden="true"></canvas></div>
+        <div class="hud">
+          <div class="hp-box you"><span class="hp-name">YOU</span><div class="hp" id="hpYou"><b></b><i></i></div></div>
+          <div class="hp-box corp"><span class="hp-name">CHALTAHAI CORP PVT. LTD.</span><div class="hp corp" id="hpCorp"><b></b><i></i></div></div>
+        </div>
+        <div class="banner" id="banner" aria-live="polite"></div><div class="flash" id="flash"></div>
+        <button class="snd" id="sndBtn" type="button" aria-label="Toggle fight sounds" aria-pressed="true">🔊</button>
       </div>
       <div class="meter-wrap">
         <div class="meter-label"><span>REFUND-O-METER</span><span id="meterPct">0%</span></div>
@@ -998,107 +997,8 @@
     card.addEventListener('click', () => card.classList.toggle('flipped'));
   });
 
-  // ---- Punch / Refund-o-meter interaction ----
-  const punchBtn = document.getElementById('punchBtn');
-  const punchFx = document.getElementById('punchFx');
-  const flyingFist = document.getElementById('flyingFist');
-  const koStars = document.getElementById('koStars');
-  const meterFill = document.getElementById('meterFill');
-  const meterPct = document.getElementById('meterPct');
-  const meterCaption = document.getElementById('meterCaption');
-  const villain = document.getElementById('villain');
-  const ringEl = document.querySelector('.ring');
+  // (punch / refund-o-meter now lives in the fight engine below)
 
-  const stages = [
-    { pct: 0,  caption: "Ready to fight back?" },
-    { pct: 15, caption: "Politely asking for a refund…" },
-    { pct: 32, caption: "Sending a firmer email." },
-    { pct: 50, caption: "CC'ing the grievance officer. This means business." },
-    { pct: 68, caption: "Citing the Consumer Protection Act, 2019." },
-    { pct: 84, caption: "Filing with the consumer forum." },
-    { pct: 100, caption: "REFUND SECURED. 🎉" },
-  ];
-  let stage = 0;
-  let punching = false;
-
-  function throwFist(onLand) {
-    flyingFist.classList.remove('throw');
-    void flyingFist.offsetWidth;
-    flyingFist.classList.add('throw');
-    setTimeout(onLand, 300);
-  }
-
-  function burstConfetti() {
-    const pieces = ["🎉","₹","🥳","🪔","💥","✨"];
-    for (let i = 0; i < 18; i++) {
-      const el = document.createElement('div');
-      el.className = 'confetti-piece';
-      el.textContent = pieces[Math.floor(Math.random() * pieces.length)];
-      el.style.left = (30 + Math.random() * 45) + '%';
-      el.style.setProperty('--dx', (Math.random() * 120 - 60) + 'px');
-      el.style.setProperty('--rot', (Math.random() * 360) + 'deg');
-      el.style.animationDelay = (Math.random() * 0.2) + 's';
-      ringEl.appendChild(el);
-      setTimeout(() => el.remove(), 1400);
-    }
-  }
-
-  function landHit(isFinal) {
-    if (isFinal) {
-      villain.classList.remove('hit');
-      villain.classList.add('ko');
-      punchFx.textContent = 'K.O.!';
-    } else {
-      punchFx.textContent = 'POW!';
-      villain.classList.remove('hit');
-      void villain.offsetWidth;
-      villain.classList.add('hit');
-    }
-
-    punchFx.style.left = '58%';
-    punchFx.style.top = '20%';
-    punchFx.classList.remove('show');
-    void punchFx.offsetWidth;
-    punchFx.classList.add('show');
-
-    if (isFinal) {
-      koStars.style.left = '54%';
-      koStars.style.top = '10%';
-      koStars.classList.remove('show');
-      void koStars.offsetWidth;
-      koStars.classList.add('show');
-      burstConfetti();
-    }
-  }
-
-  function handlePunch() {
-    if (punching) return;
-    punching = true;
-
-    if (stage < stages.length - 1) stage++;
-    const s = stages[stage];
-    meterFill.style.width = s.pct + '%';
-    meterPct.textContent = s.pct + '%';
-    meterCaption.textContent = s.caption;
-
-    const isFinal = s.pct === 100;
-    throwFist(() => { landHit(isFinal); punching = false; });
-
-    if (isFinal) {
-      punchBtn.textContent = "Case Won 🏆 (resetting…)";
-      punchBtn.removeEventListener('click', handlePunch);
-      setTimeout(() => {
-        stage = 0;
-        meterFill.style.width = '0%';
-        meterPct.textContent = '0%';
-        meterCaption.textContent = stages[0].caption;
-        punchBtn.textContent = "Throw a Punch 👊";
-        villain.classList.remove('ko', 'hit');
-        punchBtn.addEventListener('click', handlePunch);
-      }, 2400);
-    }
-  }
-  punchBtn.addEventListener('click', handlePunch);
 
   // ---- Meme & Excuse Machine ----
   const memes = [
@@ -1153,6 +1053,256 @@
   // Customer conversations now begin after account creation and the ₹59 case-opening payment.
 </script>
 
+<script>/* RefundWaapsi FIGHT — customer vs corporate. SVG rig + WAAPI choreography + canvas particles + WebAudio + haptics. */
+(() => {
+'use strict';
+const D = document, ring = D.querySelector('.ring'), btn = D.getElementById('punchBtn'), $ = id => D.getElementById(id);
+if (!ring || !btn || !$('stage')) return;
+const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const EASE = 'cubic-bezier(.22,1,.36,1)', SPRING = 'cubic-bezier(.34,1.56,.64,1)', INK = '#1A1611';
+const rnd = (a, b) => a + Math.random() * (b - a), vib = p => { try { navigator.vibrate && navigator.vibrate(p); } catch (e) {} };
+
+/* ---------- styles ---------- */
+const st = D.createElement('style');
+st.textContent = `
+.cam{position:absolute;inset:var(--line);overflow:hidden;will-change:transform;background:#1A1611}
+#stage,#fxCanvas{position:absolute;inset:0;width:100%;height:100%;display:block}
+#fxCanvas{pointer-events:none;z-index:6}
+.hud{position:absolute;left:calc(var(--line) + 6px);right:calc(var(--line) + 6px);top:calc(var(--line) + 6px);display:flex;justify-content:space-between;gap:10px;z-index:9;pointer-events:none}
+.hp-box{flex:1;max-width:46%}.hp-box.corp{text-align:right}
+.hp-name{font-family:'Anton',sans-serif;font-size:11px;letter-spacing:.05em;background:var(--paper);border:2px solid var(--ink);padding:1px 6px;display:inline-block;line-height:1.3}
+.hp-box.corp .hp-name{background:var(--crimson);color:var(--paper)}
+.hp{height:13px;border:2.5px solid var(--ink);background:#0d0a07;margin-top:3px;position:relative;overflow:hidden}
+.hp i,.hp b{position:absolute;inset:0;transform-origin:0 50%;transition:transform .35s ${EASE}}
+.hp.corp i,.hp.corp b{transform-origin:100% 50%}
+.hp b{background:#f4d9a0;transition:transform .9s ${EASE} .4s}
+.hp i{background:repeating-linear-gradient(45deg,#3fa66b 0 8px,#2f8a56 8px 16px)}
+.hp.corp i{background:repeating-linear-gradient(45deg,var(--crimson) 0 8px,var(--crimson-dark) 8px 16px)}
+.hp-box.low .hp i{background:repeating-linear-gradient(45deg,var(--mustard) 0 8px,#c98420 8px 16px)}
+.banner,.flash{position:absolute;pointer-events:none;opacity:0}
+.banner{left:0;right:0;top:32%;text-align:center;z-index:10;white-space:nowrap;font-family:'Anton',sans-serif;font-size:clamp(34px,11vw,58px);color:var(--mustard);-webkit-text-stroke:3px var(--ink);text-shadow:5px 5px 0 var(--ink)}
+.flash{inset:var(--line);background:#fff;z-index:11}
+.snd{position:absolute;right:8px;bottom:8px;z-index:12;width:32px;height:32px;border:3px solid var(--ink);background:var(--paper);cursor:pointer;font-size:14px;box-shadow:3px 3px 0 var(--ink);padding:0}
+.f .m2,.f .m3,.f .eyx{display:none}
+.f[data-face=hit] .m1,.f[data-face=hit] .eyes,.f[data-face=win] .m1{display:none}
+.f[data-face=hit] .m2,.f[data-face=hit] .eyx,.f[data-face=win] .m3{display:inline}
+.bob{animation:rwbob 1.1s ease-in-out infinite}.f.corp .bob{animation-duration:1.3s;animation-delay:-.4s}
+@keyframes rwbob{50%{transform:translateY(-4px)}}
+.crowd .h{animation:rwbob .9s ease-in-out infinite;animation-delay:var(--d)}
+.cheer .crowd .h{animation-duration:.32s}
+.burst{position:absolute;pointer-events:none;z-index:8;translate:-50% -50%;width:124px;height:124px;display:grid;place-items:center}
+.burst svg{position:absolute;inset:0;width:100%;height:100%}
+.burst span{position:relative;max-width:84px;font-family:'Anton',sans-serif;font-size:21px;line-height:1;color:var(--ink);text-align:center}
+.meter::before{content:'';position:absolute;inset:0;z-index:2;pointer-events:none;background:repeating-linear-gradient(90deg,transparent 0 calc(16.66% - 2px),rgba(26,22,17,.55) calc(16.66% - 2px) 16.66%)}
+.meter-fill{width:100%!important;transform:scaleX(0);transform-origin:0 50%;transition:transform 1s cubic-bezier(.2,.9,.3,1.12)!important}
+.meter-fill::after{content:'';position:absolute;right:0;top:0;bottom:0;width:7px;background:#fff;opacity:.75;filter:blur(2px)}
+.meter.hot .meter-fill{animation:rwhot .45s ease-in-out infinite alternate}
+@keyframes rwhot{to{filter:brightness(1.4)}}
+.punch-btn[aria-busy=true]{opacity:.75}`;
+D.head.append(st);
+
+/* ---------- SVG stage + rigged fighters ---------- */
+const arm = (s, c) => `<g transform="translate(${s === 'f' ? 12 : -10} -140)"><g class="ua ${s}" style="transform:rotate(${c.base[s][0]}deg)"><rect x="-6" y="-7" width="40" height="14" rx="7" fill="${c.sleeve}" stroke="${INK}" stroke-width="3.5"/><g transform="translate(34 0)"><g class="fa ${s}" style="transform:rotate(${c.base[s][1]}deg)"><rect x="-6" y="-6.5" width="36" height="13" rx="6.5" fill="${c.forearm}" stroke="${INK}" stroke-width="3.5"/>${c.kase && s === 'b'
+  ? `<circle cx="32" cy="0" r="8" fill="${c.skin}" stroke="${INK}" stroke-width="3"/><rect x="34" y="-14" width="30" height="28" rx="4" fill="#7a4b21" stroke="${INK}" stroke-width="3.5"/><path d="M42 -14 v-7 h14 v7" fill="none" stroke="${INK}" stroke-width="3"/><rect x="56" y="-5" width="6" height="10" fill="#E8A33D" stroke="${INK}" stroke-width="2"/>`
+  : `<circle cx="34" cy="0" r="13" fill="${c.glove}" stroke="${INK}" stroke-width="3.5"/><circle cx="38" cy="-5" r="3.2" fill="#fff" opacity=".35"/>`}</g></g></g></g>`;
+const fighter = (id, c) => `<g id="${id}" class="f ${id}" transform="translate(${c.x} 372) scale(${c.dir} 1)"><ellipse cx="6" cy="3" rx="46" ry="9" fill="#000" opacity=".3"/><g class="body"><g class="bob">
+${arm('b', c)}
+<rect x="-22" y="-84" width="18" height="78" rx="7" fill="${c.pants2}" stroke="${INK}" stroke-width="3.5"/><rect x="6" y="-84" width="18" height="78" rx="7" fill="${c.pants}" stroke="${INK}" stroke-width="3.5"/>
+${c.id === 'you' ? `<rect x="-25" y="-90" width="52" height="38" rx="7" fill="#2C5F8A" stroke="${INK}" stroke-width="3.5"/><rect x="-25" y="-90" width="52" height="8" fill="#E8A33D" stroke="${INK}" stroke-width="2.5"/>` : ''}
+<ellipse cx="-12" cy="-4" rx="14" ry="8" fill="${c.shoe}" stroke="${INK}" stroke-width="3.5"/><ellipse cx="20" cy="-4" rx="15" ry="8" fill="${c.shoe}" stroke="${INK}" stroke-width="3.5"/>
+<path d="M-25 -152 Q0 -160 25 -152 L21 -80 L-21 -80Z" fill="${c.top}" stroke="${INK}" stroke-width="3.5" stroke-linejoin="round"/>
+${c.id === 'corp' ? `<path d="M-9 -154 L0 -126 L9 -154Z" fill="#fff" stroke="${INK}" stroke-width="2.5"/><path d="M-25 -152 L-3 -124 L-14 -80 M25 -152 L3 -124 L14 -80" fill="none" stroke="${INK}" stroke-width="3"/><path d="M-4 -142 L4 -142 L6 -114 L0 -104 L-6 -114Z" fill="#C1272D" stroke="${INK}" stroke-width="2.5"/><rect x="12" y="-124" width="9" height="6" fill="#fff" stroke="${INK}" stroke-width="1.5"/>` : `<circle cx="0" cy="-120" r="9" fill="#C1272D" stroke="${INK}" stroke-width="2.5"/>`}
+<ellipse class="aura" cx="0" cy="-100" rx="62" ry="108" fill="url(#glow)" opacity="0"/>
+<g class="head" transform="translate(2 -150)"><g class="hd"><rect x="-6" y="-12" width="12" height="16" fill="${c.skin}" stroke="${INK}" stroke-width="3"/><circle cx="4" cy="-32" r="24" fill="${c.skin}" stroke="${INK}" stroke-width="3.5"/>
+${c.id === 'you' ? `<path d="M-19 -38 Q-16 -68 4 -63 Q28 -66 27 -38 Q12 -54 -19 -38Z" fill="#2a1a10" stroke="${INK}" stroke-width="3"/><rect x="-20" y="-46" width="48" height="8" fill="#C1272D" stroke="${INK}" stroke-width="2.5"/><path d="M-20 -43 L-33 -35 L-21 -33Z" fill="#C1272D" stroke="${INK}" stroke-width="2.5"/>`
+ : `<path d="M-19 -38 Q-18 -64 6 -62 Q28 -60 27 -38 Q12 -54 -19 -38Z" fill="#a3a9b0" stroke="${INK}" stroke-width="3"/><circle cx="14" cy="-34" r="7.5" fill="#dff" fill-opacity=".55" stroke="${INK}" stroke-width="2.5"/><circle cx="0" cy="-34" r="7.5" fill="#dff" fill-opacity=".55" stroke="${INK}" stroke-width="2.5"/><path d="M6.5 -34h0" stroke="${INK}" stroke-width="2.5"/>`}
+<g class="eyes"><circle cx="14" cy="-34" r="3" fill="${INK}"/><circle cx="1" cy="-34" r="3" fill="${INK}"/><path d="M8 -43 L19 -39 M-6 -39 L5 -43" stroke="${INK}" stroke-width="3" stroke-linecap="round"/></g>
+<path class="eyx" d="M10 -38 l8 8 m0 -8 l-8 8 M-3 -38 l8 8 m0 -8 l-8 8" stroke="${INK}" stroke-width="2.8" stroke-linecap="round"/>
+<path d="M23 -30 L29 -23 L23 -21" fill="${c.skin}" stroke="${INK}" stroke-width="2.5" stroke-linejoin="round"/>
+<path class="m1" d="M8 -14 Q14 -11 21 -14" fill="none" stroke="${INK}" stroke-width="3" stroke-linecap="round"/><ellipse class="m2" cx="14" cy="-13" rx="6" ry="5" fill="#7a1216" stroke="${INK}" stroke-width="2.5"/><path class="m3" d="M6 -18 Q14 -6 23 -19Z" fill="#fff" stroke="${INK}" stroke-width="3" stroke-linejoin="round"/></g></g>
+${arm('f', c)}
+</g></g></g>`;
+const crowd = [...Array(11)].map((_, i) => { const x = 20 + i * 40 + (i % 2) * 8, y = 92 + (i % 3) * 9; return `<g class="h" style="--d:${(-i * .13).toFixed(2)}s"><circle cx="${x}" cy="${y}" r="13" fill="${i % 4 ? '#0d0a07' : '#2a2018'}"/><rect x="${x - 15}" y="${y + 10}" width="30" height="40" rx="10" fill="${i % 4 ? '#0d0a07' : '#2a2018'}"/>${i % 3 === 0 ? `<rect x="${x + 10}" y="${y - 30}" width="8" height="26" rx="4" fill="${i % 2 ? '#E8A33D' : '#C1272D'}" stroke="#000" stroke-width="2"/>` : ''}</g>`; }).join('');
+const YOU = { id: 'you', x: 130, dir: 1, skin: '#f0c9a0', top: '#E8A33D', sleeve: '#f0c9a0', forearm: '#f0c9a0', glove: '#C1272D', pants: '#f0c9a0', pants2: '#d9b088', shoe: '#1A1611', base: { f: [64, -128], b: [76, -136] } };
+const CORP = { id: 'corp', x: 310, dir: -1, skin: '#f0c9a0', top: '#23324a', sleeve: '#23324a', forearm: '#23324a', glove: '#111', pants: '#1c2740', pants2: '#141c30', shoe: '#0d0a07', kase: true, base: { f: [64, -128], b: [86, -18] } };
+$('stage').innerHTML = `<defs><linearGradient id="wall" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#0d0a07"/><stop offset="1" stop-color="#2C5F8A"/></linearGradient><linearGradient id="beam" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".5"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient><radialGradient id="glow"><stop offset="0" stop-color="#E8A33D" stop-opacity=".9"/><stop offset="1" stop-color="#E8A33D" stop-opacity="0"/></radialGradient></defs>
+<rect width="440" height="440" fill="url(#wall)"/><g class="crowd">${crowd}</g>
+<polygon points="70,0 120,0 250,340 20,340" fill="url(#beam)" opacity=".3"/><polygon points="320,0 370,0 430,340 210,340" fill="url(#beam)" opacity=".3"/>
+<g fill="none" stroke-linecap="round"><path d="M0 190H440M0 236H440M0 282H440" stroke="${INK}" stroke-width="10"/><path d="M0 190H440" stroke="#C1272D" stroke-width="5"/><path d="M0 236H440" stroke="#F0E6CC" stroke-width="5"/><path d="M0 282H440" stroke="#2C5F8A" stroke-width="5"/></g>
+<rect y="340" width="440" height="100" fill="#E8DBB8"/><path d="M0 340H440" stroke="${INK}" stroke-width="5"/><path d="M220 340L40 440M220 340L400 440" stroke="#C1272D" stroke-width="3" opacity=".5"/><ellipse cx="220" cy="392" rx="70" ry="16" fill="none" stroke="#2C5F8A" stroke-width="3" opacity=".5"/>
+${fighter('you', YOU)}${fighter('corp', CORP)}`;
+
+const F = { you: { el: $('you'), dir: 1, hit: [158, 208], hp: 100, base: YOU.base, box: $('hpYou').parentNode, fill: $('hpYou').querySelector('i'), trail: $('hpYou').querySelector('b') },
+            corp: { el: $('corp'), dir: -1, hit: [284, 208], hp: 100, base: CORP.base, box: $('hpCorp').parentNode, fill: $('hpCorp').querySelector('i'), trail: $('hpCorp').querySelector('b') } };
+const you = F.you, corp = F.corp, cam = $('cam'), bn = $('banner'), mf = $('meterFill'), mp = $('meterPct'), mc = $('meterCaption'), meter = mf.parentNode;
+
+/* ---------- animation core: time-scale (slow-mo), hit-stop, holds ---------- */
+const live = new Set(), holds = [], TS = { v: 1 };
+const A = (el, kf, o = {}) => { const a = el.animate(kf, { duration: 400, easing: 'ease-in-out', ...o }); a.playbackRate = TS.v; live.add(a); const d = () => live.delete(a); a.finished.then(d, d); if (o.fill === 'forwards') holds.push(a); return a; };
+const sleep = ms => new Promise(r => setTimeout(r, ms / TS.v)), wait = ms => new Promise(r => setTimeout(r, ms));
+const stop = ms => { if (reduce) return; live.forEach(a => a.pause()); setTimeout(() => live.forEach(a => a.playState === 'paused' && a.play()), ms); };
+const slow = (v, ms) => { if (reduce) return; TS.v = v; live.forEach(a => a.updatePlaybackRate(v)); setTimeout(() => { TS.v = 1; live.forEach(a => a.updatePlaybackRate(1)); }, ms); };
+const rot = a => ({ transform: `rotate(${a}deg)` });
+
+/* ---------- audio (synthesised, no assets) ---------- */
+let AC = null, NB = null, muted = false; try { muted = localStorage.getItem('rw-mute') === '1'; } catch (e) {}
+const ctx = () => { AC = AC || new (window.AudioContext || window.webkitAudioContext)(); if (AC.state === 'suspended') AC.resume(); return AC; };
+const env = (g, t, a, pk, d) => { g.gain.setValueAtTime(.0001, t); g.gain.exponentialRampToValueAtTime(pk, t + a); g.gain.exponentialRampToValueAtTime(.0001, t + a + d); };
+const nz = c => NB || (NB = (() => { const b = c.createBuffer(1, c.sampleRate, c.sampleRate), d = b.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1; return b; })());
+const noise = (type, f0, f1, dur, pk, q = 1) => { const c = ctx(), t = c.currentTime, s = c.createBufferSource(), f = c.createBiquadFilter(), g = c.createGain(); s.buffer = nz(c); f.type = type; f.Q.value = q; f.frequency.setValueAtTime(f0, t); f.frequency.exponentialRampToValueAtTime(f1, t + dur); env(g, t, .02, pk, dur); s.connect(f).connect(g).connect(c.destination); s.start(t); s.stop(t + dur + .1); };
+const tone = (type, f0, f1, dur, pk, at = 0) => { const c = ctx(), t = c.currentTime + at, o = c.createOscillator(), g = c.createGain(); o.type = type; o.frequency.setValueAtTime(f0, t); o.frequency.exponentialRampToValueAtTime(f1, t + dur); env(g, t, .01, pk, dur); o.connect(g).connect(c.destination); o.start(t); o.stop(t + dur + .05); };
+const sfx = {
+  whoosh() { if (!muted) noise('bandpass', 500, 2600, .18, .3, 1.2); },
+  thud(p = 2) { if (muted) return; tone('sine', 170, 38, .22, .5 + p * .1); noise('lowpass', 1600, 200, .16, .35 + p * .08); },
+  bell() { if (muted) return; [880, 1320, 1760].forEach((f, i) => tone('sine', f, f * .995, 1.4, .18 / (i + 1))); },
+  cheer() { if (!muted) noise('bandpass', 900, 1400, 1.6, .28, .6); },
+  power() { if (!muted) { tone('sawtooth', 160, 720, .7, .12); tone('triangle', 320, 1440, .7, .1); } }
+};
+const sb = $('sndBtn'); const paintSnd = () => { sb.textContent = muted ? '🔇' : '🔊'; sb.setAttribute('aria-pressed', String(!muted)); }; paintSnd();
+sb.addEventListener('click', () => { muted = !muted; try { localStorage.setItem('rw-mute', muted ? '1' : '0'); } catch (e) {} paintSnd(); });
+
+/* ---------- particles (one canvas, rAF only while alive) ---------- */
+const cv = $('fxCanvas'), cx = cv.getContext('2d'); let P = [], run = false, last = 0, DPR = 1, SC = 1;
+const size = () => { DPR = Math.min(devicePixelRatio || 1, 2); SC = cv.clientWidth / 440; cv.width = cv.clientWidth * DPR; cv.height = cv.clientHeight * DPR; };
+new ResizeObserver(size).observe(cv); size();
+function emit(k, x, y, n, o = {}) {
+  const cols = o.cols || ['#E8A33D', '#F0E6CC', '#C1272D'];
+  for (let i = 0; i < n; i++) { const a = rnd(o.a0 ?? 0, o.a1 ?? 6.283), v = rnd(o.v0 ?? 60, o.v1 ?? 240);
+    P.push({ k, x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, g: o.g ?? 500, l: 0, m: rnd(.5, 1) * (o.life ?? 1), r: rnd(o.r0 ?? 2, o.r1 ?? 5), a: rnd(0, 6.28), w: rnd(-9, 9), c: cols[Math.random() * cols.length | 0] }); }
+  if (P.length > 520) P.splice(0, P.length - 520); if (!run) { run = true; last = performance.now(); requestAnimationFrame(tick); }
+}
+function tick(n) {
+  const dt = Math.min((n - last) / 1000, .05) * TS.v; last = n; cx.setTransform(DPR * SC, 0, 0, DPR * SC, 0, 0); cx.clearRect(0, 0, 440, 440);
+  for (let i = P.length - 1; i >= 0; i--) { const p = P[i]; p.l += dt; if (p.l >= p.m) { P.splice(i, 1); continue; }
+    p.vy += p.g * dt; p.x += p.vx * dt; p.y += p.vy * dt; p.a += p.w * dt; const t = p.l / p.m; cx.globalAlpha = 1 - t * t; cx.fillStyle = p.c; cx.strokeStyle = p.c;
+    if (p.k === 'spark') { cx.lineWidth = p.r * .6; cx.beginPath(); cx.moveTo(p.x, p.y); cx.lineTo(p.x - p.vx * .045, p.y - p.vy * .045); cx.stroke(); }
+    else if (p.k === 'puff') { cx.globalAlpha = .55 * (1 - t); cx.fillStyle = '#F0E6CC'; cx.beginPath(); cx.arc(p.x, p.y, p.r * (1 + t * 2.4), 0, 6.283); cx.fill(); }
+    else if (p.k === 'drop') { cx.beginPath(); cx.arc(p.x, p.y, p.r * .7, 0, 6.283); cx.fill(); }
+    else { cx.save(); cx.translate(p.x, p.y); cx.rotate(p.a);
+      if (p.k === 'star') { cx.strokeStyle = INK; cx.lineWidth = 1.2; cx.beginPath(); for (let j = 0; j < 10; j++) { const r = (j % 2 ? .45 : 1) * p.r * 1.7, a = j * .628 - 1.57; cx.lineTo(Math.cos(a) * r, Math.sin(a) * r); } cx.closePath(); cx.fill(); cx.stroke(); }
+      else if (p.k === 'paper') { cx.fillStyle = '#fff'; cx.strokeStyle = INK; cx.lineWidth = 1.2; cx.beginPath(); cx.rect(-6, -8, 12, 16); cx.fill(); cx.stroke(); cx.beginPath(); cx.moveTo(-3, -3); cx.lineTo(3, -3); cx.moveTo(-3, 1); cx.lineTo(3, 1); cx.stroke(); }
+      else { cx.scale(1, Math.cos(p.a * 2)); cx.fillRect(-p.r, -p.r * .5, p.r * 2, p.r); }
+      cx.restore(); } }
+  if (P.length) requestAnimationFrame(tick); else { run = false; cx.clearRect(0, 0, 440, 440); }
+}
+
+/* ---------- camera, banners, bursts ---------- */
+function camFx({ shake = 0, zoom = 0, fx = 50, fy = 55, dur = 380 } = {}) {
+  if (reduce) return; cam.style.transformOrigin = `${fx}% ${fy}%`; const kf = [];
+  for (let i = 0; i <= 10; i++) { const t = i / 10, e = 1 - t, z = 1 + zoom * (t < .15 ? t / .15 : 1 - (t - .15) / .85); kf.push({ transform: `translate(${rnd(-1, 1) * shake * e}px,${rnd(-1, 1) * shake * e}px) scale(${z})`, offset: t }); }
+  cam.animate(kf, { duration: dur, easing: 'linear' });
+}
+const flash = () => $('flash').animate([{ opacity: .9 }, { opacity: 0 }], { duration: 420, easing: 'ease-out' });
+const banner = (t, ms = 700, big) => { bn.textContent = t; bn.style.fontSize = big ? 'clamp(54px,17vw,92px)' : ''; return bn.animate([{ opacity: 0, transform: 'scale(2.6) rotate(-10deg)' }, { opacity: 1, transform: 'scale(1) rotate(-4deg)', offset: .18 }, { opacity: 1, transform: 'scale(1.06) rotate(-4deg)', offset: .8 }, { opacity: 0, transform: 'scale(.7) translateY(-24px) rotate(-4deg)' }], { duration: ms, easing: EASE }).finished.catch(() => {}); };
+const STAR = [...Array(24)].map((_, i) => { const r = i % 2 ? 40 : 58, a = i * Math.PI / 12; return (Math.cos(a) * r).toFixed(1) + ',' + (Math.sin(a) * r).toFixed(1); }).join(' ');
+function burst(x, y, text, col = '#E8A33D') {
+  const e = D.createElement('div'); e.className = 'burst'; e.style.left = x / 4.4 + '%'; e.style.top = y / 4.4 + '%';
+  e.innerHTML = `<svg viewBox="-60 -60 120 120"><polygon points="${STAR}" fill="${col}" stroke="${INK}" stroke-width="4" stroke-linejoin="round"/></svg><span></span>`; e.lastChild.textContent = text; cam.append(e);
+  const r = rnd(-14, 14); e.animate([{ opacity: 0, transform: `scale(.2) rotate(${r - 30}deg)` }, { opacity: 1, transform: `scale(1.15) rotate(${r}deg)`, offset: .22 }, { opacity: 1, transform: `scale(1) rotate(${r}deg)`, offset: .7 }, { opacity: 0, transform: `translateY(-22px) scale(.9) rotate(${r}deg)` }], { duration: 850, easing: EASE }).onfinish = () => e.remove();
+}
+
+/* ---------- combat primitives ---------- */
+const K = {
+  jab: { arm: 'f', w: [82, -162], s: [2, -4], l: 54, d: 420 }, hook: { arm: 'f', w: [104, -150], s: [-34, -64], l: 60, d: 500 },
+  cross: { arm: 'b', w: [92, -158], s: [0, 0], l: 64, d: 480, tw: 8 }, upper: { arm: 'f', w: [116, -104], s: [-24, -80], l: 56, d: 540, j: -18 },
+  ko: { arm: 'b', w: [108, -170], s: [-4, -2], l: 74, d: 680, tw: 14 },
+  kase: { arm: 'b', w: [100, -24], s: [-46, 0], l: 58, d: 560 }, slap: { arm: 'f', w: [108, -152], s: [-12, -18], l: 56, d: 500 }, big: { arm: 'b', w: [122, -20], s: [-66, -4], l: 72, d: 640, tw: 10 }
+};
+function strike(f, k) {
+  const P0 = K[k], R = f.el, ua = R.querySelector(`.ua.${P0.arm}`), fa = R.querySelector(`.fa.${P0.arm}`), body = R.querySelector('.body'), [ub, fb] = f.base[P0.arm], tw = P0.tw || 6;
+  A(ua, [rot(ub), { ...rot(P0.w[0]), offset: .32 }, { ...rot(P0.s[0]), offset: .5 }, { ...rot(P0.s[0]), offset: .72 }, rot(ub)], { duration: P0.d });
+  A(fa, [rot(fb), { ...rot(P0.w[1]), offset: .32 }, { ...rot(P0.s[1]), offset: .5 }, { ...rot(P0.s[1]), offset: .72 }, rot(fb)], { duration: P0.d });
+  A(body, [{ transform: 'translate(0,0) rotate(0deg)' }, { transform: `translate(-12px,0) rotate(${-tw}deg)`, offset: .32 }, { transform: `translate(${P0.l}px,${P0.j || -4}px) rotate(${tw}deg)`, offset: .5 }, { transform: `translate(${P0.l}px,-2px) rotate(${tw / 2}deg)`, offset: .72 }, { transform: 'translate(0,0) rotate(0deg)' }], { duration: P0.d });
+  return sleep(P0.d * .5);
+}
+function reel(f, p) {
+  const b = f.el.querySelector('.body'), h = f.el.querySelector('.hd'); f.el.dataset.face = 'hit';
+  A(b, [{ transform: 'translate(0,0) rotate(0deg)', filter: 'brightness(1)' }, { transform: `translate(${-14 * p}px,-4px) rotate(${-7 * p}deg)`, filter: 'brightness(2.3)', offset: .25 }, { transform: `translate(${-8 * p}px,0) rotate(${-3 * p}deg)`, filter: 'brightness(1)', offset: .6 }, { transform: 'translate(0,0) rotate(0deg)' }], { duration: 420 + p * 60 });
+  A(h, [rot(0), { ...rot(-22 * p), offset: .25 }, rot(0)], { duration: 520 });
+  setTimeout(() => { if (!done) f.el.dataset.face = ''; }, 520 / TS.v);
+}
+function impact(v, { p, word }) {
+  const [x, y] = v.hit; stop(p > 3 ? 140 : 70); camFx({ shake: 3 + p * 3, zoom: .03 * p, fx: x / 4.4, fy: y / 4.4, dur: 380 }); reel(v, p);
+  emit('spark', x, y, 10 + p * 6, { v0: 140, v1: 380, g: 200, life: .5 }); emit('star', x, y, 3 + p * 2, { v0: 60, v1: 230, g: 320 }); emit('puff', x, y + 40, 3, { v0: 10, v1: 60, g: -20, life: 1.2, r0: 8, r1: 13 });
+  emit('drop', x, y - 24, 6, { a0: -2.6, a1: -.5, v0: 90, v1: 220, g: 600, cols: ['#8fd3ff', '#fff'], r0: 3, r1: 5 });
+  if (v === corp) emit('paper', x, y - 10, 2 + p, { v0: 80, v1: 240, g: 260, life: 1.6 });
+  burst(x + (v === corp ? 22 : -22), y - 40, word, v === corp ? '#E8A33D' : '#F0E6CC'); sfx.thud(p); vib(p > 3 ? [30, 30, 60] : 20);
+}
+function setHP(f, v) { f.hp = Math.max(0, Math.min(100, v)); f.fill.style.transform = f.trail.style.transform = `scaleX(${f.hp / 100})`; f.box.classList.toggle('low', f.hp < 35); }
+let shown = 0;
+function setMeter(p, cap) {
+  const from = shown, t0 = performance.now(); shown = p; (function s(n) { const k = Math.min((n - t0) / 900, 1); mp.textContent = Math.round(from + (p - from) * (1 - Math.pow(1 - k, 3))) + '%'; if (k < 1) requestAnimationFrame(s); })(t0);
+  mf.style.transform = `scaleX(${p / 100})`; meter.classList.toggle('hot', p >= 68 && p < 100); setHP(corp, 100 - p);
+  if (cap != null) { mc.textContent = cap; mc.animate([{ opacity: 0, transform: 'translateY(-7px)' }, { opacity: 1, transform: 'none' }], { duration: 300, easing: EASE }); }
+}
+function dodge(f) { A(f.el.querySelector('.body'), [{ transform: 'translate(0,0) rotate(0deg)' }, { transform: 'translate(-36px,10px) rotate(-16deg)', offset: .35 }, { transform: 'translate(-36px,10px) rotate(-16deg)', offset: .65 }, { transform: 'translate(0,0) rotate(0deg)' }], { duration: 560 }); emit('puff', 150, 356, 6, { v0: 20, v1: 90, g: -10, life: 1 }); burst(150, 170, 'SLIPPED!', '#8fd3ff'); }
+const aura = () => { const a = you.el.querySelector('.aura'); a.animate([{ opacity: 0, transform: 'scale(.5)' }, { opacity: 1, transform: 'scale(1.05)', offset: .5 }, { opacity: 0, transform: 'scale(1.4)' }], { duration: 1100, easing: EASE }); sfx.power(); emit('star', 130, 330, 18, { a0: -2.7, a1: -.4, v0: 120, v1: 340, g: 260, cols: ['#E8A33D', '#fff'], r0: 3, r1: 6 }); vib([20, 30, 80]); };
+
+async function knockdown() {
+  const b = you.el.querySelector('.body'); you.el.dataset.face = 'hit';
+  const dn = A(b, [{ transform: 'translate(0,0) rotate(0deg)' }, { transform: 'translate(-60px,-30px) rotate(-30deg)', offset: .35 }, { transform: 'translate(-92px,30px) rotate(-78deg)' }], { duration: 620, easing: 'cubic-bezier(.3,.7,.4,1)', fill: 'forwards' });
+  await sleep(650); emit('puff', 60, 350, 8, { v0: 30, v1: 120, g: -10, life: 1.2, r0: 8, r1: 14 }); sfx.thud(4); camFx({ shake: 9, dur: 320 });
+  for (const n of ['1', '2', '3']) await banner(n, 430, true);
+  await banner('GET UP!', 500); dn.cancel(); holds.splice(holds.indexOf(dn), 1); aura(); setHP(you, 62);
+  A(b, [{ transform: 'translate(-92px,30px) rotate(-78deg)' }, { transform: 'translate(-40px,4px) rotate(-20deg)', offset: .5 }, { transform: 'translate(0,-10px) rotate(6deg)', offset: .8 }, { transform: 'translate(0,0) rotate(0deg)' }], { duration: 760, easing: SPRING });
+  you.el.dataset.face = ''; burst(140, 170, 'SECOND WIND!', '#E8A33D'); await sleep(900);
+}
+async function counter(c) {
+  const t = strike(corp, c.k); sfx.whoosh();
+  if (c.miss) { await sleep(K[c.k].d * .26); dodge(you); await t; burst(196, 200, 'MISSED!', '#F0E6CC'); await sleep(420); return; }
+  await t; impact(you, { p: c.down ? 4 : 3, word: c.word }); setHP(you, you.hp - c.dmg);
+  if (c.down) await knockdown(); else await sleep(340);
+}
+async function victory() {
+  done = true; stop(200); slow(.22, 1300); camFx({ shake: 18, zoom: .4, fx: 66, fy: 48, dur: 1500 }); flash(); vib([60, 40, 60, 40, 200]);
+  A(corp.el.querySelector('.body'), [{ transform: 'translate(0,0) rotate(0deg)' }, { transform: 'translate(-50px,-90px) rotate(-40deg)', offset: .45 }, { transform: 'translate(-104px,16px) rotate(-100deg)' }], { duration: 950, easing: 'cubic-bezier(.2,.7,.3,1)', fill: 'forwards' });
+  corp.el.dataset.face = 'hit'; emit('paper', 290, 190, 26, { a0: -3, a1: -.2, v0: 120, v1: 420, g: 300, life: 2.4 }); emit('spark', 290, 200, 40, { v0: 200, v1: 520, g: 150, life: .8 });
+  await wait(1400); ring.classList.add('cheer'); sfx.bell(); sfx.cheer(); banner('K.O.!', 1100, true);
+  emit('conf', 220, 40, 110, { a0: 1.2, a1: 1.9, v0: 60, v1: 260, g: 260, life: 3, cols: ['#E8A33D', '#C1272D', '#2C5F8A', '#F0E6CC'], r0: 3, r1: 6 });
+  you.el.dataset.face = 'win'; A(you.el.querySelector('.ua.f'), [rot(64), rot(-118)], { duration: 500, easing: SPRING, fill: 'forwards' }); A(you.el.querySelector('.fa.f'), [rot(-128), rot(-22)], { duration: 500, easing: SPRING, fill: 'forwards' });
+  A(you.el.querySelector('.body'), [{ transform: 'translate(0,0)' }, { transform: 'translate(0,-20px)', offset: .45 }, { transform: 'translate(0,0)' }], { duration: 560, iterations: 6, easing: 'ease-out' });
+  await wait(1300); banner('YOU WIN!', 1400); mc.textContent = 'REFUND SECURED. 🎉'; btn.textContent = 'Rematch 🔁'; btn.removeAttribute('aria-busy'); busy = false;
+}
+
+/* ---------- the match ---------- */
+const ROUNDS = [
+  { atk: 'jab', hits: [15], word: ['RTI!'], cap: 'Politely asking for a refund…', ctr: { k: 'kase', word: 'T&C APPLY!', dmg: 14 } },
+  { atk: 'hook', hits: [32], word: ['LEGAL NOTICE!'], cap: 'Sending a firmer email.', ctr: { k: 'slap', word: 'PLEASE HOLD…', dmg: 14 } },
+  { atk: 'cross', hits: [50], word: ['GRIEVANCE!'], cap: "CC'ing the grievance officer. This means business.", ctr: { k: 'kase', miss: true } },
+  { atk: 'upper', hits: [68], word: ['CONSUMER ACT!'], cap: 'Citing the Consumer Protection Act, 2019.', ctr: { k: 'big', word: 'ESCALATE: L2!', dmg: 30, down: true } },
+  { combo: ['jab', 'hook', 'cross'], hits: [74, 79, 84], word: ['REFUND!', 'CHARGEBACK!', 'FORUM FILED!'], cap: 'Filing with the consumer forum.' },
+  { atk: 'ko', hits: [100], word: ['K.O.!'], cap: 'REFUND SECURED. 🎉', win: true }
+];
+const LABELS = ['Throw a Punch 👊', 'Hit Back Harder 🥊', 'Land the Hook 🥊', 'Uppercut Time ⬆️', 'Finish Him 💥'];
+let stage = 0, busy = false, queued = false, done = false;
+
+async function exchange() {
+  if (done && !busy) return reset();
+  if (busy) { queued = true; return; }
+  busy = true; btn.setAttribute('aria-busy', 'true'); ctx();
+  const r = ROUNDS[stage++]; await banner(stage === 1 ? 'FIGHT!' : r.win ? 'FINISH HIM!' : `ROUND ${stage}`, 600, true); if (stage === 1) sfx.bell();
+  const seq = r.combo || [r.atk];
+  for (let i = 0; i < seq.length; i++) {
+    sfx.whoosh(); await strike(you, seq[i]);
+    impact(corp, { p: r.win ? 4 : seq.length > 1 ? 2 : stage > 3 ? 3 : 2, word: r.word[i] }); setMeter(r.hits[i], i === seq.length - 1 ? r.cap : null);
+    if (r.win) return victory(); await sleep(seq.length > 1 ? 250 : 420);
+  }
+  if (r.ctr) { await sleep(160); await counter(r.ctr); }
+  busy = false; btn.removeAttribute('aria-busy'); btn.textContent = LABELS[stage];
+  if (queued) { queued = false; exchange(); }
+}
+function reset() {
+  holds.splice(0).forEach(a => { try { a.cancel(); } catch (e) {} }); ring.classList.remove('cheer'); [you, corp].forEach(f => f.el.dataset.face = '');
+  stage = 0; done = busy = queued = false; setHP(you, 100); shown = 0; setMeter(0, 'Ready to fight back?'); btn.textContent = LABELS[0]; btn.removeAttribute('aria-busy');
+}
+btn.addEventListener('click', exchange);
+
+/* intro: fighters walk in when the ring scrolls into view */
+new IntersectionObserver(([e], o) => { if (!e.isIntersecting) return; o.disconnect(); if (reduce) return;
+  A(you.el.querySelector('.body'), [{ transform: 'translate(-150px,0)' }, { transform: 'translate(0,0)' }], { duration: 900, easing: SPRING }); A(corp.el.querySelector('.body'), [{ transform: 'translate(-150px,0)' }, { transform: 'translate(0,0)' }], { duration: 900, easing: SPRING, delay: 120 }); }, { threshold: .35 }).observe(ring);
+setMeter(0, 'Ready to fight back?');
+})();
+</script>
 <script>/* RefundWaapsi FX — drop-in motion + speed layer (no dependencies).
    Same design, zero changes to your API/payment/chat logic. */
 (() => {
@@ -1288,7 +1438,7 @@ if (isHome) {
 
   // comic-book burst on every button hit
   const W = ['POW!', 'BAM!', 'ZAP!', 'WHAM!', 'BOOM!'];
-  if (!reduce) D.addEventListener('pointerdown', e => { if (!e.target.closest('.btn,.cta-small,.poll-chip')) return;
+  if (!reduce) D.addEventListener('pointerdown', e => { if (!e.target.closest('.btn:not(#punchBtn),.cta-small,.poll-chip')) return;
     const b = D.createElement('div'), r = Math.random() * 40 - 20; b.textContent = W[Math.random() * W.length | 0];
     b.style.cssText = `position:fixed;left:${e.clientX}px;top:${e.clientY}px;z-index:9998;pointer-events:none;font:400 30px Anton,sans-serif;color:#E8A33D;-webkit-text-stroke:2px #1A1611;text-shadow:3px 3px 0 #1A1611;translate:-50% -50%`;
     D.body.append(b); b.animate([{ opacity: 0, transform: `scale(.2) rotate(${r - 20}deg)` }, { opacity: 1, transform: `scale(1.3) rotate(${r}deg)`, offset: .25 }, { opacity: 0, transform: `translateY(-60px) scale(1) rotate(${r}deg)` }], { duration: 650, easing: EASE }).onfinish = () => b.remove(); }, { passive: true });
