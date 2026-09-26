@@ -186,7 +186,12 @@
       </div>
       <div class="chat-wrap" style="border:none; border-top:2px solid var(--ink);">
         <div class="chat-messages" id="chatMessages"><div class="chat-empty">No messages yet — say hello!</div></div>
-        <div class="chat-input-row">
+        <div id="accessLock" class="hidden" style="padding:16px; background:#fff3cd; border-top:2px dashed var(--ink);">
+          <strong>⏳ Chat access has ended.</strong>
+          <p style="margin:6px 0 12px; font-size:13px; color:#5a4f3c;">Your 48-hour chat window for this case is over. Renew to keep messaging with RefundWaapsi.</p>
+          <button class="btn" id="renewBtn" style="width:100%; justify-content:center;">Renew Access — ₹<span id="renewFee">59</span></button>
+        </div>
+        <div class="chat-input-row" id="chatInputRow">
           <input class="chat-input" id="chatInput" type="text" placeholder="Type a message…" maxlength="2000">
           <button class="chat-send" id="chatSendBtn">Send</button>
         </div>
@@ -423,6 +428,13 @@
     finally {btn.disabled=false;btn.textContent=`Pay ₹${config.caseFeeRupees} & Continue`;}
   });
 
+  document.getElementById('renewBtn').addEventListener('click', () => {
+    document.getElementById('payTitle').textContent = 'Renew Chat Access';
+    document.getElementById('paySub').innerHTML = `Your 48-hour chat window has ended. Pay again to keep messaging. Case ID: <strong>${escapeHtml(currentCaseId)}</strong>`;
+    window.__humanSupportOrder = null;
+    showScreen('pay');
+  });
+
   function applyLeadPrefill() {
     if (!prefillLead) return;
     if (prefillLead.category) document.getElementById('d-category').value = prefillLead.category;
@@ -479,6 +491,11 @@
       document.getElementById('caseViewFiles').textContent = c.proofFiles && c.proofFiles.length
         ? `📎 ${c.proofFiles.length} file(s) attached: ${c.proofFiles.map(f => f.originalName).join(', ')}`
         : '';
+      const locked = !!c.accessExpired;
+      document.getElementById('accessLock').classList.toggle('hidden', !locked);
+      document.getElementById('chatInputRow').classList.toggle('hidden', locked);
+      if (locked) document.getElementById('caseViewStatus').textContent += ' · Access Expired';
+      document.getElementById('renewFee').textContent = (config && config.caseFeeRupees) || 59;
 
       showScreen('case');
       await loadMessages();
@@ -696,8 +713,8 @@ if (dash) {
   nb.addEventListener('click', send); ni.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.isComposing) send(); });
 
   // case list: loader only on the very first load; re-render only when data really changed; keep last good list on errors
-  const row = c => { const p = c.lastMessageText ? `${senderLabel(c)}: ${c.lastMessageText}` : 'No messages yet', n = Number(c.unreadCount || 0);
-    return `<div class="case-row ${n ? 'unread' : ''}" data-case="${escapeHtml(c.caseId)}" data-status="${escapeHtml(c.status || '')}"><div style="min-width:0;flex:1"><div class="case-id">${escapeHtml(c.caseId)}</div><div class="case-meta">${c.createdAt ? new Date(c.createdAt).toLocaleString('en-IN') : 'Date unavailable'}${c.category ? ' • ' + escapeHtml(c.category) : ''}</div><div class="case-preview">${escapeHtml(p)}</div></div><div class="case-actions">${n ? `<span class="unread-pill" title="${n} unread message${n === 1 ? '' : 's'}">${n > 99 ? '99+' : n}</span>` : ''}<span class="status-badge status-${escapeHtml(c.status || '')}">${escapeHtml(statusLabel(c.status || ''))}</span></div></div>`; };
+  const row = c => { const locked = !!c.accessExpired, p = locked ? 'Access expired — renew to continue' : (c.lastMessageText ? `${senderLabel(c)}: ${c.lastMessageText}` : 'No messages yet'), n = Number(c.unreadCount || 0);
+    return `<div class="case-row ${n ? 'unread' : ''}" data-case="${escapeHtml(c.caseId)}" data-status="${escapeHtml(c.status || '')}"><div style="min-width:0;flex:1"><div class="case-id">${escapeHtml(c.caseId)}${locked ? ' <span style="color:#9b6810;font-size:11px;font-weight:800;">⏳ EXPIRED</span>' : ''}</div><div class="case-meta">${c.createdAt ? new Date(c.createdAt).toLocaleString('en-IN') : 'Date unavailable'}${c.category ? ' • ' + escapeHtml(c.category) : ''}</div><div class="case-preview"${locked ? ' style="color:#9b6810;font-weight:600;"' : ''}>${escapeHtml(p)}</div></div><div class="case-actions">${n ? `<span class="unread-pill" title="${n} unread message${n === 1 ? '' : 's'}">${n > 99 ? '99+' : n}</span>` : ''}<span class="status-badge status-${escapeHtml(c.status || '')}">${escapeHtml(statusLabel(c.status || ''))}</span></div></div>`; };
   let listBusy = false, listKey = null;
   window.loadCases = async function () {
     if (listBusy) return; listBusy = true; const el = $('caseList');
@@ -835,7 +852,7 @@ if (!reduce) {
     new MutationObserver(() => { const rows = $$(sel, el);
       if (rows.length && !had) rows.slice(0, 14).forEach((r, i) => { r.style.setProperty('--i', i); r.classList.add('rw-pop'); });
       had = rows.length > 0; }).observe(el, { childList: true }); };
-  watchList($('#caseList'), '.case-row,.case');
+  watchList($('#caseList'), '.case-row,.case,.rw-cust');
 
   const watchChat = el => { if (!el) return; let prev = 0;
     new MutationObserver(() => { const k = [...el.children].filter(c => /msg/.test(c.className)), n = k.length;
@@ -901,7 +918,7 @@ if (isHome) {
 
   // comic-book burst on every button hit
   const W = ['POW!', 'BAM!', 'ZAP!', 'WHAM!', 'BOOM!'];
-  if (!reduce) D.addEventListener('pointerdown', e => { if (!e.target.closest('.btn,.cta-small,.poll-chip')) return;
+  if (!reduce) D.addEventListener('pointerdown', e => { if (!e.target.closest('.btn:not(#punchBtn),.cta-small,.poll-chip')) return;
     const b = D.createElement('div'), r = Math.random() * 40 - 20; b.textContent = W[Math.random() * W.length | 0];
     b.style.cssText = `position:fixed;left:${e.clientX}px;top:${e.clientY}px;z-index:9998;pointer-events:none;font:400 30px Anton,sans-serif;color:#E8A33D;-webkit-text-stroke:2px #1A1611;text-shadow:3px 3px 0 #1A1611;translate:-50% -50%`;
     D.body.append(b); b.animate([{ opacity: 0, transform: `scale(.2) rotate(${r - 20}deg)` }, { opacity: 1, transform: `scale(1.3) rotate(${r}deg)`, offset: .25 }, { opacity: 0, transform: `translateY(-60px) scale(1) rotate(${r}deg)` }], { duration: 650, easing: EASE }).onfinish = () => b.remove(); }, { passive: true });
