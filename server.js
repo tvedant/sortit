@@ -24,6 +24,9 @@ if (IS_PROD && JWT_SECRET.length < 32) {
 }
 
 const CASE_FEE_PAISE = parseInt(process.env.CASE_FEE_PAISE || '5900', 10);
+// Paid chat access lasts this long from the moment a case (or its renewal) is paid for.
+// After it lapses, customers must pay again before they can send another message.
+const CASE_ACCESS_WINDOW_MS = Math.max(1, parseInt(process.env.CASE_ACCESS_HOURS || '48', 10)) * 60 * 60 * 1000;
 const RAZORPAY_KEY_ID = process.env.RAZORPAY_KEY_ID || '';
 const RAZORPAY_KEY_SECRET = process.env.RAZORPAY_KEY_SECRET || '';
 const PAYMENTS_LIVE = Boolean(RAZORPAY_KEY_ID && RAZORPAY_KEY_SECRET);
@@ -105,7 +108,21 @@ async function updateLead(id, patch) { if (!DB_ENABLED) { const a=readJson(FILES
 async function listCasesForUser(userId) { if (!DB_ENABLED) return readJson(FILES.cases).filter(c=>c.userId===userId); return dbSelect('cases', `user_id=eq.${encodeURIComponent(userId)}&order=created_at.desc`); }
 async function findCase(caseId, userId) { if (!DB_ENABLED) return readJson(FILES.cases).find(c=>c.caseId===caseId && (!userId || c.userId===userId)); const q=`case_id=eq.${encodeURIComponent(caseId)}${userId?`&user_id=eq.${encodeURIComponent(userId)}`:''}`; return (await dbSelect('cases',q))[0]||null; }
 async function listPaidCases() { if (!DB_ENABLED) return readJson(FILES.cases).filter(c=>c.paymentStatus==='paid'); return dbSelect('cases','payment_status=eq.paid&order=created_at.desc'); }
-function caseFromDb(r) { return r ? { ...r, caseId:r.case_id, userId:r.user_id, userEmail:r.user_email, userName:r.user_name, amountPaise:r.amount_paise, paymentStatus:r.payment_status, razorpayOrderId:r.razorpay_order_id, razorpayPaymentId:r.razorpay_payment_id, leadId:r.lead_id, assignedTo:r.assigned_to, assignedAt:r.assigned_at, proofFiles:[] , createdAt:r.created_at, updatedAt:r.updated_at } : r; }
+// Time-boxed chat access. Reads either DB (snake_case) or JSON-fallback (camelCase) shape,
+// so it works the same whether Supabase or the local JSON store is active.
+function caseActivatedAt(r) { const v = r && (r.activatedAt ?? r.activated_at); return v ? new Date(v) : null; }
+function casePaymentStatus(r) { return r && (r.paymentStatus ?? r.payment_status); }
+function isCaseExpired(r) {
+  if (!r || casePaymentStatus(r) !== 'paid') return false;
+  if (r.status === 'won' || r.status === 'closed') return false;   // a resolved case never needs renewal
+  const at = caseActivatedAt(r);
+  return !!at && Date.now() - at.getTime() > CASE_ACCESS_WINDOW_MS;
+}
+function caseAccessInfo(r) {
+  const at = caseActivatedAt(r);
+  return { activatedAt: at ? at.toISOString() : null, accessExpiresAt: at ? new Date(at.getTime() + CASE_ACCESS_WINDOW_MS).toISOString() : null, accessExpired: isCaseExpired(r) };
+}
+function caseFromDb(r) { return r ? { ...r, caseId:r.case_id ?? r.caseId, userId:r.user_id ?? r.userId, userEmail:r.user_email ?? r.userEmail, userName:r.user_name ?? r.userName, amountPaise:r.amount_paise ?? r.amountPaise, paymentStatus:r.payment_status ?? r.paymentStatus, razorpayOrderId:r.razorpay_order_id ?? r.razorpayOrderId, razorpayPaymentId:r.razorpay_payment_id ?? r.razorpayPaymentId, leadId:r.lead_id ?? r.leadId, assignedTo:r.assigned_to ?? r.assignedTo, assignedAt:r.assigned_at ?? r.assignedAt, activatedAt:r.activated_at ?? r.activatedAt ?? null, proofFiles:[] , createdAt:r.created_at ?? r.createdAt, updatedAt:r.updated_at ?? r.updatedAt, ...caseAccessInfo(r) } : r; }
 function casePatchToDb(p) {
   const out = {};
   const map = {
@@ -120,6 +137,7 @@ function casePatchToDb(p) {
     leadId: 'lead_id',
     assignedTo: 'assigned_to',
     assignedAt: 'assigned_at',
+    activatedAt: 'activated_at',
     createdAt: 'created_at',
     updatedAt: 'updated_at'
   };
@@ -707,6 +725,7 @@ app.post('/api/my/cases',requireAuth,rateLimit('case-create',10,30*60*1000),asyn
     summary:null,
     amountPaise:CASE_FEE_PAISE,
     paymentStatus:demoMode?'paid':'pending',
+    activatedAt:demoMode?now:null,
     razorpayOrderId:demoMode?`test_order_${crypto.randomUUID().slice(0,8)}`:null,
     razorpayPaymentId:demoMode?`test_pay_${crypto.randomUUID().slice(0,8)}`:null,
     leadId:null,
@@ -738,7 +757,7 @@ app.post('/api/my/leads/:leadId/human-support',requireAuth,rateLimit('human-supp
   const lead=leadFromDb(raw); if(lead.userId!==req.user.uid)return res.status(403).json({error:'This conversation is not linked to your account.'});
   const all=await listCasesForUser(req.user.uid); let existing=all.map(caseFromDb).find(c=>c.leadId===lead.id);
   if(existing){
-    if(existing.paymentStatus==='paid'){await importLeadTranscriptIntoCase(existing,lead.id,req.user.name);return res.json({ok:true,caseId:existing.caseId,paymentStatus:'paid',status:existing.status,amountPaise:existing.amountPaise});}
+    if(existing.paymentStatus==='paid'&&!isCaseExpired(existing)){await importLeadTranscriptIntoCase(existing,lead.id,req.user.name);return res.json({ok:true,caseId:existing.caseId,paymentStatus:'paid',status:existing.status,amountPaise:existing.amountPaise});}
     const order=await createPaymentOrder(existing); return res.json({ok:true,caseId:existing.caseId,paymentStatus:existing.paymentStatus,status:existing.status,orderId:order.orderId,amountPaise:existing.amountPaise,keyId:PAYMENTS_LIVE?RAZORPAY_KEY_ID:null,testMode:!PAYMENTS_LIVE});
   }
   let caseId=genCaseId();while(await findCase(caseId))caseId=genCaseId();const now=new Date().toISOString();
@@ -747,17 +766,23 @@ app.post('/api/my/leads/:leadId/human-support',requireAuth,rateLimit('human-supp
   res.status(201).json({ok:true,caseId,orderId:order.orderId,paymentStatus:'pending',status:record.status,amountPaise:record.amountPaise,keyId:PAYMENTS_LIVE?RAZORPAY_KEY_ID:null,testMode:!PAYMENTS_LIVE});
 }catch(e){console.error(e);res.status(500).json({error:'Could not start human support.'});}});
 
-app.post('/api/my/cases/:caseId/payment-order',requireAuth,async(req,res)=>{try{const record=await findCase(req.params.caseId,req.user.uid);if(!record)return res.status(404).json({error:'Case not found.'});if(record.paymentStatus==='paid')return res.json({ok:true,alreadyPaid:true,caseId:record.caseId});const order=await createPaymentOrder(record);res.json({ok:true,caseId:record.caseId,orderId:order.orderId,amountPaise:record.amountPaise,keyId:PAYMENTS_LIVE?RAZORPAY_KEY_ID:null,testMode:!PAYMENTS_LIVE});}catch(e){console.error(e);res.status(502).json({error:'Could not start payment.'});}});
-app.post('/api/my/cases/:caseId/verify-payment',requireAuth,async(req,res)=>{const{razorpay_order_id,razorpay_payment_id,razorpay_signature}=req.body||{};const record=await findCase(req.params.caseId,req.user.uid);if(!record)return res.status(404).json({error:'Case not found.'});if(!PAYMENTS_LIVE)return res.status(400).json({error:'Live payments are not configured. Use the test-mode confirmation instead.'});const expected=crypto.createHmac('sha256',RAZORPAY_KEY_SECRET).update(`${razorpay_order_id}|${razorpay_payment_id}`).digest('hex');const providedSig=String(razorpay_signature||''); if(providedSig.length!==expected.length || !crypto.timingSafeEqual(Buffer.from(expected),Buffer.from(providedSig)))return res.status(400).json({error:'Payment verification failed. Please contact support.'});const nextStatus=record.leadId?'in-progress':'awaiting_details';await updateCase(record.caseId,{paymentStatus:'paid',razorpayPaymentId:razorpay_payment_id,status:nextStatus,updatedAt:new Date().toISOString()});if(record.leadId)await importLeadTranscriptIntoCase(record,record.leadId,req.user.name);res.json({ok:true,caseId:record.caseId,humanSupport:Boolean(record.leadId)});});
+app.post('/api/my/cases/:caseId/payment-order',requireAuth,async(req,res)=>{try{const record=await findCase(req.params.caseId,req.user.uid);if(!record)return res.status(404).json({error:'Case not found.'});if(casePaymentStatus(record)==='paid'&&!isCaseExpired(record))return res.json({ok:true,alreadyPaid:true,caseId:record.caseId});const order=await createPaymentOrder(record);res.json({ok:true,caseId:record.caseId,orderId:order.orderId,amountPaise:record.amountPaise??record.amount_paise,keyId:PAYMENTS_LIVE?RAZORPAY_KEY_ID:null,testMode:!PAYMENTS_LIVE,renewal:isCaseExpired(record)});}catch(e){console.error(e);res.status(502).json({error:'Could not start payment.'});}});
+app.post('/api/my/cases/:caseId/verify-payment',requireAuth,async(req,res)=>{const{razorpay_order_id,razorpay_payment_id,razorpay_signature}=req.body||{};const record=await findCase(req.params.caseId,req.user.uid);if(!record)return res.status(404).json({error:'Case not found.'});if(!PAYMENTS_LIVE)return res.status(400).json({error:'Live payments are not configured. Use the test-mode confirmation instead.'});const expected=crypto.createHmac('sha256',RAZORPAY_KEY_SECRET).update(`${razorpay_order_id}|${razorpay_payment_id}`).digest('hex');const providedSig=String(razorpay_signature||''); if(providedSig.length!==expected.length || !crypto.timingSafeEqual(Buffer.from(expected),Buffer.from(providedSig)))return res.status(400).json({error:'Payment verification failed. Please contact support.'});const firstPayment=casePaymentStatus(record)!=='paid';const now=new Date().toISOString();if(firstPayment){const nextStatus=record.leadId?'in-progress':'awaiting_details';await updateCase(record.caseId,{paymentStatus:'paid',razorpayPaymentId:razorpay_payment_id,status:nextStatus,activatedAt:now,updatedAt:now});if(record.leadId)await importLeadTranscriptIntoCase(record,record.leadId,req.user.name);}else{await updateCase(record.caseId,{paymentStatus:'paid',razorpayPaymentId:razorpay_payment_id,activatedAt:now,updatedAt:now});}res.json({ok:true,caseId:record.caseId,humanSupport:Boolean(record.leadId),renewed:!firstPayment});});
 app.post('/api/my/cases/:caseId/mock-pay',requireAuth,asyncHandler(async(req,res)=>{
   if(PAYMENTS_LIVE)return res.status(400).json({error:'Live payments are configured — use real checkout instead.'});
   const record=await findCase(req.params.caseId,req.user.uid);
   if(!record)return res.status(404).json({error:'Case not found.'});
-  if(record.paymentStatus==='paid')return res.json({ok:true,alreadyPaid:true,caseId:record.caseId,humanSupport:Boolean(record.leadId)});
-  const nextStatus=record.leadId?'in-progress':'awaiting_details';
-  await updateCase(record.caseId,{paymentStatus:'paid',razorpayPaymentId:`test_pay_${crypto.randomUUID().slice(0,8)}`,status:nextStatus,updatedAt:new Date().toISOString()});
-  if(record.leadId)await importLeadTranscriptIntoCase(record,record.leadId,req.user.name);
-  res.json({ok:true,caseId:record.caseId,humanSupport:Boolean(record.leadId)});
+  const firstPayment=casePaymentStatus(record)!=='paid';
+  if(!firstPayment&&!isCaseExpired(record))return res.json({ok:true,alreadyPaid:true,caseId:record.caseId,humanSupport:Boolean(record.leadId)});
+  const now=new Date().toISOString();
+  if(firstPayment){
+    const nextStatus=record.leadId?'in-progress':'awaiting_details';
+    await updateCase(record.caseId,{paymentStatus:'paid',razorpayPaymentId:`test_pay_${crypto.randomUUID().slice(0,8)}`,status:nextStatus,activatedAt:now,updatedAt:now});
+    if(record.leadId)await importLeadTranscriptIntoCase(record,record.leadId,req.user.name);
+  } else {
+    await updateCase(record.caseId,{activatedAt:now,updatedAt:now});
+  }
+  res.json({ok:true,caseId:record.caseId,humanSupport:Boolean(record.leadId),renewed:!firstPayment});
 }));
 
 app.post('/api/my/cases/:caseId/details',requireAuth,upload.array('proofs',5),async(req,res)=>{try{const record=await findCase(req.params.caseId,req.user.uid);if(!record)return res.status(404).json({error:'Case not found.'});if((record.paymentStatus||record.payment_status)!=='paid')return res.status(402).json({error:'Please complete the ₹59 filing fee first.'});const{category,description}=req.body||{};if(!description||description.trim().length<20)return res.status(400).json({error:'Please describe what happened in at least 20 characters.'});const files=[];for(const file of req.files||[]){const filename=`${Date.now()}-${crypto.randomBytes(8).toString('hex')}-${file.originalname.replace(/[^a-zA-Z0-9._-]/g,'_').slice(-80)}`;const storagePath=`${record.caseId}/${filename}`;if(DB_ENABLED){await uploadToStorage(file,storagePath);const f={id:crypto.randomUUID(),caseId:record.caseId,filename,originalName:file.originalname,size:file.size,mimeType:file.mimetype,storagePath,createdAt:new Date().toISOString()};await createCaseFile(f);files.push(f);}else{const dir=path.join(UPLOADS_DIR,record.caseId);fs.mkdirSync(dir,{recursive:true});fs.writeFileSync(path.join(dir,filename),file.buffer);files.push({filename,originalName:file.originalname,size:file.size});}}
@@ -833,6 +858,7 @@ app.get('/api/my/cases/:caseId/messages',requireAuth,asyncHandler(async(req,res)
 app.post('/api/my/cases/:caseId/messages',requireAuth,rateLimit('chat-send',30,5*60*1000),asyncHandler(async(req,res)=>{
   const record=await findCase(req.params.caseId,req.user.uid);
   if(!record)return res.status(404).json({error:'Case not found.'});
+  if(isCaseExpired(record))return res.status(402).json({error:'Your 48-hour chat access for this case has ended. Please renew to keep messaging.',accessExpired:true,renewalRequired:true});
   const{text}=req.body||{};
   if(!text||!text.trim())return res.status(400).json({error:'Message cannot be empty.'});
   const msg={id:crypto.randomUUID(),caseId:req.params.caseId,sender:'customer',senderName:req.user.name,senderId:req.user.uid,text:text.trim().slice(0,2000),createdAt:new Date().toISOString()};
@@ -900,7 +926,7 @@ app.get('/api/admin/cases/:caseId/stream',requireStaff,asyncHandler(async(req,re
 }));
 
 app.get('/api/admin/cases/:caseId/messages',requireStaff,asyncHandler(async(req,res)=>{const record=await findCase(req.params.caseId);if(!record)return res.status(404).json({error:'Case not found.'});if(!(await canStaffAccessCase(req.staff,caseFromDb(record))))return res.status(403).json({error:'This case is assigned to another agent.'});res.json(await listMessages(req.params.caseId));}));
-app.post('/api/admin/cases/:caseId/messages',requireStaff,async(req,res)=>{try{const{text}=req.body||{};if(!text||!text.trim())return res.status(400).json({error:'Message cannot be empty.'});const record=await findCase(req.params.caseId);if(!record)return res.status(404).json({error:'Case not found.'});const c=caseFromDb(record);if(!(await canStaffAccessCase(req.staff,c)))return res.status(403).json({error:'This case is assigned to another agent.'});
+app.post('/api/admin/cases/:caseId/messages',requireStaff,async(req,res)=>{try{const{text}=req.body||{};if(!text||!text.trim())return res.status(400).json({error:'Message cannot be empty.'});const record=await findCase(req.params.caseId);if(!record)return res.status(404).json({error:'Case not found.'});const c=caseFromDb(record);if(isCaseExpired(c))return res.status(409).json({error:'This case\'s paid access window has ended. The customer needs to renew before messaging can continue.',accessExpired:true});if(!(await canStaffAccessCase(req.staff,c)))return res.status(403).json({error:'This case is assigned to another agent.'});
   // An agent replying to an unassigned case claims it, preventing two agents from working it simultaneously.
   if(req.staff.role==='agent'&&!c.assignedTo)await updateCase(c.caseId,{assignedTo:req.staff.uid,assignedAt:new Date().toISOString(),updatedAt:new Date().toISOString()});
   const msg={id:crypto.randomUUID(),caseId:req.params.caseId,sender:req.staff.role==='admin'?'admin':'agent',senderName:req.staff.name,senderId:req.staff.uid,text:text.trim().slice(0,2000),createdAt:new Date().toISOString()};const saved=await createMessage(msg);broadcastChatMessage(saved);res.status(201).json(saved);
