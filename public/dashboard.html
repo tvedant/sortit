@@ -3,1341 +3,826 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Fraudify — We Fight Corporate Nonsense</title>
-<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png"><link rel="icon" type="image/png" sizes="192x192" href="/favicon-192.png"><link rel="apple-touch-icon" sizes="180x180" href="/favicon-180.png"><link rel="preload" as="image" href="/logo-lockup-nav.png" fetchpriority="high"><meta name="description" content="Stuck on a refund, a late delivery, an order that never showed up, or a company that broke its promise? Fraudify tells you exactly what to do, what to say, and how to fight — then helps you get it resolved.">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Anton&family=Space+Grotesk:wght@400;500;600;700&display=swap" onload="this.rel='stylesheet'"><noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anton&family=Space+Grotesk:wght@400;500;600;700&display=swap"></noscript>
+<title>My Cases — Fraudify</title><link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png"><link rel="icon" type="image/png" sizes="192x192" href="/favicon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Anton&family=Space+Grotesk:wght@400;500;600;700&display=swap" onload="this.rel='stylesheet'"><noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anton&family=Space+Grotesk:wght@400;500;600;700&display=swap"></noscript>
 <style>
   :root{
-    --ink:#1A1611;
-    --paper:#F0E6CC;
-    --paper-2:#E8DBB8;
-    --crimson:#C1272D;
-    --crimson-dark:#8E1B20;
-    --mustard:#E8A33D;
-    --blue:#2C5F8A;
-    --green:#4C7A3D;
-    --line:3px;
-    --ease: cubic-bezier(.22,.9,.3,1.15);
-    --ease-soft: cubic-bezier(.4,0,.2,1);
-    --nav-h: 68px;
+    --ink:#1A1611; --paper:#F0E6CC; --paper-2:#E8DBB8;
+    --crimson:#C1272D; --mustard:#E8A33D; --blue:#2C5F8A; --green:#4C7A3D;
   }
   *{box-sizing:border-box;}
-  html{scroll-behavior:smooth;}
   body{
-    margin:0;
-    background:var(--paper);
-    color:var(--ink);
-    font-family:'Space Grotesk', sans-serif;
-    overflow-x:hidden;
-    background-image:
-      radial-gradient(circle, rgba(26,22,17,0.06) 1px, transparent 1.3px);
-    background-size: 14px 14px;
-    position:relative;
+    margin:0; background:var(--paper); color:var(--ink); font-family:'Space Grotesk',sans-serif;
+    background-image:radial-gradient(circle, rgba(26,22,17,0.06) 1px, transparent 1.3px);
+    background-size:14px 14px; min-height:100vh;
   }
-  /* subtle printed-poster grain, sits above the background but below all content */
-  body::before{
-    content:"";
-    position:fixed; inset:0; z-index:1; pointer-events:none;
-    opacity:.05; mix-blend-mode:multiply;
-    background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
-  }
-  nav, .ticker, .scroll-progress, main, section, footer{ position:relative; z-index:2; }
-  h1,h2,h3, .display{
-    font-family:'Anton', sans-serif;
-    font-weight:400;
-    letter-spacing:0.5px;
-    line-height:0.95;
-    margin:0;
-  }
-  a{color:inherit;}
-  img,svg{display:block;}
-  .wrap{max-width:1140px;margin:0 auto;padding:0 28px;}
-  section{scroll-margin-top: var(--nav-h);}
+  h1,h2,h3{font-family:'Anton',sans-serif; font-weight:400; margin:0;}
+  .wrap{max-width:900px; margin:0 auto; padding:0 24px;}
+  nav{border-bottom:3px solid var(--ink); background:var(--paper);}
+  .nav-inner{display:flex; align-items:center; justify-content:space-between; padding:14px 24px; max-width:900px; margin:0 auto;}
+  .logo{display:flex; align-items:center; text-decoration:none;}
+  .nav-logo-img{height:38px; width:auto; display:block;}
+  
+  .user-chip{font-size:13px; font-weight:600; display:flex; align-items:center; gap:12px;}
+  .logout-btn{background:none; border:2px solid var(--ink); padding:6px 12px; font-weight:700; cursor:pointer; font-size:12.5px;}
+  .logout-btn:hover{background:var(--crimson); color:var(--paper); border-color:var(--crimson);}
+  main{padding:40px 0 80px;}
+  .page-title{font-size:32px; margin-bottom:6px;}
+  .page-sub{font-size:14px; color:#5a4f3c; margin:0 0 30px;}
 
-  ::selection{ background:var(--crimson); color:var(--paper); }
-  :focus-visible{ outline:3px solid var(--mustard); outline-offset:2px; }
-
-  ::-webkit-scrollbar{ width:12px; height:12px; }
-  ::-webkit-scrollbar-track{ background:var(--paper-2); }
-  ::-webkit-scrollbar-thumb{ background:var(--ink); border:3px solid var(--paper-2); border-radius:8px; }
-  ::-webkit-scrollbar-thumb:hover{ background:var(--crimson); }
-  html{ scrollbar-color:var(--ink) var(--paper-2); scrollbar-width:thin; }
-
-  /* rope-style section divider, ties every section break back to the ring */
-  .rope-divider{
-    height:14px; background:var(--paper);
-    background-image:repeating-linear-gradient(-45deg, var(--ink) 0 10px, var(--mustard) 10px 20px);
-    border-top:2px solid var(--ink); border-bottom:2px solid var(--ink);
-  }
-
-  a, button, .btn, .poll-chip, .shame-card, .wanted, .step{
-    transition-timing-function: var(--ease);
-  }
-
-  @media (prefers-reduced-motion: reduce){
-    *{animation-duration:0.001ms !important; animation-iteration-count:1 !important; transition-duration:0.001ms !important;}
-  }
-
-  /* ---------- SCROLL PROGRESS ---------- */
-  .scroll-progress{
-    position:fixed; top:0; left:0; height:4px; width:0%;
-    background:linear-gradient(90deg, var(--crimson), var(--mustard));
-    z-index:200;
-  }
-
-  /* ---------- NAV ---------- */
-  nav{
-    position:sticky; top:0; z-index:50;
-    background:var(--paper);
-    border-bottom:var(--line) solid var(--ink);
-    transition: box-shadow .3s var(--ease-soft);
-  }
-  nav.scrolled{ box-shadow:0 6px 0 rgba(26,22,17,0.08); }
-  .nav-inner{
-    display:flex; align-items:center; justify-content:space-between;
-    padding:14px 28px; max-width:1140px; margin:0 auto;
-  }
-  .logo{ display:flex; align-items:center; text-decoration:none; }
-  .nav-logo-img{ height:44px; width:auto; display:block; }
-  @media (max-width:640px){ .nav-logo-img{ height:34px; } }
-  .nav-links{display:flex; gap:24px; align-items:center; font-size:15px; font-weight:600;}
-  .mobile-nav-toggle{
-    display:none; width:44px; height:40px; padding:0; border:2px solid var(--ink);
-    background:var(--paper); color:var(--ink); cursor:pointer; font-size:22px;
-    align-items:center; justify-content:center; font-weight:700;
-  }
-  .mobile-nav-toggle:active{transform:translateY(1px);}
-  .mobile-nav-toggle .icon-close{display:none;}
-  nav.mobile-open .mobile-nav-toggle .icon-menu{display:none;}
-  nav.mobile-open .mobile-nav-toggle .icon-close{display:inline;}
-  .nav-links a{text-decoration:none; position:relative; padding:4px 0; transition:color .2s var(--ease-soft);}
-  .nav-links a:not(.cta-small)::after{
-    content:""; position:absolute; left:0; bottom:-2px; width:100%; height:2px;
-    background:var(--crimson); transform:scaleX(0); transform-origin:left;
-    transition:transform .25s var(--ease-soft);
-  }
-  .nav-links a:not(.cta-small):hover{color:var(--crimson);}
-  .nav-links a:not(.cta-small):hover::after{transform:scaleX(1);}
-  .cta-small{
-    background:var(--ink); color:var(--paper) !important;
-    padding:9px 18px; border:2px solid var(--ink);
-    font-weight:700; cursor:pointer;
-  }
-  .cta-small:hover{background:var(--crimson); border-color:var(--crimson);}
-
-  /* ---------- TICKER ---------- */
-  .ticker{
-    background:var(--ink); color:var(--paper); overflow:hidden;
-    border-bottom:var(--line) solid var(--ink); white-space:nowrap;
-  }
-  .ticker-inner{
-    display:inline-block; padding:9px 0; font-size:13px; font-weight:600;
-    animation:ticker-scroll 26s linear infinite;
-  }
-  .ticker:hover .ticker-inner{animation-play-state:paused;}
-  .ticker-inner span{margin:0 26px; color:var(--mustard);}
-  @keyframes ticker-scroll{ from{transform:translateX(0);} to{transform:translateX(-50%);} }
-
-  /* ---------- HERO ---------- */
-  .hero{padding:64px 0 40px; overflow:hidden; position:relative;}
-  .float-particle{
-    position:absolute; bottom:-30px; font-size:20px; opacity:0; pointer-events:none;
-    animation:float-up linear infinite; z-index:0;
-  }
-  @keyframes float-up{
-    0%{transform:translateY(0) rotate(0deg); opacity:0;}
-    10%{opacity:.55;}
-    90%{opacity:.45;}
-    100%{transform:translateY(-640px) rotate(35deg); opacity:0;}
-  }
-  .hero-inner{display:grid; grid-template-columns:1.05fr 0.95fr; gap:40px; align-items:center; position:relative; z-index:1;}
-  .hero-inner > div:first-child > *{ opacity:0; transform:translateY(16px); animation:hero-in .6s var(--ease) forwards; }
-  .hero-inner .kicker{animation-delay:.05s;}
-  .hero-inner .hero-title{animation-delay:.15s;}
-  .hero-inner .hero-sub{animation-delay:.28s;}
-  .hero-inner .hero-ctas{animation-delay:.4s;}
-  @keyframes hero-in{ to{ opacity:1; transform:translateY(0); } }
-  #ring{ opacity:0; transform:scale(.95); animation:ring-in .7s var(--ease) .25s forwards; }
-  @keyframes ring-in{ to{ opacity:1; transform:scale(1); } }
-  .kicker{
-    display:inline-block; background:var(--mustard); border:2px solid var(--ink);
-    padding:5px 12px; font-weight:700; font-size:13px; transform:rotate(-2deg);
-    margin-bottom:18px;
-  }
-  h1.hero-title{font-size:clamp(36px, 5vw, 60px); color:var(--ink);}
-  .hero-logo{ margin-bottom:22px; }
-  .hero-logo-img{ height:clamp(64px,9vw,120px); width:auto; display:block; filter:drop-shadow(4px 4px 0 var(--ink)); }
-  h1.hero-title .hl{color:var(--crimson); -webkit-text-stroke: 1.5px var(--ink);}
-  .hero-sub{font-size:18px; line-height:1.55; max-width:48ch; margin:22px 0 28px; color:#3a3226;}
-  .hero-ctas{display:flex; gap:14px; flex-wrap:wrap; margin-bottom:10px;}
   .btn{
-    font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:16px;
-    padding:15px 26px; border:3px solid var(--ink); cursor:pointer;
-    text-decoration:none; display:inline-flex; align-items:center; gap:8px;
-    background:var(--ink); color:var(--paper);
-    box-shadow:5px 5px 0 var(--crimson);
-    transition:transform .12s ease, box-shadow .12s ease;
-    position:relative; overflow:hidden;
+    font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:15px;
+    padding:12px 22px; border:3px solid var(--ink); cursor:pointer;
+    background:var(--ink); color:var(--paper); box-shadow:4px 4px 0 var(--crimson);
+    display:inline-flex; align-items:center; gap:8px; text-decoration:none;
   }
-  .btn::after{
-    content:""; position:absolute; top:0; left:-60%; width:35%; height:100%;
-    background:rgba(255,255,255,0.28); transform:skewX(-20deg); transition:left .5s ease;
-  }
-  .btn:hover::after{left:130%;}
-  .btn:hover{transform:translate(-3px,-3px); box-shadow:8px 8px 0 var(--crimson);}
-  .btn:active{transform:translate(0,0); box-shadow:2px 2px 0 var(--crimson);}
-  .btn.secondary{background:var(--paper); color:var(--ink); box-shadow:5px 5px 0 var(--blue);}
-  .btn.secondary:hover{box-shadow:8px 8px 0 var(--blue);}
+  .btn:hover{transform:translate(-2px,-2px); box-shadow:6px 6px 0 var(--crimson);}
+  .btn:disabled{opacity:.6; cursor:not-allowed; transform:none;}
+  .btn.secondary{background:var(--paper); color:var(--ink); box-shadow:4px 4px 0 var(--blue);}
 
-  /* ---------- RING SCENE ---------- */
-  .ring{position:relative; aspect-ratio:1/1; max-width:440px; margin:0 auto; overflow:visible;}
-  .ring-bg{
-    position:absolute; inset:0;
-    background:repeating-linear-gradient(90deg, var(--blue) 0 26px, #24507a 26px 30px);
-    border:var(--line) solid var(--ink);
+  .case-list{display:flex; flex-direction:column; gap:14px; margin-bottom:30px;}
+  .case-row{
+    border:3px solid var(--ink); background:var(--paper); padding:16px 18px;
+    display:flex; justify-content:space-between; align-items:center; gap:14px; cursor:pointer;
+    box-shadow:4px 4px 0 rgba(0,0,0,0.15); flex-wrap:wrap;
   }
-  .ring-post{position:absolute; width:16px; height:16px; background:var(--crimson); border:3px solid var(--ink); border-radius:50%;}
-  .rp-tl{top:-8px;left:-8px;} .rp-tr{top:-8px;right:-8px;}
-  .rp-bl{bottom:-8px;left:-8px;} .rp-br{bottom:-8px;right:-8px;}
-  .fighter{position:absolute; bottom:14%; font-size:78px; user-select:none; filter:drop-shadow(3px 3px 0 rgba(0,0,0,0.25));}
-  .fighter.you{left:8%; transform:scaleX(1);}
-  .fighter.villain{right:8%; transform:scaleX(-1);}
-  .villain-label, .you-label{
-    position:absolute; top:8%; font-family:'Anton',sans-serif; font-size:12px;
-    background:var(--paper); border:2px solid var(--ink); padding:2px 8px; max-width:110px; text-align:center;
-  }
-  .you-label{left:5%; transform:rotate(-4deg);}
-  .villain-label{right:5%; transform:rotate(4deg); background:var(--crimson); color:var(--paper); line-height:1.3;}
-  .villain-tagline{
-    position:absolute; top:22%; right:4%; font-size:10px; font-style:italic;
-    background:var(--paper); border:1.5px dashed var(--ink); padding:2px 6px; transform:rotate(3deg);
-  }
+  .case-row:hover{background:var(--paper-2);}.case-row.unread{border-color:var(--crimson);background:#fff9ed}.case-preview{font-size:12px;color:#5a4f3c;margin-top:6px;max-width:620px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.case-actions{display:flex;align-items:center;gap:8px}.unread-pill{display:inline-flex;align-items:center;justify-content:center;min-width:21px;height:21px;padding:0 6px;background:var(--crimson);color:#fff;border-radius:50%;font-size:10px;font-weight:800;box-shadow:0 0 0 0 rgba(193,39,45,.45);animation:unreadPulse 1.8s infinite}@keyframes unreadPulse{0%{box-shadow:0 0 0 0 rgba(193,39,45,.45)}70%{box-shadow:0 0 0 6px rgba(193,39,45,0)}100%{box-shadow:0 0 0 0 rgba(193,39,45,0)}}
+  .case-id{font-family:'Anton',sans-serif; font-size:16px;}
+  .case-meta{font-size:12.5px; color:#5a4f3c; margin-top:2px;}
+  .status-badge{padding:4px 12px; border-radius:20px; font-size:11px; font-weight:700; text-transform:uppercase;}
+  .status-awaiting_payment{background:#fde2e2; color:var(--crimson);}
+  .status-awaiting_details{background:#fff3cd; color:#8a6500;}
+  .status-submitted{background:#dbe7f5; color:var(--blue);}
+  .status-in-progress{background:#fff3cd; color:#8a6500;}
+  .status-won{background:#d4f7dc; color:#1e7d34;}
+  .status-closed{background:#e2e3e5; color:#555;}
+  .empty-state{border:3px dashed var(--ink); padding:40px; text-align:center; color:#5a4f3c;}
+  .loading-state{border:3px solid var(--ink); padding:24px; text-align:center; color:#5a4f3c; background:var(--paper-2);}
+  .btn:disabled{opacity:.6; cursor:not-allowed; transform:none;}
 
-  .fighter.villain{animation:sway 2.6s ease-in-out infinite;}
-  .fighter.you{animation:bounce 1.4s ease-in-out infinite;}
-  @keyframes sway{0%,100%{transform:scaleX(-1) rotate(0deg);}50%{transform:scaleX(-1) rotate(-6deg);}}
-  @keyframes bounce{0%,100%{transform:translateY(0);}50%{transform:translateY(-8px);}}
+  .panel{border:3px solid var(--ink); background:var(--paper); padding:28px; box-shadow:6px 6px 0 var(--mustard); margin-bottom:24px;}
+  .panel h2{font-size:22px; margin-bottom:6px;}
+  .panel .sub{font-size:14px; color:#5a4f3c; margin:0 0 20px;}
 
-  .punch-fx{
-    position:absolute; font-size:44px; opacity:0; pointer-events:none;
-    font-family:'Anton',sans-serif; color:var(--mustard);
-    -webkit-text-stroke:2px var(--ink); z-index:8;
-  }
-  .punch-fx.show{animation:pow .5s ease-out forwards;}
-  @keyframes pow{
-    0%{opacity:0; transform:translate(0,0) scale(.3) rotate(-10deg);}
-    30%{opacity:1; transform:translate(-8px,-14px) scale(1.25) rotate(6deg);}
-    100%{opacity:0; transform:translate(-16px,-34px) scale(1.05) rotate(6deg);}
-  }
+  .fee-box{display:flex; align-items:center; justify-content:space-between; border:2px dashed var(--ink); padding:16px 18px; margin-bottom:20px; background:var(--paper-2);}
+  .fee-amount{font-family:'Anton',sans-serif; font-size:28px;}
 
-  .fist{position:absolute; bottom:32%; left:12%; font-size:50px; opacity:0; z-index:7; pointer-events:none; transform:scale(.7) rotate(-20deg);}
-  .fist.throw{ animation:punch-travel .45s cubic-bezier(.25,.7,.3,1) forwards; }
-  @keyframes punch-travel{
-    0%{ left:12%; opacity:0; transform:scale(.7) rotate(-20deg); }
-    12%{ opacity:1; }
-    70%{ left:56%; opacity:1; transform:scale(1.3) rotate(8deg); }
-    100%{ left:58%; opacity:0; transform:scale(1.15) rotate(8deg); }
-  }
+  .form-label{display:block; font-size:12.5px; font-weight:700; margin:14px 0 5px; text-transform:uppercase; letter-spacing:.4px;}
+  .form-input{width:100%; padding:11px 12px; border:2px solid var(--ink); background:#fff; font-family:'Space Grotesk',sans-serif; font-size:14px; color:var(--ink);}
+  .form-input:focus{outline:none; box-shadow:3px 3px 0 var(--blue);}
+  textarea.form-input{resize:vertical; min-height:110px;}
+  .msg{font-size:13.5px; font-weight:700; min-height:18px; margin-top:12px;}
+  .msg.error{color:var(--crimson);}
+  .msg.success{color:var(--green);}
 
-  .fighter.villain.hit{ animation:villain-hit .35s ease-out; }
-  @keyframes villain-hit{
-    0%{ transform:scaleX(-1) translateX(0) rotate(0deg); filter:brightness(1); }
-    30%{ transform:scaleX(-1) translateX(18px) rotate(14deg); filter:brightness(1.6) saturate(0); }
-    100%{ transform:scaleX(-1) translateX(0) rotate(0deg); filter:brightness(1); }
-  }
-  .fighter.villain.ko{ animation:villain-ko .7s ease-in forwards !important; }
-  @keyframes villain-ko{
-    0%{ transform:scaleX(-1) translateX(0) rotate(0deg); opacity:1; }
-    40%{ transform:scaleX(-1) translateX(30px) rotate(50deg); opacity:1; }
-    100%{ transform:scaleX(-1) translateX(90px) rotate(110deg) translateY(20px); opacity:0; }
-  }
-  .ko-stars{position:absolute; font-size:30px; opacity:0; pointer-events:none; z-index:8;}
-  .ko-stars.show{ animation:ko-spin .9s ease-out forwards; }
-  @keyframes ko-spin{
-    0%{ opacity:0; transform:rotate(0deg) scale(.5); }
-    20%{ opacity:1; }
-    100%{ opacity:0; transform:rotate(340deg) scale(1.1) translateY(-10px); }
-  }
-  .confetti-piece{
-    position:absolute; top:10%; font-size:22px; opacity:0; pointer-events:none; z-index:9;
-    animation:confetti-fall 1.1s ease-in forwards;
-  }
-  @keyframes confetti-fall{
-    0%{ opacity:0; transform:translate(0,0) rotate(0deg); }
-    10%{ opacity:1; }
-    100%{ opacity:0; transform:translate(var(--dx,20px), 180px) rotate(var(--rot,180deg)); }
-  }
+  .summary-box{background:var(--paper-2); border:2px solid var(--ink); padding:18px; margin:16px 0; font-size:14.5px; line-height:1.55;}
+  .case-id-big{font-family:'Anton',sans-serif; font-size:30px; color:var(--crimson); margin:4px 0 16px;}
 
-  .meter-wrap{margin-top:18px;}
-  .meter-label{display:flex; justify-content:space-between; font-weight:700; font-size:13px; margin-bottom:6px;}
-  .meter{height:24px; border:3px solid var(--ink); background:var(--paper-2); position:relative; overflow:hidden;}
-  .meter-fill{height:100%; width:0%; background:repeating-linear-gradient(45deg, var(--crimson) 0 10px, var(--crimson-dark) 10px 20px); transition:width .45s cubic-bezier(.2,.9,.3,1.2);}
-  .meter-caption{text-align:center; font-size:13px; font-weight:600; margin-top:8px; min-height:18px;}
-  .punch-btn{margin-top:16px; width:100%; justify-content:center;}
+  .chat-wrap{border:3px solid var(--ink); background:#fff; margin-top:10px;}
+  .chat-messages{height:320px; overflow-y:auto; padding:16px; display:flex; flex-direction:column; gap:10px;}
+  .chat-msg{max-width:75%; padding:10px 14px; font-size:14px; line-height:1.4;}
+  .chat-msg.customer{align-self:flex-start; background:#fff; color:var(--ink); border:2px solid #cfc7bb;}
+  .chat-msg.agent{align-self:flex-end; background:#e9f0ff; border:2px solid #6d98d6;}
+  .chat-msg.admin{align-self:flex-end; background:#fff0c2; border:2px solid #d6a91d;}
+  .chat-msg .who{font-size:10.5px; font-weight:700; opacity:.75; display:block; margin-bottom:3px; text-transform:uppercase;}
+  .chat-empty{text-align:center; color:#999; font-size:13px; padding:30px 0;}
+  .chat-input-row{display:flex; border-top:3px solid var(--ink);}
+  .chat-input{flex:1; border:none; padding:14px; font-family:'Space Grotesk',sans-serif; font-size:14px;}
+  .chat-input:focus{outline:none;}
+  .chat-send{border:none; background:var(--ink); color:var(--paper); padding:0 22px; font-weight:700; cursor:pointer;}
+  .chat-send:hover{background:var(--crimson);}
 
-  /* ---------- SCOREBOARD ---------- */
-  .scoreboard{background:var(--ink); color:var(--paper); padding:34px 0; border-bottom:var(--line) solid var(--ink);}
-  .scoreboard-inner{display:flex; justify-content:space-around; flex-wrap:wrap; gap:20px; text-align:center;}
-  .stat{min-width:150px;}
-  .stat-num{font-family:'Anton',sans-serif; font-size:clamp(28px,4vw,40px); color:var(--mustard); display:block;}
-  .stat-label{font-size:13px; font-weight:600; color:#cfc3a4;}
-
-  /* ---------- AD SLOTS ---------- */
-  .ad-section{padding:46px 0;}
-  .ad-box{
-    border:3px dashed var(--ink); background:var(--paper-2);
-    padding:22px; text-align:center; position:relative; margin:0 auto;
-  }
-  .ad-box.leaderboard{max-width:760px;}
-  .ad-box.rectangle{max-width:336px;}
-  .ad-eyebrow{
-    font-family:'Anton',sans-serif; font-size:13px; letter-spacing:.5px; margin-bottom:10px;
-    color:var(--blue);
-  }
-  .ad-disclosure{
-    position:absolute; top:8px; right:12px; font-size:9px; font-weight:800; letter-spacing:1.2px;
-    color:#8a7f68; text-transform:uppercase;
-  }
-  .ad-placeholder{
-    min-height:90px; display:flex; align-items:center; justify-content:center; flex-direction:column; gap:4px;
-    font-size:13px; color:#8a7f68; font-weight:600; border:1px solid rgba(26,22,17,0.15);
-    background:repeating-linear-gradient(45deg, rgba(26,22,17,0.035) 0 10px, transparent 10px 20px);
-  }
-  .ad-box.rectangle .ad-placeholder{min-height:250px;}
-  .ad-placeholder small{font-weight:500; font-size:11px;}
-
-  /* ---------- SECTION HEADS ---------- */
-  .section-head{margin-bottom:44px;}
-  .section-head .kicker{background:var(--blue); color:var(--paper);}
-  .section-title{font-size:clamp(30px,4vw,44px);}
-
-  /* ---------- HOW IT WORKS ---------- */
-  .how{padding:90px 0; background:var(--ink); color:var(--paper);}
-  .how .kicker{background:var(--mustard); color:var(--ink);}
-  .steps{display:grid; grid-template-columns:repeat(3,1fr); gap:26px; margin-top:10px;}
-  .step{
-    background:var(--paper); color:var(--ink); border:3px solid var(--ink); padding:28px 24px; position:relative;
-    box-shadow:6px 6px 0 rgba(240,230,204,0.25);
-    opacity:0; transform:translateY(36px) rotate(0deg);
-    transition:opacity .5s ease, transform .5s cubic-bezier(.22,.85,.3,1.15);
-  }
-  .step:nth-child(1){transition-delay:0s;}
-  .step:nth-child(2){transition-delay:.12s;}
-  .step:nth-child(3){transition-delay:.24s;}
-  .step.in-view:nth-child(1){opacity:1; transform:translateY(0) rotate(-1.4deg);}
-  .step.in-view:nth-child(2){opacity:1; transform:translateY(0) rotate(1deg);}
-  .step.in-view:nth-child(3){opacity:1; transform:translateY(0) rotate(1.6deg);}
-  .step.in-view:hover{ transform:translateY(-6px) rotate(0deg) !important; box-shadow:9px 9px 0 rgba(240,230,204,0.3); }
-  .step-num{position:absolute; top:-18px; left:-14px; width:44px; height:44px; background:var(--crimson); color:var(--paper); border:3px solid var(--ink); border-radius:50%; display:flex; align-items:center; justify-content:center; font-family:'Anton',sans-serif; font-size:20px;}
-  .step h3{font-size:22px; margin:14px 0 10px;}
-  .step p{font-size:15px; line-height:1.5; margin:0; color:#3a3226;}
-
-  /* ---------- PAIN POINT POLL ---------- */
-  .poll{padding:80px 0;}
-  .poll-chips{display:flex; flex-wrap:wrap; gap:10px; margin:8px 0 30px;}
-  .poll-chip{
-    font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:14px;
-    padding:10px 16px; border:2.5px solid var(--ink); background:var(--paper);
-    cursor:pointer; transition:all .15s ease;
-  }
-  .poll-chip:hover{background:var(--mustard);}
-  .poll-chip.active{background:var(--crimson); color:var(--paper); box-shadow:3px 3px 0 var(--ink);}
-  .poll-bars{display:flex; flex-direction:column; gap:12px; margin-bottom:26px;}
-  .poll-row{display:grid; grid-template-columns:150px 1fr 46px; align-items:center; gap:12px;}
-  .poll-row-label{font-size:13px; font-weight:700;}
-  .poll-track{height:16px; background:var(--paper-2); border:2px solid var(--ink); position:relative;}
-  .poll-fill{height:100%; width:4%; background:var(--blue); transition:width .6s cubic-bezier(.2,.85,.3,1), background .3s ease;}
-  .poll-row.active .poll-fill{background:var(--crimson);}
-  .poll-row.active .poll-row-label{color:var(--crimson);}
-  .poll-pct{font-size:12px; font-weight:700; text-align:right;}
-  .poll-caption-box{
-    border:3px solid var(--ink); background:var(--paper); padding:22px 24px;
-    box-shadow:6px 6px 0 var(--mustard); display:flex; flex-wrap:wrap; align-items:center; gap:18px; justify-content:space-between;
-  }
-  .poll-caption{font-size:16px; line-height:1.5; margin:0; max-width:52ch; font-weight:600;}
-
-  /* ---------- WALL OF SHAME (flip cards) ---------- */
-  .shame{padding:70px 0 80px; background:var(--paper-2); border-top:var(--line) solid var(--ink); border-bottom:var(--line) solid var(--ink);}
-  .shame-hint{font-size:13px; font-weight:600; color:#5a4f3c; margin-top:-30px; margin-bottom:20px;}
-  .marquee-track{display:flex; overflow:hidden; margin-top:10px;}
-  .marquee-inner{display:flex; gap:22px; animation:scroll 40s linear infinite; flex-shrink:0;}
-  .marquee-track:hover .marquee-inner{animation-play-state:paused;}
-  @keyframes scroll{ from{transform:translateX(0);} to{transform:translateX(-50%);} }
-  .shame-card{flex:0 0 auto; width:300px; height:180px; perspective:900px; cursor:pointer;}
-  .shame-card-inner{position:relative; width:100%; height:100%; transition:transform .55s cubic-bezier(.3,.8,.3,1); transform-style:preserve-3d;}
-  .shame-card:not(.flipped):hover .shame-card-inner{ transform:translateY(-5px) scale(1.015); }
-  .shame-card.flipped .shame-card-inner{transform:rotateY(180deg);}
-  .shame-card.flipped:hover .shame-card-inner{transform:rotateY(180deg) translateY(-5px);}
-  .shame-face{position:absolute; inset:0; backface-visibility:hidden; border:3px solid var(--ink); padding:16px 18px; box-shadow:4px 4px 0 var(--ink); display:flex; flex-direction:column;}
-  .shame-front{background:var(--paper);}
-  .shame-back{background:var(--blue); color:var(--paper); transform:rotateY(180deg); justify-content:center;}
-  .shame-card .tag{font-size:10px; font-weight:700; background:var(--crimson); color:var(--paper); display:inline-block; padding:2px 8px; margin-bottom:10px; align-self:flex-start;}
-  .shame-back .tag{background:var(--mustard); color:var(--ink);}
-  .shame-card p{margin:0; font-size:14px; line-height:1.42; font-style:italic;}
-  .shame-back p{font-style:normal; font-weight:600;}
-
-  /* ---------- MEME & EXCUSE MACHINE ---------- */
-  .generator{padding:90px 0;}
-  .gen-box{border:var(--line) solid var(--ink); background:var(--paper); padding:36px; box-shadow:8px 8px 0 var(--mustard); max-width:880px; margin:0 auto;}
-  .gen-grid{display:grid; grid-template-columns:1fr 1fr; gap:26px; align-items:stretch; margin:26px 0;}
-  .meme-card{
-    background:var(--ink); color:var(--paper); border:3px solid var(--ink);
-    padding:0; position:relative; overflow:hidden; min-height:260px;
-    display:flex; flex-direction:column; opacity:0; transform:scale(.9) rotate(-2deg);
-  }
-  .meme-card.show{ animation:meme-pop .45s cubic-bezier(.25,.9,.3,1.3) forwards; }
-  @keyframes meme-pop{ to{ opacity:1; transform:scale(1) rotate(-1deg); } }
-  .meme-top{font-family:'Anton',sans-serif; font-size:17px; text-align:center; padding:14px 12px 6px; letter-spacing:.5px;}
-  .meme-emoji{font-size:56px; text-align:center; padding:14px 0; background:repeating-linear-gradient(45deg, #262019 0 8px, #1A1611 8px 16px);}
-  .meme-bottom{font-family:'Anton',sans-serif; font-size:17px; text-align:center; padding:6px 12px 16px; color:var(--mustard); letter-spacing:.5px;}
-  .meme-stamp{
-    position:absolute; top:10px; right:-34px; background:var(--crimson); color:var(--paper);
-    font-size:10px; font-weight:800; padding:4px 40px; transform:rotate(35deg);
-    letter-spacing:1px; box-shadow:0 0 0 2px var(--ink);
-  }
-  .excuse-panel{display:flex; flex-direction:column; justify-content:center; gap:16px;}
-  .gen-line{font-size:16px; line-height:1.5; opacity:0; transform:translateY(6px);}
-  .gen-line.show{animation:pop-in .35s ease forwards;}
-  @keyframes pop-in{to{opacity:1; transform:translateY(0);}}
-  .gen-line .who{font-family:'Anton',sans-serif; font-size:12px; letter-spacing:1px; display:block; margin-bottom:4px;}
-  .gen-excuse .who{color:var(--crimson);}
-  .gen-comeback .who{color:var(--blue);}
-  .gen-actions{display:flex; justify-content:center; gap:12px; flex-wrap:wrap;}
-
-  @media (max-width:760px){ .gen-grid{grid-template-columns:1fr;} .poll-row{grid-template-columns:110px 1fr 40px;} }
-
-  /* ---------- TESTIMONIALS ---------- */
-  .wanted-wrap{padding:90px 0; background:var(--ink); color:var(--paper);}
-  .wanted-grid{display:grid; grid-template-columns:repeat(3,1fr); gap:28px; margin-top:10px;}
-  .wanted{
-    background:var(--paper); color:var(--ink); border:3px solid var(--ink);
-    padding:22px; text-align:center; position:relative; overflow:hidden;
-    opacity:0; transform:translateY(-46px) rotate(0deg);
-    transition:opacity .55s ease, transform .4s var(--ease), box-shadow .25s var(--ease-soft);
-    box-shadow:6px 6px 0 rgba(0,0,0,0.35);
-    cursor:default;
-  }
-  .wanted:nth-child(1){transition-delay:0s;}
-  .wanted:nth-child(2){transition-delay:.12s;}
-  .wanted:nth-child(3){transition-delay:.24s;}
-  .wanted.in-view:nth-child(1){opacity:1; transform:translateY(0) rotate(-2deg);}
-  .wanted.in-view:nth-child(2){opacity:1; transform:translateY(0) rotate(1.4deg);}
-  .wanted.in-view:nth-child(3){opacity:1; transform:translateY(0) rotate(-1deg);}
-  .wanted:hover{ transform:translateY(-6px) rotate(0deg) !important; box-shadow:10px 10px 0 rgba(0,0,0,0.35); }
-  .record-belt{
-    display:inline-flex; align-items:center; gap:6px; background:var(--ink); color:var(--mustard);
-    font-family:'Anton',sans-serif; font-size:11px; letter-spacing:1.5px; padding:5px 12px;
-    transform:rotate(-2deg); margin-bottom:6px;
-  }
-  .wanted-title{font-family:'Anton',sans-serif; font-size:24px; letter-spacing:1.5px;}
-  .mug{width:96px; height:96px; margin:14px auto; border:3px solid var(--ink); background:var(--paper-2); display:flex; align-items:center; justify-content:center; font-size:44px; border-radius:50%; transition:transform .25s var(--ease);}
-  .wanted:hover .mug{ transform:scale(1.08) rotate(-4deg); }
-  .wanted h4{font-size:18px; margin:8px 0 4px;}
-  .wanted .amount{font-family:'Anton',sans-serif; color:var(--green); font-size:22px; margin:6px 0;}
-  .wanted p{font-size:14px; line-height:1.5; color:#3a3226; margin:0;}
-  .stamp-closed{
-    position:absolute; top:40%; left:50%; width:150px;
-    border:5px solid var(--crimson); color:var(--crimson);
-    font-family:'Anton',sans-serif; font-size:16px; text-align:center; padding:6px 0;
-    transform:translate(-50%,-50%) rotate(-18deg) scale(0); opacity:0;
-    transition:transform .3s cubic-bezier(.3,1.7,.4,1), opacity .2s;
-    pointer-events:none; background:rgba(240,230,204,0.88);
-  }
-  .wanted:hover .stamp-closed{ transform:translate(-50%,-50%) rotate(-18deg) scale(1); opacity:1; }
-
-  /* ---------- CTA / PRICING ---------- */
-  .cta-section{padding:90px 0; text-align:center;}
-  .price-card{max-width:420px; margin:36px auto 0; border:var(--line) solid var(--ink); background:var(--mustard); padding:34px; box-shadow:8px 8px 0 var(--ink); transition:transform .25s var(--ease), box-shadow .25s var(--ease-soft);}
-  .price-card:hover{ transform:translate(-4px,-4px); box-shadow:12px 12px 0 var(--ink); }
-  .price-card .big{font-family:'Anton',sans-serif; font-size:44px;}
-  .price-card ul{list-style:none; padding:0; margin:18px 0; text-align:left;}
-  .price-card li{padding:6px 0; font-weight:600; font-size:15px;}
-  .price-card li::before{content:"✓ "; font-weight:800;}
-  .compliance-note{font-size:12.5px; color:#5a4f3c; max-width:50ch; margin:18px auto 0; line-height:1.5;}
-
-  .cta-grid{display:grid; grid-template-columns:1fr 1.15fr; gap:32px; align-items:start; text-align:left; max-width:920px; margin:36px auto 0;}
-  .cta-grid .price-card{margin:0;}
-  .case-form-title{font-size:22px; margin-bottom:2px;}
-  .case-form-sub{font-size:13px; color:#5a4f3c; margin:0;}
-
-  .chat-lead-card{
-    border:var(--line) solid var(--ink); background:var(--paper);
-    box-shadow:8px 8px 0 var(--blue); scroll-margin-top:calc(var(--nav-h) + 20px);
-    display:flex; flex-direction:column; overflow:hidden;
-  }
-  .chat-lead-header{display:flex; align-items:center; gap:12px; padding:20px 22px 14px;}
-  .chat-lead-badge{
-    width:40px; height:40px; border-radius:50%; background:var(--crimson); border:3px solid var(--ink);
-    display:flex; align-items:center; justify-content:center; font-size:18px; flex-shrink:0;
-  }
-  .chat-lead-messages{
-    height:320px; overflow-y:auto; padding:6px 20px 14px; display:flex; flex-direction:column; gap:10px;
-    background:#fff; border-top:2px solid var(--ink); border-bottom:2px solid var(--ink);
-  }
-  .lead-msg{max-width:82%; padding:10px 14px; font-size:14px; line-height:1.45; border-radius:2px;}
-  .lead-msg.bot{align-self:flex-start; background:var(--paper-2); border:2px solid var(--ink); margin-top:12px;}
-  .lead-msg.user{align-self:flex-end; background:var(--blue); color:#fff; margin-top:12px;}
-  .lead-typing{align-self:flex-start; padding:10px 14px; font-size:13px; color:#8a7f68; font-style:italic;}
-  .chat-lead-input-row{display:flex;}
-  .chat-lead-input{
-    flex:1; border:none; padding:16px 18px; font-family:'Space Grotesk',sans-serif; font-size:14.5px;
-    background:var(--paper);
-  }
-  .chat-lead-input:focus{outline:none;}
-  .chat-lead-input:disabled{color:#aaa;}
-  .chat-lead-send{
-    border:none; border-left:2px solid var(--ink); background:var(--ink); color:var(--paper);
-    padding:0 22px; font-size:18px; cursor:pointer; font-weight:700;
-  }
-  .chat-lead-send:hover:not(:disabled){background:var(--crimson);}
-  .chat-lead-send:disabled{opacity:.5; cursor:not-allowed;}
-  .chat-lead-cta{padding:16px 20px 20px;}
-  .chat-lead-cta.hidden{display:none;}
-
-  @media (max-width:820px){
-    .cta-grid{grid-template-columns:1fr;}
-  }
-
-  /* ---------- FOOTER ---------- */
-  footer{background:var(--ink); color:var(--paper); padding:44px 0 26px; font-size:14px; border-top:var(--line) solid var(--ink);}
-  .footer-top{display:flex; justify-content:space-between; flex-wrap:wrap; gap:20px; align-items:center; margin-bottom:22px;}
-  .footer-fine{color:#a89e88; max-width:640px; line-height:1.5; font-size:12.5px;}
-  .footer-bottom{border-top:1px solid #423b2e; padding-top:18px; display:flex; justify-content:space-between; flex-wrap:wrap; gap:10px; color:#a89e88;}
-
-  @media (max-width:880px){
-    .hero-inner{grid-template-columns:1fr;}
-    .steps, .wanted-grid{grid-template-columns:1fr;}
-    .nav-inner{padding:10px 16px; position:relative;}
-    .logo{font-size:18px; gap:7px;}
-    .logo-badge{width:30px;height:30px;font-size:16px;}
-    .mobile-nav-toggle{display:flex;}
-    .nav-links{
-      display:none; position:absolute; left:12px; right:12px; top:calc(100% + 1px);
-      flex-direction:column; align-items:stretch; gap:0; padding:8px;
-      background:var(--paper); border:2px solid var(--ink);
-      box-shadow:6px 6px 0 rgba(26,22,17,.14); z-index:100;
-    }
-    nav.mobile-open .nav-links{display:flex;}
-    .nav-links a{padding:12px 10px; border-bottom:1px solid rgba(26,22,17,.18);}
-    .nav-links a:last-child{border-bottom:0;}
-    .nav-links a:not(.cta-small)::after{display:none;}
-    .nav-links .cta-small{text-align:center; margin-top:6px;}
-  }
-
-#how,#shame,#generator,.wanted-wrap,#start{content-visibility:auto;contain-intrinsic-size:1px 700px}
+  .back-link{display:inline-block; margin-bottom:20px; font-size:13px; text-decoration:none; color:#5a4f3c; font-weight:600;}
+  .back-link:hover{color:var(--crimson);}
+  .file-list{font-size:13px; margin-top:8px; color:#5a4f3c;}
+  .hidden{display:none;}
 </style>
-<meta name="theme-color" content="#F0E6CC"><style>@view-transition{navigation:auto}::view-transition-old(root){animation:.2s ease both rwo}::view-transition-new(root){animation:.45s cubic-bezier(.22,1,.36,1) both rwn}@keyframes rwo{to{opacity:0;transform:translateY(-12px)}}@keyframes rwn{from{opacity:0;transform:translateY(24px)}}</style><script type="speculationrules">{"prefetch":[{"where":{"href_matches":["/login.html*","/dashboard.html*"]},"eagerness":"moderate"}]}</script></head>
+<meta name="theme-color" content="#F0E6CC"><style>@view-transition{navigation:auto}::view-transition-old(root){animation:.2s ease both rwo}::view-transition-new(root){animation:.45s cubic-bezier(.22,1,.36,1) both rwn}@keyframes rwo{to{opacity:0;transform:translateY(-12px)}}@keyframes rwn{from{opacity:0;transform:translateY(24px)}}</style><link rel="preconnect" href="https://checkout.razorpay.com"></head>
 <body>
 
-
-<div class="scroll-progress" id="scrollProgress"></div>
-
-<nav id="siteNav">
+<nav>
   <div class="nav-inner">
-    <a href="#" class="logo"><img src="/logo-lockup-nav.png" alt="Fraudify" class="nav-logo-img" width="160" height="56" fetchpriority="high" decoding="async"></a>
-    <button class="mobile-nav-toggle" id="mobileNavToggle" type="button" aria-label="Open navigation" aria-expanded="false">
-      <span class="icon-menu">☰</span><span class="icon-close">×</span>
-    </button>
-    <div class="nav-links">
-      <a href="#how">How it works</a>
-      <a href="#shame">Wall of Shame</a>
-      <a href="#generator">Meme Machine</a>
-      <a href="#wanted">Wins</a>
-      <a href="/login.html" id="navAccountLink">Log In</a>
-      <a href="#start" class="cta-small">Start My Case</a>
+    <a href="/" class="logo"><img src="/logo-lockup-nav.png" alt="Fraudify" class="nav-logo-img" width="140" height="49" decoding="async"></a>
+    <div class="user-chip">
+      <span id="userNameChip">…</span>
+      <button class="logout-btn" id="logoutBtn">Log Out</button>
     </div>
   </div>
 </nav>
 
-<div class="ticker">
-  <div class="ticker-inner" id="tickerInner"></div>
-</div>
+<main class="wrap">
 
-<!-- HERO -->
-<section class="hero" id="heroSection">
-  <div class="wrap hero-inner">
-    <div>
-      <div class="hero-logo"><img src="/logo-lockup-hero.png" alt="Fraudify" class="hero-logo-img" width="426" height="140" fetchpriority="high" decoding="async"></div>
-      <span class="kicker">CONSUMER JUSTICE FOR BHARAT, GLOVES ON</span>
-      <h1 class="hero-title">Company gave you<br><span class="hl">gyaan</span>, not a refund?</h1>
-      <p class="hero-sub">Refund stuck "in process"? Order still not delivered? Service you paid for never showed up? Promise made, promise broken? Fraudify tells you exactly what to do, what to say, and which channel to use — then helps you push it through until it's actually resolved. No legal jargon, no three-hour hold music, no "sir please be patient."</p>
-      <div class="hero-ctas">
-        <a href="#start" class="btn">Start My Case →</a>
-        <a href="#ring" class="btn secondary">Take a Practice Swing</a>
+  <!-- SCREEN: LIST -->
+  <div id="screenList">
+    <h1 class="page-title">My Cases</h1>
+    <p class="page-sub">Every case you've filed, with its status and a direct chat with your agent.</p>
+    <button class="btn" id="newCaseBtn">+ Open a New Case (₹<span id="feeDisplay1">59</span>)</button>
+    <div class="case-list" id="caseList" style="margin-top:24px;"></div>
+  </div>
+
+  <!-- SCREEN: PAYMENT -->
+  <div id="screenPay" class="hidden">
+    <a href="#" class="back-link" id="backFromPay">← Back to my cases</a>
+    <div class="panel">
+      <h2 id="payTitle">Pay &amp; Connect</h2>
+      <p class="sub" id="paySub">A small filing fee keeps this queue serious and spam-free. Case ID: <strong id="payCaseId">—</strong></p>
+      <div class="fee-box">
+        <span>Case filing fee</span>
+        <span class="fee-amount">₹<span id="feeDisplay2">59</span></span>
       </div>
+      <div id="testModeNotice" class="hidden" style="font-size:13px; background:#fff3cd; border:2px dashed var(--ink); padding:12px; margin-bottom:16px;">
+        <strong>Test mode:</strong> no live payment gateway is connected yet, so this button simulates a successful ₹59 payment instead of charging a real card.
+      </div>
+      <button class="btn" id="payBtn" style="width:100%; justify-content:center;">Pay ₹<span id="feeDisplay3">59</span> &amp; Continue</button>
+      <p class="msg" id="payMsg"></p>
+    </div>
+  </div>
+
+  <!-- SCREEN: DETAILS FORM -->
+  <div id="screenDetails" class="hidden">
+    <a href="#" class="back-link" id="backFromDetails">← Back to my cases</a>
+    <div class="panel">
+      <h2>Tell Us What Happened</h2>
+      <p class="sub">Case ID: <strong id="detailsCaseId">—</strong> — payment confirmed. Now let's get the details on record.</p>
+      <form id="detailsForm">
+        <label class="form-label" for="d-category">What kind of company gave you trouble?</label>
+        <select class="form-input" id="d-category">
+          <option value="ecommerce">🛒 E-commerce</option>
+          <option value="banking">🏦 Banking / EMI</option>
+          <option value="telecom">📶 Telecom</option>
+          <option value="travel">✈️ Travel / Cab</option>
+          <option value="food">🍔 Food Delivery</option>
+          <option value="insurance">🛡️ Insurance</option>
+          <option value="other">🤷 Something else</option>
+        </select>
+
+        <label class="form-label" for="d-desc">What happened? (at least 20 characters)</label>
+        <textarea class="form-input" id="d-desc" required minlength="20" maxlength="4000" placeholder="What did you buy or sign up for, what went wrong, and what have you tried so far?"></textarea>
+
+        <label class="form-label" for="d-proofs">Upload proofs (screenshots, receipts, PDFs — up to 5 files, 8MB each)</label>
+        <input class="form-input" type="file" id="d-proofs" multiple accept="image/png,image/jpeg,image/webp,application/pdf">
+
+        <button type="submit" class="btn" id="detailsSubmitBtn" style="width:100%; justify-content:center; margin-top:18px;">Submit Case Details 🥊</button>
+        <p class="msg" id="detailsMsg"></p>
+      </form>
+    </div>
+  </div>
+
+  <!-- SCREEN: SUMMARY + CHAT -->
+  <div id="screenCase" class="hidden">
+    <a href="#" class="back-link" id="backFromCase">← Back to my cases</a>
+    <div class="panel">
+      <span style="font-size:12px; font-weight:700; text-transform:uppercase; color:#5a4f3c;">Your Case ID</span>
+      <div class="case-id-big" id="caseViewId">RW-0000-XXXXXX</div>
+      <span class="status-badge" id="caseViewStatus">—</span>
+      <h3 style="margin-top:20px; font-size:16px;">Summary</h3>
+      <div class="summary-box" id="caseViewSummary">—</div>
+      <div class="file-list" id="caseViewFiles"></div>
     </div>
 
-    <div id="ring">
-      <div class="ring">
-        <div class="ring-bg"></div>
-        <div class="ring-post rp-tl"></div><div class="ring-post rp-tr"></div>
-        <div class="ring-post rp-bl"></div><div class="ring-post rp-br"></div>
-        <div class="cam" id="cam"><svg id="stage" viewBox="0 0 440 440" preserveAspectRatio="xMidYMid slice" role="img" aria-label="Cartoon boxing match: you versus a corporate executive in a suit and tie"></svg><canvas id="fxCanvas" aria-hidden="true"></canvas></div>
-        <div class="hud">
-          <div class="hp-box you"><span class="hp-name">YOU</span><div class="hp" id="hpYou"><b></b><i></i></div></div>
-          <div class="hp-box corp"><span class="hp-name">CHALTAHAI CORP PVT. LTD.</span><div class="hp corp" id="hpCorp"><b></b><i></i></div></div>
+    <div class="panel" style="padding:0; overflow:hidden;">
+      <div style="padding:20px 20px 0;">
+        <h2 style="font-size:20px;">Chat With Fraudify</h2>
+        <p class="sub">Your messages are on the left. Agents and the Fraudify team appear on the right.</p>
+      </div>
+      <div class="chat-wrap" style="border:none; border-top:2px solid var(--ink);">
+        <div class="chat-messages" id="chatMessages"><div class="chat-empty">No messages yet — say hello!</div></div>
+        <div id="accessLock" class="hidden" style="padding:16px; background:#fff3cd; border-top:2px dashed var(--ink);">
+          <strong>⏳ Chat access has ended.</strong>
+          <p style="margin:6px 0 12px; font-size:13px; color:#5a4f3c;">Your 48-hour chat window for this case is over. Renew to keep messaging with Fraudify.</p>
+          <button class="btn" id="renewBtn" style="width:100%; justify-content:center;">Renew Access — ₹<span id="renewFee">59</span></button>
         </div>
-        <div class="banner" id="banner" aria-live="polite"></div><div class="flash" id="flash"></div>
-        <button class="snd" id="sndBtn" type="button" aria-label="Toggle fight sounds" aria-pressed="true">🔊</button>
-      </div>
-      <div class="meter-wrap">
-        <div class="meter-label"><span>REFUND-O-METER</span><span id="meterPct">0%</span></div>
-        <div class="meter"><div class="meter-fill" id="meterFill"></div></div>
-        <div class="meter-caption" id="meterCaption">Ready to fight back?</div>
-      </div>
-      <button class="btn punch-btn" id="punchBtn">Throw a Punch 👊</button>
-    </div>
-  </div>
-</section>
-
-<div class="rope-divider"></div>
-
-<!-- SCOREBOARD -->
-<section class="scoreboard">
-  <div class="wrap scoreboard-inner">
-    <div class="stat"><span class="stat-num" id="statMoney" data-target="4208650" data-prefix="₹">₹0</span><span class="stat-label">Recovered for customers</span></div>
-    <div class="stat"><span class="stat-num" id="statCases" data-target="1214">0</span><span class="stat-label">Cases fought</span></div>
-    <div class="stat"><span class="stat-num" id="statRate" data-target="97" data-suffix="%">0%</span><span class="stat-label">Success rate</span></div>
-  </div>
-</section>
-
-<!-- AD SLOT 1 -->
-<section class="ad-section">
-  <div class="wrap">
-    <div class="ad-box leaderboard">
-      <span class="ad-disclosure">Advertisement</span>
-      <div class="ad-eyebrow">🥊 RINGSIDE SPONSOR</div>
-      <div class="ad-placeholder">
-        728 × 90 leaderboard slot
-        <small>Paste your ad network tag here</small>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- HOW IT WORKS -->
-<section class="how" id="how">
-  <div class="wrap">
-    <div class="section-head">
-      <span class="kicker">THE PLAY-BY-PLAY</span>
-      <h2 class="section-title">How the fight goes down</h2>
-    </div>
-    <div class="steps" id="stepsGrid">
-      <div class="step">
-        <div class="step-num">1</div>
-        <h3>Tell us your horror story</h3>
-        <p>Send us the order ID, the screenshots, and that WhatsApp chat where support said "resolved" and nothing happened. We've heard worse. Probably.</p>
-      </div>
-      <div class="step">
-        <div class="step-num">2</div>
-        <h3>We tell you exactly how to fight</h3>
-        <p>Refund delays, late delivery, a service that was never fulfilled, a promise a company didn't keep — whatever it is, we tell you what to do, what to say, and word-for-word what to write. We draft the demand notice, cite the Consumer Protection Act, 2019, and route it through the right channel — grievance officer, RBI Ombudsman, TRAI, or e-Daakhil.</p>
-      </div>
-      <div class="step">
-        <div class="step-num">3</div>
-        <h3>Collect your refund</h3>
-        <p>Money back in your account, not your "wallet balance." Dignity restored. You get to mute that customer care number forever.</p>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- PAIN POINT POLL -->
-<section class="poll">
-  <div class="wrap">
-    <div class="section-head">
-      <span class="kicker">YOU'RE NOT THE ONLY ONE</span>
-      <h2 class="section-title">Which company gave you gyaan instead of a refund?</h2>
-    </div>
-    <div class="poll-chips" id="pollChips"></div>
-    <div class="poll-bars" id="pollBars"></div>
-    <div class="poll-caption-box">
-      <p class="poll-caption" id="pollCaption">Pick a category above — we'll show you how common your headache really is.</p>
-      <a href="#start" class="btn" style="white-space:nowrap;">Fight This Now →</a>
-    </div>
-  </div>
-</section>
-
-<!-- WALL OF SHAME -->
-<section class="shame" id="shame">
-  <div class="wrap">
-    <div class="section-head">
-      <span class="kicker">WALL OF SHAME</span>
-      <h2 class="section-title">Excuses we've actually had to un-hear</h2>
-    </div>
-    <p class="shame-hint">👆 Tap a card to flip it and see how we'd reply.</p>
-  </div>
-  <div class="marquee-track">
-    <div class="marquee-inner" id="marqueeInner"></div>
-  </div>
-</section>
-
-<div class="rope-divider"></div>
-
-<!-- AD SLOT 2 -->
-<section class="ad-section">
-  <div class="wrap">
-    <div class="ad-box rectangle">
-      <span class="ad-disclosure">Advertisement</span>
-      <div class="ad-eyebrow">⏱️ ROUND BREAK</div>
-      <div class="ad-placeholder">
-        300 × 250 rectangle slot
-        <small>Paste your ad network tag here</small>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- MEME & EXCUSE MACHINE -->
-<section class="generator" id="generator">
-  <div class="wrap">
-    <div class="section-head" style="text-align:center;">
-      <span class="kicker">TRY IT YOURSELF</span>
-      <h2 class="section-title">The Meme &amp; Excuse Machine</h2>
-      <p style="max-width:60ch;margin:16px auto 0;color:#3a3226;">Every click cooks up a fresh meme about Indian customer service pain, plus the corporate excuse it's based on — and the comeback we'd actually send.</p>
-    </div>
-    <div class="gen-box">
-      <div class="gen-grid">
-        <div class="meme-card" id="memeCard">
-          <div class="meme-stamp" id="memeStamp">STAMP</div>
-          <div class="meme-top" id="memeTop">PRESS GENERATE</div>
-          <div class="meme-emoji" id="memeEmoji">🎭</div>
-          <div class="meme-bottom" id="memeBottom">TO MEET YOUR MEME</div>
+        <div class="chat-input-row" id="chatInputRow">
+          <input class="chat-input" id="chatInput" type="text" placeholder="Type a message…" maxlength="2000">
+          <button class="chat-send" id="chatSendBtn">Send</button>
         </div>
-        <div class="excuse-panel" id="genDisplay">
-          <div class="gen-line" style="opacity:1;transform:none;">Press generate to summon a corporate excuse and our reply to it.</div>
-        </div>
-      </div>
-      <div class="gen-actions">
-        <button class="btn" id="genBtn" style="justify-content:center;">Generate Meme 🎲</button>
+        <div id="chatNotice" style="padding:0 16px 14px; font-size:13px; color:#8a241f; min-height:18px;"></div>
       </div>
     </div>
   </div>
-</section>
 
-<!-- TESTIMONIALS -->
-<section class="wanted-wrap" id="wanted">
-  <div class="wrap">
-    <div class="section-head">
-      <span class="kicker" style="background:var(--crimson);color:var(--paper);">HALL OF WINS</span>
-      <h2 class="section-title">Cases closed. Refunds recovered.</h2>
-    </div>
-    <div class="wanted-grid" id="wantedGrid">
-      <div class="wanted">
-        <div class="stamp-closed">CASE<br>CLOSED</div>
-        <div class="record-belt">🏆 WIN BY REFUND</div>
-        <div class="wanted-title">FIGHT RECORD</div>
-        <div style="font-size:11px;letter-spacing:1px;">VS. REFUND EVASION</div>
-        <div class="mug">😤</div>
-        <h4>Priya S., Bengaluru</h4>
-        <div class="amount">₹18,500 recovered</div>
-        <p>A fashion marketplace kept her return "in process" for 5 months. One notice citing the Consumer Protection Act, and the refund landed in 9 days.</p>
-      </div>
-      <div class="wanted">
-        <div class="stamp-closed">CASE<br>CLOSED</div>
-        <div class="record-belt">🏆 WIN BY REFUND</div>
-        <div class="wanted-title">FIGHT RECORD</div>
-        <div style="font-size:11px;letter-spacing:1px;">VS. HIDDEN CHARGE SORCERY</div>
-        <div class="mug">🥸</div>
-        <h4>Rohit M., Pune</h4>
-        <div class="amount">₹3,240 recovered</div>
-        <p>His telecom operator kept billing a "value pack" he never opted into. We got it removed and clawed back four months of charges.</p>
-      </div>
-      <div class="wanted">
-        <div class="stamp-closed">CASE<br>CLOSED</div>
-        <div class="record-belt">🏆 WIN BY REFUND</div>
-        <div class="wanted-title">FIGHT RECORD</div>
-        <div style="font-size:11px;letter-spacing:1px;">VS. EMI APP SHENANIGANS</div>
-        <div class="mug">🫠</div>
-        <h4>Anjali K., Delhi</h4>
-        <div class="amount">₹52,000 recovered</div>
-        <p>A lending app added surprise "processing fees" after the loan was fully repaid. We escalated past the call-centre script — full waiver, in writing.</p>
-      </div>
-    </div>
-  </div>
-</section>
-
-<div class="rope-divider"></div>
-
-<!-- AD SLOT 3 -->
-<section class="ad-section">
-  <div class="wrap">
-    <div class="ad-box leaderboard">
-      <span class="ad-disclosure">Advertisement</span>
-      <div class="ad-eyebrow">📣 SPONSORED SPOTLIGHT</div>
-      <div class="ad-placeholder">
-        728 × 90 leaderboard slot
-        <small>Paste your ad network tag here</small>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- CTA / PRICING -->
-<section class="cta-section" id="start">
-  <div class="wrap">
-    <span class="kicker">READY WHEN YOU ARE</span>
-    <h2 class="section-title">Get a human on your case.</h2>
-    <div class="cta-grid">
-      <div class="price-card">
-        <div class="big">₹59</div>
-        <p style="margin:0;font-weight:700;">one-time case opening fee</p>
-        <ul>
-          <li>Create your account in under a minute</li>
-          <li>Pay ₹59 securely to open a tracked case</li>
-          <li>Chat directly with a real Fraudify agent</li>
-          <li>Our team can assign your case to the right person</li>
-        </ul>
-        <a href="/login.html?next=/dashboard.html" class="btn" style="width:100%;justify-content:center;margin-top:8px;">Log In / Create Account →</a>
-      </div>
-      <div class="chat-lead-card" style="padding:28px;display:flex;flex-direction:column;justify-content:center;">
-        <span class="kicker">HOW IT WORKS</span>
-        <h3 class="case-form-title" style="margin-top:6px;">No chatbot wall. No disappearing conversation.</h3>
-        <p class="case-form-sub" style="font-size:16px;line-height:1.6;">Create an account, open your case for ₹59, and the conversation lives inside your account. A Fraudify agent can reply, continue the case, and hand it to another team member when needed.</p>
-        <div style="display:grid;gap:10px;margin-top:10px;font-weight:700;">
-          <div>01 — Sign up / log in</div>
-          <div>02 — Pay ₹59 and open the case</div>
-          <div>03 — Chat with a real human</div>
-        </div>
-        <a href="/login.html?next=/dashboard.html" class="btn" style="width:max-content;margin-top:20px;">Open My Cases →</a>
-      </div>
-    </div>
-    <p class="compliance-note">We're consumer advocates, not a law firm — nothing here is legal advice. Where useful, we help route your complaint through the right official channel: company grievance officer, RBI Ombudsman, TRAI, or the government's e-Daakhil portal.</p>
-  </div>
-</section>
-
-<footer>
-  <div class="wrap">
-    <div class="footer-top">
-      <a href="#" class="logo" style="color:var(--paper);"><span class="logo-badge">R</span> FRAUDIFY</a>
-      <div style="display:flex;gap:18px;font-weight:600;">
-        <a href="#how">How it works</a>
-        <a href="#generator">Meme Machine</a>
-        <a href="#start">Start My Case</a>
-      </div>
-    </div>
-    <p class="footer-fine">Fraudify is a consumer advocacy service for Indian customers. We're satirists with a spreadsheet, not lawyers — nothing here is legal advice, and "ChaltaHai Corp Pvt. Ltd." is not a real company (though it probably reminds you of one). We just help you write the complaint you've been too tired to file.</p>
-    <div class="footer-bottom">
-      <span>© 2026 Fraudify</span>
-      <span>Built for people who are done saying "chalta hai" about it</span>
-    </div>
-  </div>
-</footer>
+</main>
 
 <script>
-  // ---- Nav: swap "Log In" for "My Cases" if already logged in ----
-  fetch('/api/auth/me').then(r => {
-    if (r.ok) {
-      const link = document.getElementById('navAccountLink');
-      link.textContent = 'My Cases';
-      link.href = '/dashboard.html';
-    }
-  }).catch(() => {});
+  let currentUser = null;
+  let currentCaseId = null;
+  let chatPollTimer = null;
+  let caseListPollTimer = null;
+  let config = { paymentsLive: false, caseFeeRupees: 59 };
+  let prefillLead = null;
+  let prefillLeadId = null;
+  function isUnread(c){return Number(c?.unreadCount||0)>0;}
+  let chatStream=null;
+  async function markRead(c){if(!c?.caseId)return;const ts=c.lastMessageAt||null;try{await fetch(`/api/my/cases/${encodeURIComponent(c.caseId)}/read`,{method:'POST',headers:{'Content-Type':'application/json','Accept':'application/json'},body:JSON.stringify({lastReadAt:ts})});}catch(e){console.debug('read-state',e.message);}}
+  function closeChatStream(){if(chatStream){chatStream.close();chatStream=null;}}
+  function openChatStream(caseId){closeChatStream();chatStream=new EventSource(`/api/my/cases/${encodeURIComponent(caseId)}/stream`);chatStream.addEventListener('message',async()=>{await loadMessages();loadCases(true).catch(()=>{});});chatStream.onerror=()=>{};}
+  function senderLabel(c){if(!c.lastMessageSender)return '';if(c.lastMessageSender==='customer')return 'You';if(c.lastMessageSender==='admin')return c.lastMessageSenderName||'Super Admin';if(c.lastMessageSender==='agent')return c.lastMessageSenderName||'Agent';return c.lastMessageSenderName||'Customer';}
 
-  // ---- Mobile navigation ----
-  const siteNav = document.getElementById('siteNav');
-  const mobileNavToggle = document.getElementById('mobileNavToggle');
-  if (siteNav && mobileNavToggle) {
-    mobileNavToggle.addEventListener('click', () => {
-      const open = siteNav.classList.toggle('mobile-open');
-      mobileNavToggle.setAttribute('aria-expanded', String(open));
-      mobileNavToggle.setAttribute('aria-label', open ? 'Close navigation' : 'Open navigation');
-    });
-    siteNav.querySelectorAll('.nav-links a').forEach((link) => {
-      link.addEventListener('click', () => {
-        siteNav.classList.remove('mobile-open');
-        mobileNavToggle.setAttribute('aria-expanded', 'false');
-        mobileNavToggle.setAttribute('aria-label', 'Open navigation');
+  const screens = {
+    list: document.getElementById('screenList'),
+    pay: document.getElementById('screenPay'),
+    details: document.getElementById('screenDetails'),
+    case: document.getElementById('screenCase'),
+  };
+  function showScreen(name) {
+    if (name !== 'case') closeChatStream();
+    Object.values(screens).forEach(s => s.classList.add('hidden'));
+    screens[name].classList.remove('hidden');
+    if (name !== 'case' && chatPollTimer) { clearInterval(chatPollTimer); chatPollTimer = null; }
+  }
+
+  function statusLabel(s) {
+    return ({
+      awaiting_payment: 'Awaiting Payment',
+      awaiting_details: 'Awaiting Details',
+      submitted: 'Submitted',
+      'in-progress': 'In Progress',
+      won: 'Won',
+      closed: 'Closed',
+    })[s] || s;
+  }
+
+  async function init() {
+    try {
+      const meRes = await fetch('/api/auth/me');
+      if (!meRes.ok) { window.location.href = '/login.html?next=/dashboard.html'; return; }
+      currentUser = await meRes.json();
+      document.getElementById('userNameChip').textContent = `Hi, ${currentUser.name.split(' ')[0]}`;
+
+      const configRes = await fetch('/api/config', { cache: 'no-store' });
+      if (configRes.ok) config = await configRes.json();
+      document.querySelectorAll('#feeDisplay1,#feeDisplay2,#feeDisplay3').forEach(el => el.textContent = config.caseFeeRupees);
+      document.getElementById('testModeNotice').classList.toggle('hidden', config.paymentsLive);
+
+      await loadCases();
+      if (caseListPollTimer) clearInterval(caseListPollTimer);
+      caseListPollTimer = setInterval(() => { if (document.visibilityState === 'visible' && !currentCaseId) loadCases().catch(e => console.error('case list refresh', e)); }, 3000);
+
+      const leadId = new URLSearchParams(window.location.search).get('leadId');
+      if (leadId) {
+        prefillLeadId = leadId;
+        try {
+          const leadRes = await fetch(`/api/my/leads/${leadId}`);
+          if (leadRes.ok) {
+            prefillLead = await leadRes.json();
+            const support = await fetch(`/api/my/leads/${leadId}/human-support`, {method:'POST'});
+            const supportData = await support.json();
+            if (!support.ok) throw new Error(supportData.error || 'Could not start human support.');
+            currentCaseId = supportData.caseId;
+            if (supportData.paymentStatus === 'paid') {
+              await openCaseView(currentCaseId);
+              return;
+            }
+            document.getElementById('payTitle').textContent='Connect a Human';
+            document.getElementById('paySub').innerHTML=`AI intake is complete. Pay the support fee to unlock a Fraudify human in this same conversation. Case ID: <strong id="payCaseId">${supportData.caseId}</strong>`;
+            document.getElementById('payCaseId').textContent=supportData.caseId;
+            showScreen('pay');
+            window.__humanSupportOrder=supportData;
+            return;
+          }
+        } catch (e) { console.error(e); }
+      }
+
+      showScreen('list');
+    } catch (err) {
+      console.error(err);
+    }
+  }
+
+  async function loadCases() {
+    const listEl=document.getElementById('caseList');if(!listEl.firstElementChild)listEl.innerHTML='<div class="loading-state">Loading your cases…</div>';
+    try{const res=await fetch('/api/my/cases',{cache:'no-store'});const payload=await res.json().catch(()=>({}));if(!res.ok)throw new Error(payload.error||'Could not load your cases.');const cases=(Array.isArray(payload)?payload:[]).sort((a,b)=>new Date(b.lastMessageAt||b.updatedAt||b.createdAt||0)-new Date(a.lastMessageAt||a.updatedAt||a.createdAt||0));if(!cases.length){listEl.innerHTML='<div class="empty-state">No cases yet. Click "Open a New Case" to file your first one.</div>';return;}listEl.innerHTML=cases.map(c=>{const preview=c.lastMessageText?`${senderLabel(c)}: ${c.lastMessageText}`:'No messages yet';const count=Number(c.unreadCount||0);return `<div class="case-row ${count?'unread':''}" data-case="${escapeHtml(c.caseId)}" data-status="${escapeHtml(c.status||'')}"><div style="min-width:0;flex:1"><div class="case-id">${escapeHtml(c.caseId)}</div><div class="case-meta">${c.createdAt?new Date(c.createdAt).toLocaleString('en-IN'):'Date unavailable'}${c.category?' • '+escapeHtml(c.category):''}</div><div class="case-preview">${escapeHtml(preview)}</div></div><div class="case-actions">${count?`<span class="unread-pill" title="${count} unread message${count===1?'':'s'}">${count>99?'99+':count}</span>`:''}<span class="status-badge status-${escapeHtml(c.status||'')}">${escapeHtml(statusLabel(c.status||''))}</span></div></div>`;}).join('');listEl.querySelectorAll('.case-row').forEach(row=>row.addEventListener('click',()=>resumeCase(row.dataset.case,row.dataset.status)));}catch(err){console.error('loadCases:',err);listEl.innerHTML=`<div class="empty-state"><strong>Could not load your cases.</strong><br><span style="font-size:13px;">${escapeHtml(err.message||'Please refresh and try again.')}</span><br><button class="btn secondary" style="margin-top:16px;" onclick="loadCases()">Try Again</button></div>`;}
+  }
+
+  async function resumeCase(caseId, status) {
+    currentCaseId = caseId;
+
+    // In demo/test mode, an old pending case can be activated without asking
+    // the customer to perform a fake payment step.
+    if (status === 'awaiting_payment' && !config.paymentsLive) {
+      await activateDemoCase(caseId);
+      return;
+    }
+
+    if (status === 'awaiting_payment') {
+      document.getElementById('payCaseId').textContent = caseId;
+      document.getElementById('payMsg').textContent = '';
+      showScreen('pay');
+    } else if (status === 'awaiting_details') {
+      document.getElementById('detailsCaseId').textContent = caseId;
+      showScreen('details');
+    } else {
+      await openCaseView(caseId);
+    }
+  }
+
+  async function activateDemoCase(caseId) {
+    const rows = document.querySelectorAll('.case-row');
+    rows.forEach(r => { if (r.dataset.case === caseId) r.style.pointerEvents = 'none'; });
+    try {
+      const res = await fetch(`/api/my/cases/${encodeURIComponent(caseId)}/mock-pay`, { method: 'POST' });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || 'Could not activate the demo case.');
+      await openCaseView(caseId);
+    } catch (err) {
+      alert(err.message || 'Could not activate this case. Please try again.');
+    } finally {
+      rows.forEach(r => { r.style.pointerEvents = ''; });
+    }
+  }
+
+  // ---- New case ----
+  document.getElementById('newCaseBtn').addEventListener('click', async () => {
+    const btn = document.getElementById('newCaseBtn');
+    if (btn.disabled) return;
+    btn.disabled = true;
+    const original = btn.innerHTML;
+    btn.textContent = 'Opening your case…';
+
+    try {
+      const res = await fetch('/api/my/cases', {
+        method: 'POST',
+        headers: { 'Accept': 'application/json' }
       });
-    });
-  }
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || 'Could not start a new case.');
 
-  // ---- Scroll progress bar + nav shadow ----
-  const scrollProgress = document.getElementById('scrollProgress');
-  const navEl = document.querySelector('nav');
-  window.addEventListener('scroll', () => {
-    const h = document.documentElement;
-    const pct = (h.scrollTop) / (h.scrollHeight - h.clientHeight) * 100;
-    scrollProgress.style.width = pct + '%';
-    navEl.classList.toggle('scrolled', h.scrollTop > 8);
-  }, { passive: true });
+      currentCaseId = data.caseId;
 
-  // ---- Hero floating particles ----
-  const heroSection = document.getElementById('heroSection');
-  const particleEmojis = ['₹', '💥', '🥊'];
-  for (let i = 0; i < 12; i++) {
-    const p = document.createElement('div');
-    p.className = 'float-particle';
-    p.textContent = particleEmojis[i % particleEmojis.length];
-    p.style.left = (Math.random() * 96) + '%';
-    const duration = 9 + Math.random() * 7;
-    p.style.animationDuration = duration + 's';
-    p.style.animationDelay = (-Math.random() * duration) + 's';
-    p.style.fontSize = (14 + Math.random() * 14) + 'px';
-    heroSection.appendChild(p);
-  }
+      // Demo/test mode: the server has already marked the case paid.
+      // Go straight to the human chat instead of showing a fake payment screen.
+      if (data.testMode || data.paymentStatus === 'paid') {
+        await openCaseView(currentCaseId);
+        return;
+      }
 
-  // ---- Trust ticker ----
-  const tickerBits = [
-    "₹42,08,650+ recovered for Indian customers",
-    "Aligned with the Consumer Protection Act, 2019",
-    "Filed via company grievance cells, RBI Ombudsman, TRAI &amp; e-Daakhil",
-    "1,214+ cases fought across India",
-    "15% success fee — 0% if we lose",
-    "We speak fluent 'please escalate my ticket'",
-  ];
-  document.getElementById('tickerInner').innerHTML =
-    [...tickerBits, ...tickerBits].map(t => `<span>${t}</span>`).join('');
-
-  // ---- Scoreboard count-up ----
-  function animateCount(el) {
-    const target = parseFloat(el.dataset.target);
-    const prefix = el.dataset.prefix || '';
-    const suffix = el.dataset.suffix || '';
-    const duration = 1400;
-    const start = performance.now();
-    function tick(now) {
-      const progress = Math.min((now - start) / duration, 1);
-      const eased = 1 - Math.pow(1 - progress, 3);
-      const value = Math.floor(target * eased);
-      el.textContent = prefix + value.toLocaleString('en-IN') + suffix;
-      if (progress < 1) requestAnimationFrame(tick);
+      document.getElementById('payCaseId').textContent = data.caseId;
+      document.getElementById('payMsg').textContent = '';
+      showScreen('pay');
+    } catch (err) {
+      alert(err.message || 'Could not start a new case.');
+    } finally {
+      btn.disabled = false;
+      btn.innerHTML = original;
     }
-    requestAnimationFrame(tick);
+  });
+
+  function leaveCaseView() {
+    // Stop the 4-second chat poll before returning to the case list.
+    // Otherwise the old case ID remains active and background requests can
+    // race with the dashboard reload.
+    if (chatPollTimer) {
+      clearInterval(chatPollTimer);
+      chatPollTimer = null;
+    }
+    currentCaseId = null;
   }
-  const statObserver = new IntersectionObserver((entries) => {
-    entries.forEach(entry => {
-      if (entry.isIntersecting) {
-        animateCount(entry.target);
-        statObserver.unobserve(entry.target);
+
+  document.getElementById('backFromPay').addEventListener('click', async (e) => {
+    e.preventDefault();
+    leaveCaseView();
+    showScreen('list');
+    await loadCases();
+  });
+  document.getElementById('backFromDetails').addEventListener('click', async (e) => {
+    e.preventDefault();
+    leaveCaseView();
+    showScreen('list');
+    await loadCases();
+  });
+  document.getElementById('backFromCase').addEventListener('click', async (e) => {
+    e.preventDefault();
+    leaveCaseView();
+    showScreen('list');
+    await loadCases();
+  });
+
+  // ---- Payment ----
+  document.getElementById('payBtn').addEventListener('click', async () => {
+    const btn = document.getElementById('payBtn');
+    const msg = document.getElementById('payMsg');
+    msg.textContent = ''; msg.className = 'msg'; btn.disabled = true; btn.textContent = 'Processing…';
+    const humanSupport = Boolean(window.__humanSupportOrder);
+    try {
+      if (!config.paymentsLive) {
+        const res = await fetch(`/api/my/cases/${currentCaseId}/mock-pay`, { method: 'POST' });
+        const data = await res.json(); if (!res.ok) throw new Error(data.error || 'Payment failed.');
+        window.__humanSupportOrder=null; applyLeadPrefill(); await openCaseView(currentCaseId);
+        return;
       }
-    });
-  }, { threshold: 0.5 });
-  document.querySelectorAll('.stat-num').forEach(el => statObserver.observe(el));
+      const orderRes = await fetch(`/api/my/cases/${currentCaseId}/payment-order`, { method: 'POST' });
+      const order = await orderRes.json(); if (!orderRes.ok) throw new Error(order.error || 'Could not start payment.');
+      const options = {
+        key: order.keyId, amount: order.amountPaise, currency:'INR', name:'Fraudify',
+        description: humanSupport ? `Human support — ${order.caseId}` : `Case filing fee — ${order.caseId}`,
+        order_id: order.orderId,
+        handler: async function(response){
+          const verifyRes=await fetch(`/api/my/cases/${currentCaseId}/verify-payment`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(response)});
+          const verifyData=await verifyRes.json();
+          if(!verifyRes.ok){msg.textContent=verifyData.error||'Payment verification failed.';msg.className='msg error';return;}
+          window.__humanSupportOrder=null; applyLeadPrefill(); await openCaseView(currentCaseId);
+        },
+        theme:{color:'#C1272D'}
+      };
+      const rzp=new Razorpay(options); rzp.open();
+    } catch(err){msg.textContent=err.message||'Could not start payment.';msg.className='msg error';}
+    finally {btn.disabled=false;btn.textContent=`Pay ₹${config.caseFeeRupees} & Continue`;}
+  });
 
-  // ---- Scroll-reveal for steps & wanted posters ----
-  const revealObserver = new IntersectionObserver((entries) => {
-    entries.forEach(entry => {
-      if (entry.isIntersecting) {
-        entry.target.classList.add('in-view');
-        revealObserver.unobserve(entry.target);
-      }
-    });
-  }, { threshold: 0.25 });
-  document.querySelectorAll('.step, .wanted').forEach(el => revealObserver.observe(el));
+  document.getElementById('renewBtn').addEventListener('click', () => {
+    document.getElementById('payTitle').textContent = 'Renew Chat Access';
+    document.getElementById('paySub').innerHTML = `Your 48-hour chat window has ended. Pay again to keep messaging. Case ID: <strong>${escapeHtml(currentCaseId)}</strong>`;
+    window.__humanSupportOrder = null;
+    showScreen('pay');
+  });
 
-  // ---- Pain point poll ----
-  const painData = [
-    { key: 'ecommerce', label: '🛒 E-commerce', pct: 34, caption: "Returns stuck 'in process' since the last big sale? This is our single biggest category — you're in good company." },
-    { key: 'banking', label: '🏦 Banking / EMI', pct: 23, caption: "EMI apps inventing fees mid-loan is more common than any bank would like you to know." },
-    { key: 'telecom', label: '📶 Telecom', pct: 19, caption: "Hidden 'value packs' and mystery renewal charges are the telecom industry's favourite trick." },
-    { key: 'travel', label: '✈️ Travel / Cab', pct: 11, caption: "Cancelled flights and 'non-refundable' bookings that legally should be refundable — we see this weekly." },
-    { key: 'food', label: '🍔 Food Delivery', pct: 7, caption: "Missing items, no refund, just a coupon you didn't ask for. Classic." },
-    { key: 'insurance', label: '🛡️ Insurance', pct: 6, caption: "Claim rejected on a technicality nobody explained at sign-up? We fight these too." },
-  ];
-  const pollChips = document.getElementById('pollChips');
-  const pollBars = document.getElementById('pollBars');
-  const pollCaption = document.getElementById('pollCaption');
-
-  pollChips.innerHTML = painData.map(d => `<button class="poll-chip" data-key="${d.key}">${d.label}</button>`).join('');
-  pollBars.innerHTML = painData.map(d => `
-    <div class="poll-row" data-key="${d.key}">
-      <span class="poll-row-label">${d.label}</span>
-      <div class="poll-track"><div class="poll-fill" style="width:${d.pct}%"></div></div>
-      <span class="poll-pct">${d.pct}%</span>
-    </div>
-  `).join('');
-
-  function selectPain(key) {
-    const data = painData.find(d => d.key === key);
-    document.querySelectorAll('.poll-chip').forEach(c => c.classList.toggle('active', c.dataset.key === key));
-    document.querySelectorAll('.poll-row').forEach(r => r.classList.toggle('active', r.dataset.key === key));
-    pollCaption.textContent = data.caption;
+  function applyLeadPrefill() {
+    if (!prefillLead) return;
+    if (prefillLead.category) document.getElementById('d-category').value = prefillLead.category;
+    if (prefillLead.story) document.getElementById('d-desc').value = prefillLead.story;
+    prefillLead = null; // use it once
   }
-  pollChips.addEventListener('click', (e) => {
-    const btn = e.target.closest('.poll-chip');
-    if (btn) selectPain(btn.dataset.key);
+
+  // ---- Details + proof submission ----
+  document.getElementById('detailsForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const btn = document.getElementById('detailsSubmitBtn');
+    const msg = document.getElementById('detailsMsg');
+    msg.textContent = ''; msg.className = 'msg';
+
+    const description = document.getElementById('d-desc').value.trim();
+    if (description.length < 20) {
+      msg.textContent = 'Please add a bit more detail (at least 20 characters).';
+      msg.className = 'msg error';
+      return;
+    }
+
+    btn.disabled = true; btn.textContent = 'Submitting…';
+    const formData = new FormData();
+    formData.append('category', document.getElementById('d-category').value);
+    formData.append('description', description);
+    if (prefillLeadId) formData.append('leadId', prefillLeadId);
+    const files = document.getElementById('d-proofs').files;
+    for (let i = 0; i < files.length; i++) formData.append('proofs', files[i]);
+
+    try {
+      const res = await fetch(`/api/my/cases/${currentCaseId}/details`, { method: 'POST', body: formData });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Could not submit case details.');
+      openCaseView(currentCaseId);
+    } catch (err) {
+      msg.textContent = err.message; msg.className = 'msg error';
+    } finally {
+      btn.disabled = false; btn.textContent = 'Submit Case Details 🥊';
+    }
   });
 
-  // ---- Wall of shame: Indian excuses, flip cards ----
-  const wallExcuses = [
-    { excuse: "Your refund is 'in process' since Diwali. Kindly bear with us.", reply: "Diwali was 11 months ago. We're filing with the consumer forum today." },
-    { excuse: "Sir, our system is 'temporarily down' — for the last 45 days.", reply: "45 days is well past any reasonable resolution window. Escalating now." },
-    { excuse: "COD refunds are only credited to store wallet, not bank account.", reply: "The Consumer Protection Act doesn't recognise 'store wallet only' as a refund." },
-    { excuse: "The delivery boy left it with your neighbour's watchman's cousin.", reply: "We're requesting delivery proof with a signature, not folklore." },
-    { excuse: "Please call between 9–9, Mon–Fri, except festivals, weekends, and Mondays that feel like Fridays.", reply: "We'll note every unreachable hour for the complaint timeline." },
-    { excuse: "Your EMI statement shows a new 'processing fee' — for a loan you took last year.", reply: "Undisclosed fees aren't valid. We're asking for the fee schedule in writing." },
-    { excuse: "That's not a hidden charge, sir, that's a 'value-added convenience.'", reply: "Convenience you didn't ask for isn't a service — it's a charge we're disputing." },
-    { excuse: "Your ticket has been escalated to Team Alpha.", reply: "We'd like Team Alpha's name and contact, in writing, today." },
-    { excuse: "The app shows 'refund initiated' — it has shown that for 60 days straight.", reply: "'Initiated' isn't 'completed.' We're asking for the transaction ID and timeline." },
-    { excuse: "Network issue, sir. Please try after some time. (8th time this week.)", reply: "Eight 'try again later's is a pattern. We're documenting each one." },
-  ];
-  const marqueeInner = document.getElementById('marqueeInner');
-  const doubledShame = [...wallExcuses, ...wallExcuses];
-  marqueeInner.innerHTML = doubledShame.map(item => `
-    <div class="shame-card">
-      <div class="shame-card-inner">
-        <div class="shame-face shame-front">
-          <span class="tag">ACTUAL-ISH QUOTE</span>
-          <p>"${item.excuse}"</p>
-        </div>
-        <div class="shame-face shame-back">
-          <span class="tag">OUR REPLY</span>
-          <p>${item.reply}</p>
-        </div>
-      </div>
-    </div>
-  `).join('');
-  document.querySelectorAll('.shame-card').forEach(card => {
-    card.addEventListener('click', () => card.classList.toggle('flipped'));
+  // ---- Case summary + chat ----
+  async function openCaseView(caseId) {
+    currentCaseId = caseId;
+    try {
+      const res = await fetch(`/api/my/cases/${encodeURIComponent(caseId)}`, { cache: 'no-store' });
+      const c = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(c.error || 'Could not open this case.');
+
+      document.getElementById('caseViewId').textContent = c.caseId;
+      document.getElementById('caseViewStatus').textContent = statusLabel(c.status);
+      document.getElementById('caseViewStatus').className = `status-badge status-${c.status}`;
+      document.getElementById('caseViewSummary').textContent = c.summary || 'Your case is open. Start the conversation below and a Fraudify human can reply.';
+      document.getElementById('caseViewFiles').textContent = c.proofFiles && c.proofFiles.length
+        ? `📎 ${c.proofFiles.length} file(s) attached: ${c.proofFiles.map(f => f.originalName).join(', ')}`
+        : '';
+      const locked = !!c.accessExpired;
+      document.getElementById('accessLock').classList.toggle('hidden', !locked);
+      document.getElementById('chatInputRow').classList.toggle('hidden', locked);
+      if (locked) document.getElementById('caseViewStatus').textContent += ' · Access Expired';
+      document.getElementById('renewFee').textContent = (config && config.caseFeeRupees) || 59;
+
+      showScreen('case');
+      await loadMessages();
+      await markRead(c);
+      const listCase=document.querySelector(`.case-row[data-case=\"${CSS.escape(caseId)}\"]`);
+      if(listCase){listCase.classList.remove('unread');const pill=listCase.querySelector('.unread-pill');if(pill)pill.remove();}
+      openChatStream(caseId);
+      if (chatPollTimer) clearInterval(chatPollTimer);
+      chatPollTimer = setInterval(()=>loadMessages(), 30000);
+    } catch (err) {
+      console.error('openCaseView:', err);
+      if (chatPollTimer) { clearInterval(chatPollTimer); chatPollTimer = null; }
+      closeChatStream();
+      currentCaseId = null;
+      alert(err.message || 'Could not open this case. Please try again.');
+      showScreen('list');
+      await loadCases();
+    }
+  }
+
+  async function loadMessages() {
+    if (!currentCaseId) return;
+    try {
+      const res = await fetch(`/api/my/cases/${encodeURIComponent(currentCaseId)}/messages`, { cache: 'no-store' });
+      if (!res.ok) return;
+      const messages = await res.json();
+    const el = document.getElementById('chatMessages');
+    const wasAtBottom = el.scrollTop + el.clientHeight >= el.scrollHeight - 10;
+    if (!messages.length) {
+      el.innerHTML = '<div class="chat-empty">No messages yet — say hello!</div>';
+      return;
+    }
+    el.innerHTML = messages.map(m => {
+      const sender=m.sender==='admin'?'admin':m.sender==='agent'?'agent':'customer';
+      const mine=sender==='customer';
+      const label=mine?'You':(m.senderName || (sender==='admin' ? 'Super Admin' : 'Agent'));
+      const roleLabel=mine?'YOU':(sender==='admin'?'SUPER ADMIN':'AGENT');
+      return `<div class="chat-msg ${sender}"><span class="who">${escapeHtml(label)} · ${roleLabel} · ${new Date(m.createdAt).toLocaleString('en-IN')}</span>${escapeHtml(m.text)}</div>`;
+    }).join('');
+      if (wasAtBottom) el.scrollTop = el.scrollHeight;
+      const latest = messages[messages.length - 1];
+      if (latest?.createdAt) {
+        await markRead({caseId: currentCaseId, lastMessageAt: latest.createdAt});
+      }
+    } catch (err) {
+      console.error('loadMessages:', err);
+    }
+  }
+
+  function escapeHtml(str) {
+    const div = document.createElement('div');
+    div.textContent = str;
+    return div.innerHTML;
+  }
+
+  document.getElementById('chatSendBtn').addEventListener('click', sendChatMessage);
+  document.getElementById('chatInput').addEventListener('keydown', (e) => { if (e.key === 'Enter') sendChatMessage(); });
+
+  async function sendChatMessage() {
+    const input = document.getElementById('chatInput');
+    const button = document.getElementById('chatSendBtn');
+    const notice = document.getElementById('chatNotice');
+    const text = input.value.trim();
+    if (!text || !currentCaseId || button.disabled) return;
+
+    notice.textContent = '';
+    button.disabled = true;
+    button.textContent = 'Sending…';
+
+    try {
+      const res = await fetch(`/api/my/cases/${encodeURIComponent(currentCaseId)}/messages`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+        body: JSON.stringify({ text }),
+      });
+
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || `Could not send message (HTTP ${res.status}).`);
+
+      // Clear only after the server confirms persistence.
+      input.value = '';
+
+      // Render the server response immediately so the customer's own
+      // message never appears to vanish while the next poll is pending.
+      const el = document.getElementById('chatMessages');
+      const empty = el.querySelector('.chat-empty');
+      if (empty) empty.remove();
+      const bubble = document.createElement('div');
+      bubble.className = 'chat-msg customer';
+      bubble.innerHTML = `<span class="who">You · YOU · ${new Date(data.createdAt || Date.now()).toLocaleString('en-IN')}</span>${escapeHtml(data.text || text)}`;
+      el.appendChild(bubble);
+      el.scrollTop = el.scrollHeight;
+      await markRead({caseId:currentCaseId,lastMessageAt:data.createdAt||new Date().toISOString()});
+
+      // The server pushes this message over SSE to every open participant.
+      // Avoid an immediate second GET here; keep the UI responsive.
+      setTimeout(()=>{ if(currentCaseId) loadCases().catch(()=>{}); }, 500);
+    } catch (err) {
+      // Preserve unsent text so a transient/network error does not destroy it.
+      input.value = text;
+      notice.textContent = err.message || 'Could not send message. Please try again.';
+    } finally {
+      button.disabled = false;
+      button.textContent = 'Send';
+    }
+  }
+
+  document.getElementById('logoutBtn').addEventListener('click', async () => {
+    await fetch('/api/auth/logout', { method: 'POST' });
+    window.location.href = '/';
   });
 
-  // (punch / refund-o-meter now lives in the fight engine below)
-
-
-  // ---- Meme & Excuse Machine ----
-  const memes = [
-    { top: "WHEN REFUND STATUS SAYS 'PROCESSING'", bottom: "FOR THE 90TH DAY IN A ROW", emoji: "🥲📦", stamp: "GRIEVANCE: EPIC" },
-    { top: "CUSTOMER CARE: YOUR CALL IS IMPORTANT TO US", bottom: "ALSO THEM: *HOLD MUSIC FOR 47 MINUTES*", emoji: "📞😵", stamp: "CHALTA HAI MOMENT" },
-    { top: "ME: WHERE IS MY REFUND", bottom: "BOT: HAVE YOU TRIED RESTARTING YOUR PATIENCE", emoji: "🤖💸", stamp: "STAGE 5: DENIAL" },
-    { top: "APP: DELIVERED ✅", bottom: "ALSO APP: *NEVER ARRIVED*", emoji: "📱👀", stamp: "SCHRODINGER'S PARCEL" },
-    { top: "TERMS &amp; CONDITIONS, PARAGRAPH 47", bottom: "APPARENTLY I GAVE UP MY REFUND RIGHTS", emoji: "📜😱", stamp: "FINE PRINT, BIG PROBLEM" },
-    { top: "SUPPORT: ESCALATED TO A SPECIALIST TEAM", bottom: "THE TEAM: DOES NOT EXIST", emoji: "🕵️‍♂️❓", stamp: "MYSTERY DEPT UNLOCKED" },
-    { top: "COMPLAINT #48291", bottom: "STILL PENDING SINCE LAST FESTIVAL SEASON", emoji: "🎉🐌", stamp: "SLOWER THAN FRIDAY TRAFFIC" },
-    { top: "BANK: ₹499 'MAINTENANCE FEE' DEDUCTED", bottom: "ALSO BANK: WHAT MAINTENANCE?", emoji: "🏦🤨", stamp: "MYSTERY CHARGE BRIGADE" },
-  ];
-  const genExcuses = [
-    { excuse: "Unfortunately, your warranty expired the moment you opened the box.", comeback: "A warranty claim isn't voided by opening the item you paid for." },
-    { excuse: "Our records show the charge as 'intentional' on your part.", comeback: "'Intentional' isn't a billing category. We're requesting the transaction logs." },
-    { excuse: "That refund request has been forwarded to a department we invented just now.", comeback: "We'll need that department's name and a direct contact, in writing, today." },
-    { excuse: "The 30-day return window closed while you were on hold with us.", comeback: "The clock doesn't start on hold music. We're recounting the days." },
-    { excuse: "Technically, you agreed to this in paragraph 47 of the terms you never read.", comeback: "Terms buried in paragraph 47 don't override your statutory refund rights." },
-    { excuse: "Our AI reviewed your case and it said 'no' in a very confident tone.", comeback: "We'd like a human review, please — not a vibe check from a chatbot." },
-    { excuse: "The item shows delivered to your building, your neighbour's building, and possibly a parallel universe.", comeback: "We're asking for proof of delivery to this address, specifically, with a signature." },
-    { excuse: "Your complaint has been marked 'resolved' without any action taken.", comeback: "We're reopening it and asking exactly what 'resolved' was supposed to mean." },
-  ];
-
-  const memeCard = document.getElementById('memeCard');
-  const memeTop = document.getElementById('memeTop');
-  const memeBottom = document.getElementById('memeBottom');
-  const memeEmoji = document.getElementById('memeEmoji');
-  const memeStamp = document.getElementById('memeStamp');
-  const genDisplay = document.getElementById('genDisplay');
-  const genBtn = document.getElementById('genBtn');
-
-  genBtn.addEventListener('click', () => {
-    const meme = memes[Math.floor(Math.random() * memes.length)];
-    const ex = genExcuses[Math.floor(Math.random() * genExcuses.length)];
-
-    memeCard.classList.remove('show');
-    void memeCard.offsetWidth;
-    memeTop.innerHTML = meme.top;
-    memeBottom.innerHTML = meme.bottom;
-    memeEmoji.textContent = meme.emoji;
-    memeStamp.textContent = meme.stamp;
-    memeCard.classList.add('show');
-
-    genDisplay.innerHTML = `
-      <div class="gen-line gen-excuse"><span class="who">THEIR EXCUSE</span>${ex.excuse}</div>
-      <div class="gen-line gen-comeback"><span class="who">OUR COMEBACK</span>${ex.comeback}</div>
-    `;
-    genDisplay.querySelectorAll('.gen-line').forEach((el, idx) => {
-      setTimeout(() => el.classList.add('show'), idx * 250);
-    });
-  });
-  // Customer conversations now begin after account creation and the ₹59 case-opening payment.
+  init();
 </script>
-
-<script>/* Fraudify FIGHT — customer vs corporate. SVG rig + WAAPI choreography + canvas particles + WebAudio + haptics. */
+<script id="razorpay-checkout" src="https://checkout.razorpay.com/v1/checkout.js" defer></script>
+<script>/* rw-chat.js — stable, instant-send chat: incremental rendering, optimistic sending, no loading flashes.
+   Loads AFTER the page's inline script and replaces its chat/list functions. */
 (() => {
 'use strict';
-const D = document, ring = D.querySelector('.ring'), btn = D.getElementById('punchBtn'), $ = id => D.getElementById(id);
-if (!ring || !btn || !$('stage')) return;
-const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
-const EASE = 'cubic-bezier(.22,1,.36,1)', SPRING = 'cubic-bezier(.34,1.56,.64,1)', INK = '#1A1611';
-const rnd = (a, b) => a + Math.random() * (b - a), vib = p => { try { navigator.vibrate && navigator.vibrate(p); } catch (e) {} };
+const D = document, $ = id => D.getElementById(id);
+const dash = !!$('screenList'), admin = !!$('agentManager');
+if (!dash && !admin) return;
 
-/* ---------- styles ---------- */
-const st = D.createElement('style');
-st.textContent = `
-.cam{position:absolute;inset:var(--line);overflow:hidden;will-change:transform;background:#1A1611}
-#stage,#fxCanvas{position:absolute;inset:0;width:100%;height:100%;display:block}
-#fxCanvas{pointer-events:none;z-index:6}
-.hud{position:absolute;left:calc(var(--line) + 6px);right:calc(var(--line) + 6px);top:calc(var(--line) + 6px);display:flex;justify-content:space-between;gap:10px;z-index:9;pointer-events:none}
-.hp-box{flex:1;max-width:46%}.hp-box.corp{text-align:right}
-.hp-name{font-family:'Anton',sans-serif;font-size:11px;letter-spacing:.05em;background:var(--paper);border:2px solid var(--ink);padding:1px 6px;display:inline-block;line-height:1.3}
-.hp-box.corp .hp-name{background:var(--crimson);color:var(--paper)}
-.hp{height:13px;border:2.5px solid var(--ink);background:#0d0a07;margin-top:3px;position:relative;overflow:hidden}
-.hp i,.hp b{position:absolute;inset:0;transform-origin:0 50%;transition:transform .35s ${EASE}}
-.hp.corp i,.hp.corp b{transform-origin:100% 50%}
-.hp b{background:#f4d9a0;transition:transform .9s ${EASE} .4s}
-.hp i{background:repeating-linear-gradient(45deg,#3fa66b 0 8px,#2f8a56 8px 16px)}
-.hp.corp i{background:repeating-linear-gradient(45deg,var(--crimson) 0 8px,var(--crimson-dark) 8px 16px)}
-.hp-box.low .hp i{background:repeating-linear-gradient(45deg,var(--mustard) 0 8px,#c98420 8px 16px)}
-.banner,.flash{position:absolute;pointer-events:none;opacity:0}
-.banner{left:0;right:0;top:32%;text-align:center;z-index:10;white-space:nowrap;font-family:'Anton',sans-serif;font-size:clamp(34px,11vw,58px);color:var(--mustard);-webkit-text-stroke:3px var(--ink);text-shadow:5px 5px 0 var(--ink)}
-.flash{inset:var(--line);background:#fff;z-index:11}
-.snd{position:absolute;right:8px;bottom:8px;z-index:12;width:32px;height:32px;border:3px solid var(--ink);background:var(--paper);cursor:pointer;font-size:14px;box-shadow:3px 3px 0 var(--ink);padding:0}
-.f .m2,.f .m3,.f .eyx{display:none}
-.f[data-face=hit] .m1,.f[data-face=hit] .eyes,.f[data-face=win] .m1{display:none}
-.f[data-face=hit] .m2,.f[data-face=hit] .eyx,.f[data-face=win] .m3{display:inline}
-.bob{animation:rwbob 1.1s ease-in-out infinite}
-.f.groove .bob{animation:rwgroove .5s ease-in-out infinite alternate}@keyframes rwgroove{from{transform:translateY(0) rotate(-2.6deg)}to{transform:translateY(-6px) rotate(2.6deg)}}
-.f.groove .hd{animation:rwhead .5s ease-in-out infinite alternate}@keyframes rwhead{from{transform:rotate(-4deg)}to{transform:rotate(4deg)}}.f.corp .bob{animation-duration:1.3s;animation-delay:-.4s}
-@keyframes rwbob{50%{transform:translateY(-4px)}}
-.crowd .h{animation:rwbob .9s ease-in-out infinite;animation-delay:var(--d)}
-.cheer .crowd .h{animation-duration:.32s}
-.burst{position:absolute;pointer-events:none;z-index:8;translate:-50% -50%;width:124px;height:124px;display:grid;place-items:center}
-.burst svg{position:absolute;inset:0;width:100%;height:100%}
-.burst span{position:relative;max-width:84px;font-family:'Anton',sans-serif;font-size:21px;line-height:1;color:var(--ink);text-align:center}
-.meter::before{content:'';position:absolute;inset:0;z-index:2;pointer-events:none;background:repeating-linear-gradient(90deg,transparent 0 calc(16.66% - 2px),rgba(26,22,17,.55) calc(16.66% - 2px) 16.66%)}
-.meter-fill{width:100%!important;transform:scaleX(0);transform-origin:0 50%;transition:transform .35s cubic-bezier(.2,.9,.3,1.15)!important}
-.meter-fill::after{content:'';position:absolute;right:0;top:0;bottom:0;width:7px;background:#fff;opacity:.75;filter:blur(2px)}
-.meter.hot .meter-fill{animation:rwhot .45s ease-in-out infinite alternate}
-@keyframes rwhot{to{filter:brightness(1.4)}}
-.punch-btn{touch-action:manipulation;user-select:none;-webkit-user-select:none;-webkit-tap-highlight-color:transparent}.punch-btn.rage{animation:rwrage .4s ease-in-out infinite alternate}@keyframes rwrage{to{filter:brightness(1.25) saturate(1.35)}}`;
-D.head.append(st);
+/* ---------- sides + instant-feel styling ---------- */
+const mineBg = dash ? '#2C5F8A' : '#2457a6';
+const S = D.createElement('style');
+S.textContent = `
+.chat-msg.customer,.chat-msg.agent,.chat-msg.admin,.msg.customer,.msg.agent,.msg.admin{align-self:flex-start}
+.chat-msg.mine,.msg.mine{align-self:flex-end;background:${mineBg}!important;border-color:${dash ? '#1A1611' : mineBg}!important;color:#fff}
+.chat-msg.mine .who,.msg.mine .who{color:#fff;opacity:.8}
+.chat-messages,.messages{overscroll-behavior:contain}
+/* Sent instantly, so the pop-in should read as instant too — not the slower staggered reveal used elsewhere. */
+.chat-messages .rw-pop,.messages .rw-pop{animation-duration:.16s!important;animation-delay:0s!important}
+.chat-msg.pending,.msg.pending{opacity:.62}
+.chat-msg.failed,.msg.failed{opacity:1;background:#fff0f0!important;border-color:#e2a3a3!important;cursor:pointer}
+.rw-stat{display:inline-flex;align-items:center;gap:4px;font-size:10px;opacity:.85;margin-left:6px}
+.rw-clock{width:9px;height:9px;border:1.5px solid currentColor;border-radius:50%;position:relative;flex:none}
+.rw-clock::after{content:'';position:absolute;left:50%;top:50%;width:2.5px;height:2.5px;background:currentColor;border-radius:50%;transform:translate(-50%,-50%)}
+.chat-msg.failed .rw-stat,.msg.failed .rw-stat{color:#c1272d;font-weight:700}
+@keyframes rwping{0%,100%{opacity:.4}50%{opacity:1}}
+.chat-msg.pending .rw-stat,.msg.pending .rw-stat{animation:rwping 1s ease-in-out infinite}`;
+D.head.append(S);
 
-/* ---------- SVG stage + rigged fighters ---------- */
-const arm = (s, c) => `<g transform="translate(${s === 'f' ? 12 : -10} -140)"><g class="ua ${s}" style="transform:rotate(${c.base[s][0]}deg)"><rect x="-6" y="-7" width="40" height="14" rx="7" fill="${c.sleeve}" stroke="${INK}" stroke-width="3.5"/><g transform="translate(34 0)"><g class="fa ${s}" style="transform:rotate(${c.base[s][1]}deg)"><rect x="-6" y="-6.5" width="36" height="13" rx="6.5" fill="${c.forearm}" stroke="${INK}" stroke-width="3.5"/>${c.kase && s === 'b'
-  ? `<circle cx="32" cy="0" r="8" fill="${c.skin}" stroke="${INK}" stroke-width="3"/><rect x="34" y="-14" width="30" height="28" rx="4" fill="#7a4b21" stroke="${INK}" stroke-width="3.5"/><path d="M42 -14 v-7 h14 v7" fill="none" stroke="${INK}" stroke-width="3"/><rect x="56" y="-5" width="6" height="10" fill="#E8A33D" stroke="${INK}" stroke-width="2"/>`
-  : `<circle cx="34" cy="0" r="13" fill="${c.glove}" stroke="${INK}" stroke-width="3.5"/><circle cx="38" cy="-5" r="3.2" fill="#fff" opacity=".35"/>`}</g></g></g></g>`;
-const fighter = (id, c) => `<g id="${id}" class="f ${id}" transform="translate(${c.x} 372) scale(${c.dir} 1)"><ellipse cx="6" cy="3" rx="46" ry="9" fill="#000" opacity=".3"/><g class="body"><g class="rx"><g class="bob">
-${arm('b', c)}
-<rect x="-22" y="-84" width="18" height="78" rx="7" fill="${c.pants2}" stroke="${INK}" stroke-width="3.5"/><rect x="6" y="-84" width="18" height="78" rx="7" fill="${c.pants}" stroke="${INK}" stroke-width="3.5"/>
-${c.id === 'you' ? `<rect x="-25" y="-90" width="52" height="38" rx="7" fill="#2C5F8A" stroke="${INK}" stroke-width="3.5"/><rect x="-25" y="-90" width="52" height="8" fill="#E8A33D" stroke="${INK}" stroke-width="2.5"/>` : ''}
-<ellipse cx="-12" cy="-4" rx="14" ry="8" fill="${c.shoe}" stroke="${INK}" stroke-width="3.5"/><ellipse cx="20" cy="-4" rx="15" ry="8" fill="${c.shoe}" stroke="${INK}" stroke-width="3.5"/>
-<path d="M-25 -152 Q0 -160 25 -152 L21 -80 L-21 -80Z" fill="${c.top}" stroke="${INK}" stroke-width="3.5" stroke-linejoin="round"/>
-${c.id === 'corp' ? `<path d="M-9 -154 L0 -126 L9 -154Z" fill="#fff" stroke="${INK}" stroke-width="2.5"/><path d="M-25 -152 L-3 -124 L-14 -80 M25 -152 L3 -124 L14 -80" fill="none" stroke="${INK}" stroke-width="3"/><path d="M-4 -142 L4 -142 L6 -114 L0 -104 L-6 -114Z" fill="#C1272D" stroke="${INK}" stroke-width="2.5"/><rect x="12" y="-124" width="9" height="6" fill="#fff" stroke="${INK}" stroke-width="1.5"/>` : `<circle cx="0" cy="-120" r="9" fill="#C1272D" stroke="${INK}" stroke-width="2.5"/>`}
-<ellipse class="aura" cx="0" cy="-100" rx="62" ry="108" fill="url(#glow)" opacity="0"/>
-<g class="head" transform="translate(2 -150)"><g class="hd"><rect x="-6" y="-12" width="12" height="16" fill="${c.skin}" stroke="${INK}" stroke-width="3"/><circle cx="4" cy="-32" r="24" fill="${c.skin}" stroke="${INK}" stroke-width="3.5"/>
-${c.id === 'you' ? `<path d="M-19 -38 Q-16 -68 4 -63 Q28 -66 27 -38 Q12 -54 -19 -38Z" fill="#2a1a10" stroke="${INK}" stroke-width="3"/><rect x="-20" y="-46" width="48" height="8" fill="#C1272D" stroke="${INK}" stroke-width="2.5"/><path d="M-20 -43 L-33 -35 L-21 -33Z" fill="#C1272D" stroke="${INK}" stroke-width="2.5"/>`
- : `<path d="M-19 -38 Q-18 -64 6 -62 Q28 -60 27 -38 Q12 -54 -19 -38Z" fill="#a3a9b0" stroke="${INK}" stroke-width="3"/><circle cx="14" cy="-34" r="7.5" fill="#dff" fill-opacity=".55" stroke="${INK}" stroke-width="2.5"/><circle cx="0" cy="-34" r="7.5" fill="#dff" fill-opacity=".55" stroke="${INK}" stroke-width="2.5"/><path d="M6.5 -34h0" stroke="${INK}" stroke-width="2.5"/>`}
-<g class="eyes"><circle cx="14" cy="-34" r="3" fill="${INK}"/><circle cx="1" cy="-34" r="3" fill="${INK}"/><path d="M8 -43 L19 -39 M-6 -39 L5 -43" stroke="${INK}" stroke-width="3" stroke-linecap="round"/></g>
-<path class="eyx" d="M10 -38 l8 8 m0 -8 l-8 8 M-3 -38 l8 8 m0 -8 l-8 8" stroke="${INK}" stroke-width="2.8" stroke-linecap="round"/>
-<path d="M23 -30 L29 -23 L23 -21" fill="${c.skin}" stroke="${INK}" stroke-width="2.5" stroke-linejoin="round"/>
-<path class="m1" d="M8 -14 Q14 -11 21 -14" fill="none" stroke="${INK}" stroke-width="3" stroke-linecap="round"/><ellipse class="m2" cx="14" cy="-13" rx="6" ry="5" fill="#7a1216" stroke="${INK}" stroke-width="2.5"/><path class="m3" d="M6 -18 Q14 -6 23 -19Z" fill="#fff" stroke="${INK}" stroke-width="3" stroke-linejoin="round"/></g></g>
-${arm('f', c)}
-</g></g></g></g>`;
-const crowd = [...Array(11)].map((_, i) => { const x = 20 + i * 40 + (i % 2) * 8, y = 92 + (i % 3) * 9; return `<g class="h" style="--d:${(-i * .13).toFixed(2)}s"><circle cx="${x}" cy="${y}" r="13" fill="${i % 4 ? '#0d0a07' : '#2a2018'}"/><rect x="${x - 15}" y="${y + 10}" width="30" height="40" rx="10" fill="${i % 4 ? '#0d0a07' : '#2a2018'}"/>${i % 3 === 0 ? `<rect x="${x + 10}" y="${y - 30}" width="8" height="26" rx="4" fill="${i % 2 ? '#E8A33D' : '#C1272D'}" stroke="#000" stroke-width="2"/>` : ''}</g>`; }).join('');
-const YOU = { id: 'you', x: 150, dir: 1, skin: '#f0c9a0', top: '#E8A33D', sleeve: '#f0c9a0', forearm: '#f0c9a0', glove: '#C1272D', pants: '#f0c9a0', pants2: '#d9b088', shoe: '#1A1611', base: { f: [64, -128], b: [76, -136] } };
-const CORP = { id: 'corp', x: 290, dir: -1, skin: '#f0c9a0', top: '#23324a', sleeve: '#23324a', forearm: '#23324a', glove: '#111', pants: '#1c2740', pants2: '#141c30', shoe: '#0d0a07', kase: true, base: { f: [64, -128], b: [86, -18] } };
-$('stage').innerHTML = `<defs><linearGradient id="wall" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#0d0a07"/><stop offset="1" stop-color="#2C5F8A"/></linearGradient><linearGradient id="beam" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".5"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient><radialGradient id="glow"><stop offset="0" stop-color="#E8A33D" stop-opacity=".9"/><stop offset="1" stop-color="#E8A33D" stop-opacity="0"/></radialGradient></defs>
-<rect width="440" height="440" fill="url(#wall)"/><g class="crowd">${crowd}</g>
-<polygon points="70,0 120,0 250,340 20,340" fill="url(#beam)" opacity=".3"/><polygon points="320,0 370,0 430,340 210,340" fill="url(#beam)" opacity=".3"/>
-<g fill="none" stroke-linecap="round"><path d="M0 190H440M0 236H440M0 282H440" stroke="${INK}" stroke-width="10"/><path d="M0 190H440" stroke="#C1272D" stroke-width="5"/><path d="M0 236H440" stroke="#F0E6CC" stroke-width="5"/><path d="M0 282H440" stroke="#2C5F8A" stroke-width="5"/></g>
-<rect y="340" width="440" height="100" fill="#E8DBB8"/><path d="M0 340H440" stroke="${INK}" stroke-width="5"/><path d="M220 340L40 440M220 340L400 440" stroke="#C1272D" stroke-width="3" opacity=".5"/><ellipse cx="220" cy="392" rx="70" ry="16" fill="none" stroke="#2C5F8A" stroke-width="3" opacity=".5"/>
-${fighter('you', YOU)}${fighter('corp', CORP)}`;
+/* ---------- helpers ---------- */
+const keyOf = m => m.id || m._id || (m.createdAt + '|' + m.text);
+const throttled = (fn, gap) => { let last = 0, t; return () => { const w = last + gap - Date.now(); clearTimeout(t); if (w <= 0) { last = Date.now(); fn(); } else t = setTimeout(() => { last = Date.now(); fn(); }, w); }; };
+const time = m => new Date(m.createdAt).toLocaleString('en-IN');
+const uid = () => 'tmp_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
 
-const F = { you: { el: $('you'), dir: 1, hit: [178, 206], hp: 100, base: YOU.base, box: $('hpYou').parentNode, fill: $('hpYou').querySelector('i'), trail: $('hpYou').querySelector('b') },
-            corp: { el: $('corp'), dir: -1, hit: [262, 206], hp: 100, base: CORP.base, box: $('hpCorp').parentNode, fill: $('hpCorp').querySelector('i'), trail: $('hpCorp').querySelector('b') } };
-const you = F.you, corp = F.corp, cam = $('cam'), bn = $('banner'), mf = $('meterFill'), mp = $('meterPct'), mc = $('meterCaption'), meter = mf.parentNode;
+// Read receipts: send once per (case, latest message). Stops any read -> stream event -> read loop.
+const _mr = window.markRead; let lastMR = '';
+window.markRead = c => { const k = (c && c.caseId) + '|' + (c && c.lastMessageAt); if (k === lastMR) return Promise.resolve(); lastMR = k; return _mr(c); };
 
-/* ---------- animation core: time-scale (slow-mo), hit-stop, holds ---------- */
-const live = new Set(), holds = [], TS = { v: 1 };
-const A = (el, kf, o = {}) => { const a = el.animate(kf, { duration: 400, easing: 'ease-in-out', ...o }); a.playbackRate = TS.v; live.add(a); const d = () => live.delete(a); a.finished.then(d, d); if (o.fill === 'forwards') holds.push(a); return a; };
-const sleep = ms => new Promise(r => setTimeout(r, ms / TS.v)), wait = ms => new Promise(r => setTimeout(r, ms));
-const stop = ms => { if (reduce) return; live.forEach(a => a.pause()); setTimeout(() => live.forEach(a => a.playState === 'paused' && a.play()), ms); };
-const slow = (v, ms) => { if (reduce) return; TS.v = v; live.forEach(a => a.updatePlaybackRate(v)); setTimeout(() => { TS.v = 1; live.forEach(a => a.updatePlaybackRate(1)); }, ms); };
-const rot = a => ({ transform: `rotate(${a}deg)` });
-
-/* ---------- audio (synthesised, no assets) ---------- */
-let AC = null, NB = null, muted = false; try { muted = localStorage.getItem('rw-mute') === '1'; } catch (e) {}
-const ctx = () => { AC = AC || new (window.AudioContext || window.webkitAudioContext)(); if (AC.state === 'suspended') AC.resume(); return AC; };
-const env = (g, t, a, pk, d) => { g.gain.setValueAtTime(.0001, t); g.gain.exponentialRampToValueAtTime(pk, t + a); g.gain.exponentialRampToValueAtTime(.0001, t + a + d); };
-const nz = c => NB || (NB = (() => { const b = c.createBuffer(1, c.sampleRate, c.sampleRate), d = b.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1; return b; })());
-const noise = (type, f0, f1, dur, pk, q = 1, at = 0) => { const c = ctx(), t = c.currentTime + at, s = c.createBufferSource(), f = c.createBiquadFilter(), g = c.createGain(); s.buffer = nz(c); f.type = type; f.Q.value = q; f.frequency.setValueAtTime(f0, t); f.frequency.exponentialRampToValueAtTime(f1, t + dur); env(g, t, .02, pk, dur); s.connect(f).connect(g).connect(c.destination); s.start(t); s.stop(t + dur + .1); };
-const tone = (type, f0, f1, dur, pk, at = 0) => { const c = ctx(), t = c.currentTime + at, o = c.createOscillator(), g = c.createGain(); o.type = type; o.frequency.setValueAtTime(f0, t); o.frequency.exponentialRampToValueAtTime(f1, t + dur); env(g, t, .01, pk, dur); o.connect(g).connect(c.destination); o.start(t); o.stop(t + dur + .05); };
-const sfx = {
-  whoosh() { if (!muted) noise('bandpass', 500, 2600, .18, .3, 1.2); },
-  thud(p = 2) { if (muted) return; tone('sine', 170, 38, .22, .5 + p * .1); noise('lowpass', 1600, 200, .16, .35 + p * .08); },
-  bell() { if (muted) return; [880, 1320, 1760].forEach((f, i) => tone('sine', f, f * .995, 1.4, .18 / (i + 1))); },
-  cheer() { if (!muted) noise('bandpass', 900, 1400, 1.6, .28, .6); },
-  ting() { if (!muted) { tone('triangle', 900, 1900, .18, .16); tone('sine', 1800, 2600, .22, .08, .05); } },
-  power() { if (!muted) { tone('sawtooth', 160, 720, .7, .12); tone('triangle', 320, 1440, .7, .1); } }
-};
-const beat = { t: 0, i: 0, id: 0,       // original 120-BPM disco groove, scheduled ahead on the audio clock
-  start() { if (muted || this.id) return; const c = ctx(); this.t = c.currentTime + .06; this.i = 0; this.id = setInterval(() => this.tick(), 30); },
-  stop() { clearInterval(this.id); this.id = 0; },
-  tick() { const c = ctx(); if (this.t < c.currentTime) this.t = c.currentTime + .05; while (this.t < c.currentTime + .15) { if (!muted) this.note(this.i, this.t - c.currentTime); this.i++; this.t += .25; } },
-  note(i, at) { const k = i % 8; if (k % 2 === 0) tone('sine', 130, 42, .16, .17, at); else noise('highpass', 7000, 9000, .05, .05, 1, at);
-    const B = [55, 0, 55, 82.4, 0, 55, 73.4, 82.4][k]; if (B) tone('sawtooth', B * 2, B * 2, .16, .05, at); }
-};
-// Browser text-to-speech (Hindi voice if the device has one). A generic voice, not anyone's real voice.
-const VO = { h: ['ढिशूम!', 'Dhishoom!'], hh: ['ढिशूम! ढिशूम!', 'Dhishoom! Dhishoom!'], hhh: ['ढिशूम! ढिशूम! ढिशूम!', 'Dhishoom! Dhishoom! Dhishoom!'], ko: ['ढिशूऊऊम!', 'Dhishooooom!'], win: ['रिफंड मिल गया!', 'Refund mil gaya!'], wind: ['अब आएगा मज़ा!', 'Ab aayega maza!'] };
-let vLast = 0;
-function shout(key, { rate = 1.3, pitch = .7, force = false } = {}) {
-  if (muted || !('speechSynthesis' in window)) return; const n = performance.now(); if (!force && n - vLast < 450) return; vLast = n;
-  try { const vs = speechSynthesis.getVoices(), v = vs.find(x => /^hi/i.test(x.lang)) || vs.find(x => /^en[-_]IN/i.test(x.lang)) || null;
-    speechSynthesis.cancel(); const u = new SpeechSynthesisUtterance(VO[key][v && /^hi/i.test(v.lang) ? 0 : 1]); if (v) { u.voice = v; u.lang = v.lang; } else u.lang = 'en-IN'; u.rate = rate; u.pitch = pitch; u.volume = 1; speechSynthesis.speak(u); } catch (e) {}
+// Incremental renderer: only appends what is new, and never touches confirmed bubbles, so nothing flickers.
+// Optimistic ("pending") bubbles live outside the confirmed-key bookkeeping entirely, so a poll or live-update
+// landing mid-send can never wipe out a message the person just watched appear on screen.
+function makeChat(box, build, emptyClass, emptyText) {
+  let keys = [], id = null; const pending = new Map();
+  const empty = () => { const e = D.createElement('div'); e.className = emptyClass + ' rw-empty'; e.textContent = emptyText; return e; };
+  const near = () => box.scrollTop + box.clientHeight >= box.scrollHeight - 60;
+  const down = smooth => box.scrollTo({ top: box.scrollHeight, behavior: smooth ? 'smooth' : 'auto' });
+  const reflow = () => { for (const p of pending.values()) box.append(p.el); };
+  return {
+    bottom() { down(false); },
+    reset(n) { if (n === id) return; id = n; keys = []; pending.clear(); box.replaceChildren(); },
+    add(m, force) { const k = keyOf(m); if (keys.includes(k)) return; const e = box.querySelector('.rw-empty'); if (e) e.remove(); box.append(build(m)); keys.push(k); reflow(); if (force || near()) down(true); },
+    // Appears the instant the person hits send — before the network round-trip even starts.
+    addPending(tempKey, msg) { const e = box.querySelector('.rw-empty'); if (e) e.remove(); const el = build(msg); el.classList.add('pending'); el.dataset.tmp = tempKey; box.append(el); pending.set(tempKey, { el, msg }); down(true); return el; },
+    resolvePending(tempKey, realMsg) { const p = pending.get(tempKey); if (!p) return; pending.delete(tempKey); p.el.remove(); this.add(realMsg, true); },
+    failPending(tempKey) { const p = pending.get(tempKey); if (!p) return; p.el.classList.remove('pending'); p.el.classList.add('failed'); },
+    retryPending(tempKey) { const p = pending.get(tempKey); if (!p) return null; p.el.classList.remove('failed'); p.el.classList.add('pending'); return p.msg; },
+    removePending(tempKey) { const p = pending.get(tempKey); if (!p) return; p.el.remove(); pending.delete(tempKey); },
+    sync(list) {
+      const nk = list.map(keyOf);
+      if (!nk.length) { if (!box.firstElementChild && !pending.size) box.append(empty()); return; }
+      const same = keys.length <= nk.length && keys.every((k, i) => k === nk[i]);
+      if (same && keys.length === nk.length) { reflow(); return; }
+      const first = !keys.length, stick = first || near();
+      const e = box.querySelector('.rw-empty'); if (e) e.remove();
+      if (same) list.slice(keys.length).forEach(m => box.append(build(m)));
+      else box.replaceChildren(...list.map(build));
+      keys = nk; reflow(); if (stick) down(!first);
+    }
+  };
 }
-const sb = $('sndBtn'); const paintSnd = () => { sb.textContent = muted ? '🔇' : '🔊'; sb.setAttribute('aria-pressed', String(!muted)); }; paintSnd();
-sb.addEventListener('click', () => { muted = !muted; if (muted) { try { speechSynthesis.cancel(); } catch (e) {} beat.stop(); } else if (aiOn && !over) beat.start(); try { localStorage.setItem('rw-mute', muted ? '1' : '0'); } catch (e) {} paintSnd(); });
+const bubble = (cls, who, text, stat) => { const el = D.createElement('div'); el.className = cls; const w = D.createElement('span'); w.className = 'who'; w.textContent = who; el.append(w, D.createTextNode(text)); if (stat) el.insertAdjacentHTML('beforeend', stat); return el; };
+const PENDING_STAT = `<span class="rw-stat"><span class="rw-clock"></span></span>`;
+const FAILED_STAT = `<span class="rw-stat">⚠ Not sent · Tap to retry</span>`;
 
-/* ---------- particles (one canvas, rAF only while alive) ---------- */
-const cv = $('fxCanvas'), cx = cv.getContext('2d'); let P = [], run = false, last = 0, DPR = 1, SC = 1;
-const size = () => { DPR = Math.min(devicePixelRatio || 1, 2); SC = cv.clientWidth / 440; cv.width = cv.clientWidth * DPR; cv.height = cv.clientHeight * DPR; };
-new ResizeObserver(size).observe(cv); size();
-function emit(k, x, y, n, o = {}) {
-  const cols = o.cols || ['#E8A33D', '#F0E6CC', '#C1272D'];
-  for (let i = 0; i < n; i++) { const a = rnd(o.a0 ?? 0, o.a1 ?? 6.283), v = rnd(o.v0 ?? 60, o.v1 ?? 240);
-    P.push({ k, x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, g: o.g ?? 500, l: 0, m: rnd(.5, 1) * (o.life ?? 1), r: rnd(o.r0 ?? 2, o.r1 ?? 5), a: rnd(0, 6.28), w: rnd(-9, 9), c: cols[Math.random() * cols.length | 0] }); }
-  if (P.length > 520) P.splice(0, P.length - 520); if (!run) { run = true; last = performance.now(); requestAnimationFrame(tick); }
-}
-function tick(n) {
-  const dt = Math.min((n - last) / 1000, .05) * TS.v; last = n; cx.setTransform(DPR * SC, 0, 0, DPR * SC, 0, 0); cx.clearRect(0, 0, 440, 440);
-  for (let i = P.length - 1; i >= 0; i--) { const p = P[i]; p.l += dt; if (p.l >= p.m) { P.splice(i, 1); continue; }
-    p.vy += p.g * dt; p.x += p.vx * dt; p.y += p.vy * dt; p.a += p.w * dt; const t = p.l / p.m; cx.globalAlpha = 1 - t * t; cx.fillStyle = p.c; cx.strokeStyle = p.c;
-    if (p.k === 'spark') { cx.lineWidth = p.r * .6; cx.beginPath(); cx.moveTo(p.x, p.y); cx.lineTo(p.x - p.vx * .045, p.y - p.vy * .045); cx.stroke(); }
-    else if (p.k === 'puff') { cx.globalAlpha = .55 * (1 - t); cx.fillStyle = '#F0E6CC'; cx.beginPath(); cx.arc(p.x, p.y, p.r * (1 + t * 2.4), 0, 6.283); cx.fill(); }
-    else if (p.k === 'drop') { cx.beginPath(); cx.arc(p.x, p.y, p.r * .7, 0, 6.283); cx.fill(); }
-    else { cx.save(); cx.translate(p.x, p.y); cx.rotate(p.a);
-      if (p.k === 'star') { cx.strokeStyle = INK; cx.lineWidth = 1.2; cx.beginPath(); for (let j = 0; j < 10; j++) { const r = (j % 2 ? .45 : 1) * p.r * 1.7, a = j * .628 - 1.57; cx.lineTo(Math.cos(a) * r, Math.sin(a) * r); } cx.closePath(); cx.fill(); cx.stroke(); }
-      else if (p.k === 'paper') { cx.fillStyle = '#fff'; cx.strokeStyle = INK; cx.lineWidth = 1.2; cx.beginPath(); cx.rect(-6, -8, 12, 16); cx.fill(); cx.stroke(); cx.beginPath(); cx.moveTo(-3, -3); cx.lineTo(3, -3); cx.moveTo(-3, 1); cx.lineTo(3, 1); cx.stroke(); }
-      else { cx.scale(1, Math.cos(p.a * 2)); cx.fillRect(-p.r, -p.r * .5, p.r * 2, p.r); }
-      cx.restore(); } }
-  if (P.length) requestAnimationFrame(tick); else { run = false; cx.clearRect(0, 0, 440, 440); }
-}
+/* ================= CUSTOMER DASHBOARD ================= */
+if (dash) {
+  const chat = makeChat($('chatMessages'), m => {
+    const s = m.sender === 'admin' ? 'admin' : m.sender === 'agent' ? 'agent' : 'customer', mine = s === 'customer';
+    const label = mine ? 'You' : (m.senderName || (s === 'admin' ? 'Super Admin' : 'Agent'));
+    const stat = mine ? (m.failed ? FAILED_STAT : m.pending ? PENDING_STAT : '') : '';
+    return bubble(`chat-msg ${s}${mine ? ' mine' : ''}`, [label, mine ? '' : (s === 'admin' ? 'SUPER ADMIN' : 'AGENT'), time(m)].filter(Boolean).join(' · '), m.text, stat);
+  }, 'chat-empty', 'No messages yet — say hello!');
 
-/* ---------- camera, banners, bursts ---------- */
-function camFx({ shake = 0, zoom = 0, fx = 50, fy = 55, dur = 380 } = {}) {
-  if (reduce) return; cam.style.transformOrigin = `${fx}% ${fy}%`; const kf = [];
-  for (let i = 0; i <= 10; i++) { const t = i / 10, e = 1 - t, z = 1 + zoom * (t < .15 ? t / .15 : 1 - (t - .15) / .85); kf.push({ transform: `translate(${rnd(-1, 1) * shake * e}px,${rnd(-1, 1) * shake * e}px) scale(${z})`, offset: t }); }
-  cam.animate(kf, { duration: dur, easing: 'linear' });
-}
-const flash = () => $('flash').animate([{ opacity: .9 }, { opacity: 0 }], { duration: 420, easing: 'ease-out' });
-const banner = (t, ms = 700, big) => { bn.textContent = t; bn.style.fontSize = big ? 'clamp(54px,17vw,92px)' : ''; return bn.animate([{ opacity: 0, transform: 'scale(2.6) rotate(-10deg)' }, { opacity: 1, transform: 'scale(1) rotate(-4deg)', offset: .18 }, { opacity: 1, transform: 'scale(1.06) rotate(-4deg)', offset: .8 }, { opacity: 0, transform: 'scale(.7) translateY(-24px) rotate(-4deg)' }], { duration: ms, easing: EASE }).finished.catch(() => {}); };
-const STAR = [...Array(24)].map((_, i) => { const r = i % 2 ? 40 : 58, a = i * Math.PI / 12; return (Math.cos(a) * r).toFixed(1) + ',' + (Math.sin(a) * r).toFixed(1); }).join(' ');
-function burst(x, y, text, col = '#E8A33D') {
-  const e = D.createElement('div'); e.className = 'burst'; e.style.left = x / 4.4 + '%'; e.style.top = y / 4.4 + '%';
-  e.innerHTML = `<svg viewBox="-60 -60 120 120"><polygon points="${STAR}" fill="${col}" stroke="${INK}" stroke-width="4" stroke-linejoin="round"/></svg><span></span>`; e.lastChild.textContent = text; cam.append(e);
-  const r = rnd(-14, 14); e.animate([{ opacity: 0, transform: `scale(.2) rotate(${r - 30}deg)` }, { opacity: 1, transform: `scale(1.15) rotate(${r}deg)`, offset: .22 }, { opacity: 1, transform: `scale(1) rotate(${r}deg)`, offset: .7 }, { opacity: 0, transform: `translateY(-22px) scale(.9) rotate(${r}deg)` }], { duration: 850, easing: EASE }).onfinish = () => e.remove();
+  let busy = false, again = false;
+  window.loadMessages = async function () {
+    if (!currentCaseId) return;
+    if (busy) { again = true; return; }
+    busy = true; const cid = currentCaseId;
+    try {
+      const res = await fetch(`/api/my/cases/${encodeURIComponent(cid)}/messages`, { cache: 'no-store' });
+      if (!res.ok || cid !== currentCaseId) return;
+      const list = await res.json(); chat.reset(cid); chat.sync(list);
+      const last = list[list.length - 1]; if (last && last.createdAt) markRead({ caseId: cid, lastMessageAt: last.createdAt });
+    } catch (e) { console.debug('loadMessages', e); }
+    finally { busy = false; if (again) { again = false; loadMessages(); } }
+  };
+  const _ov = window.openCaseView;
+  window.openCaseView = function (id) {   // open instantly; fetch messages in parallel with the case details
+    chat.reset(id); currentCaseId = id; $('caseViewId').textContent = id; $('caseViewStatus').textContent = ''; $('caseViewSummary').textContent = ''; $('caseViewFiles').textContent = '';
+    showScreen('case'); loadMessages();
+    return _ov.apply(this, arguments).then(() => chat.bottom());
+  };
+  window.openChatStream = function (caseId) {
+    closeChatStream(); const run = throttled(() => loadMessages(), 400);
+    const es = new EventSource(`/api/my/cases/${encodeURIComponent(caseId)}/stream`);
+    es.addEventListener('message', ev => { try { const d = JSON.parse(ev.data), m = d && (d.message || d); if (m && m.text && m.createdAt && m.sender) chat.add(m); } catch (_) {} run(); });
+    es.onerror = () => {}; chatStream = es;
+  };
+
+  // send: appears the instant you press it (or hit Enter) — the network call happens in the background.
+  const sb = $('chatSendBtn'), si = $('chatInput'), nb = sb.cloneNode(true), ni = si.cloneNode(true); sb.replaceWith(nb); si.replaceWith(ni);
+  async function attempt(text, tempKey) {
+    try {
+      const res = await fetch(`/api/my/cases/${encodeURIComponent(currentCaseId)}/messages`, { method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json' }, body: JSON.stringify({ text }) });
+      const d = await res.json().catch(() => ({})); if (!res.ok) throw new Error(d.error || `Could not send message (HTTP ${res.status}).`);
+      const at = d.createdAt || new Date().toISOString();
+      chat.resolvePending(tempKey, { ...d, text: d.text || text, createdAt: at, sender: 'customer' }); markRead({ caseId: currentCaseId, lastMessageAt: at });
+    } catch (e) { chat.failPending(tempKey); $('chatNotice').textContent = e.message || 'Could not send. Tap the message to retry.'; }
+  }
+  const send = () => {
+    const text = ni.value.trim(); if (!text || !currentCaseId) return;
+    $('chatNotice').textContent = ''; ni.value = ''; ni.focus();   // clears instantly — never waits on the network
+    const tempKey = uid();
+    chat.addPending(tempKey, { text, createdAt: new Date().toISOString(), sender: 'customer', pending: true });
+    attempt(text, tempKey);
+  };
+  nb.addEventListener('click', send);
+  ni.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.isComposing) send(); });
+  $('chatMessages').addEventListener('click', e => { const el = e.target.closest('.chat-msg.failed'); if (!el || !el.dataset.tmp) return;
+    const tempKey = el.dataset.tmp, msg = chat.retryPending(tempKey); if (msg) attempt(msg.text, tempKey); });
+
+  // case list: loader only on the very first load; re-render only when data really changed; keep last good list on errors
+  const row = c => { const locked = !!c.accessExpired, p = locked ? 'Access expired — renew to continue' : (c.lastMessageText ? `${senderLabel(c)}: ${c.lastMessageText}` : 'No messages yet'), n = Number(c.unreadCount || 0);
+    return `<div class="case-row ${n ? 'unread' : ''}" data-case="${escapeHtml(c.caseId)}" data-status="${escapeHtml(c.status || '')}"><div style="min-width:0;flex:1"><div class="case-id">${escapeHtml(c.caseId)}${locked ? ' <span style="color:#9b6810;font-size:11px;font-weight:800;">⏳ EXPIRED</span>' : ''}</div><div class="case-meta">${c.createdAt ? new Date(c.createdAt).toLocaleString('en-IN') : 'Date unavailable'}${c.category ? ' • ' + escapeHtml(c.category) : ''}</div><div class="case-preview"${locked ? ' style="color:#9b6810;font-weight:600;"' : ''}>${escapeHtml(p)}</div></div><div class="case-actions">${n ? `<span class="unread-pill" title="${n} unread message${n === 1 ? '' : 's'}">${n > 99 ? '99+' : n}</span>` : ''}<span class="status-badge status-${escapeHtml(c.status || '')}">${escapeHtml(statusLabel(c.status || ''))}</span></div></div>`; };
+  let listBusy = false, listKey = null;
+  window.loadCases = async function () {
+    if (listBusy) return; listBusy = true; const el = $('caseList');
+    try {
+      if (!el.firstElementChild) el.innerHTML = '<div class="loading-state">Loading your cases…</div>';
+      const res = await fetch('/api/my/cases', { cache: 'no-store' }), payload = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(payload.error || 'Could not load your cases.');
+      const cases = (Array.isArray(payload) ? payload : []).sort((a, b) => new Date(b.lastMessageAt || b.updatedAt || b.createdAt || 0) - new Date(a.lastMessageAt || a.updatedAt || a.createdAt || 0));
+      const key = JSON.stringify(cases.map(c => [c.caseId, c.status, c.unreadCount, c.lastMessageAt, c.lastMessageText, c.lastMessageSender, c.lastMessageSenderName, c.category, c.createdAt]));
+      if (key === listKey) return; listKey = key;
+      if (!cases.length) { el.innerHTML = '<div class="empty-state">No cases yet. Click "Open a New Case" to file your first one.</div>'; return; }
+      el.innerHTML = cases.map(row).join('');
+      el.querySelectorAll('.case-row').forEach(r => r.addEventListener('click', () => resumeCase(r.dataset.case, r.dataset.status)));
+    } catch (err) {
+      console.error('loadCases:', err);
+      if (listKey === null || !el.querySelector('.case-row')) { listKey = null; el.innerHTML = `<div class="empty-state"><strong>Could not load your cases.</strong><br><span style="font-size:13px;">${escapeHtml(err.message || 'Please refresh and try again.')}</span><br><button class="btn secondary" style="margin-top:16px;" onclick="loadCases()">Try Again</button></div>`; }
+    } finally { listBusy = false; }
+  };
 }
 
-/* ---------- combat: fully real-time. Every press acts on the same frame; nothing waits for a turn. ---------- */
-const K = {
-  jab:   { arm: 'f', w: [76, -150],  s: [2, -4],    l: 22, d: 280, iw: .12, is: .36 },
-  cross: { arm: 'b', w: [86, -150],  s: [0, 0],     l: 30, d: 300, iw: .12, is: .36, tw: 8 },
-  hook:  { arm: 'f', w: [92, -140],  s: [-34, -64], l: 28, d: 320, iw: .14, is: .38 },
-  upper: { arm: 'f', w: [104, -110], s: [-24, -80], l: 26, d: 340, iw: .16, is: .40, j: -14 },
-  ko:    { arm: 'b', w: [108, -170], s: [-4, -2],   l: 60, d: 700, iw: .30, is: .50, tw: 14 },
-  kase:  { arm: 'b', w: [104, -24],  s: [-46, 0],   l: 24, d: 640, iw: .50, is: .66 },
-  slap:  { arm: 'f', w: [108, -152], s: [-12, -18], l: 24, d: 600, iw: .50, is: .66 },
-  big:   { arm: 'b', w: [124, -20],  s: [-66, -4],  l: 30, d: 760, iw: .55, is: .70, tw: 10 }
-};
-const CUR = new WeakMap();
-// Start a pose animation from wherever the part is RIGHT NOW (no snapping), replacing the previous one on that part.
-function go(el, kf, dur) {
-  const from = getComputedStyle(el).transform, prev = CUR.get(el);
-  const a = el.animate([{ transform: from === '' ? 'none' : from, offset: 0, easing: 'ease-out' }, ...kf], { duration: dur, easing: 'linear' });
-  a.playbackRate = TS.v; live.add(a); const d = () => live.delete(a); a.finished.then(d, d); if (prev) prev.cancel(); CUR.set(el, a); return a;
-}
-const FAST = 'cubic-bezier(.1,.9,.2,1)', IO = 'cubic-bezier(.4,0,.2,1)';
-function swing(f, k) {
-  const P0 = K[k], R = f.el, ua = R.querySelector(`.ua.${P0.arm}`), fa = R.querySelector(`.fa.${P0.arm}`), body = R.querySelector('.body'), [ub, fb] = f.base[P0.arm], tw = P0.tw || 6, hold = Math.min(P0.is + .14, .95);
-  const kf = (w, sv, b) => [{ offset: P0.iw, transform: `rotate(${w}deg)`, easing: FAST }, { offset: P0.is, transform: `rotate(${sv}deg)` }, { offset: hold, transform: `rotate(${sv}deg)`, easing: IO }, { offset: 1, transform: `rotate(${b}deg)` }];
-  go(ua, kf(P0.w[0], P0.s[0], ub), P0.d); go(fa, kf(P0.w[1], P0.s[1], fb), P0.d);
-  go(body, [{ offset: P0.iw, transform: `translate(-6px,0) rotate(${-tw / 2}deg)`, easing: FAST }, { offset: P0.is, transform: `translate(${P0.l}px,${P0.j || -3}px) rotate(${tw}deg)` }, { offset: hold, transform: `translate(${P0.l}px,-1px) rotate(${tw / 2}deg)`, easing: IO }, { offset: 1, transform: 'translate(0,0) rotate(0deg)' }], P0.d);
-  return P0.d * P0.is;   // ms until the fist connects
-}
-function reel(f, p) {
-  const rx = f.el.querySelector('.rx'), h = f.el.querySelector('.hd'); f.el.dataset.face = 'hit';
-  go(rx, [{ offset: .22, transform: `translate(${-9 * p}px,-3px) rotate(${-5 * p}deg)`, filter: 'brightness(2.2)', easing: 'ease-out' }, { offset: .6, transform: `translate(${-4 * p}px,0) rotate(${-2 * p}deg)`, filter: 'brightness(1)' }, { offset: 1, transform: 'translate(0,0) rotate(0deg)' }], 300 + p * 40);
-  go(h, [{ offset: .22, transform: `rotate(${-20 * p}deg)` }, { offset: 1, transform: 'rotate(0deg)' }], 380);
-  clearTimeout(f.ft); f.ft = setTimeout(() => { if (!over) f.el.dataset.face = ''; }, 380 / TS.v);
-}
-let lastBurst = 0;
-function impact(v, { p, word }) {
-  const [x, y] = v.hit, n = performance.now(); if (p > 3) stop(90); camFx({ shake: 2 + p * 2.5, zoom: .02 * p, fx: x / 4.4, fy: y / 4.4, dur: 300 }); reel(v, p);
-  emit('spark', x, y, 6 + p * 4, { v0: 140, v1: 380, g: 200, life: .45 }); emit('star', x, y, 2 + p, { v0: 60, v1: 230, g: 320 });
-  emit('drop', x, y - 24, 3 + p, { a0: -2.6, a1: -.5, v0: 90, v1: 220, g: 600, cols: ['#8fd3ff', '#fff'], r0: 3, r1: 5 });
-  if (p > 2) emit('puff', x, y + 40, 2, { v0: 10, v1: 60, g: -20, life: 1.1, r0: 8, r1: 13 }); if (v === corp) emit('paper', x, y - 10, 1 + (p > 2), { v0: 80, v1: 240, g: 260, life: 1.5 });
-  if (word && n - lastBurst > 110) { lastBurst = n; burst(x + (v === corp ? 22 : -22), y - 40, word, v === corp ? '#E8A33D' : '#F0E6CC'); }
-  sfx.thud(p); vib(p > 3 ? [30, 30, 60] : 12);
-}
-function setHP(f, v) { f.hp = Math.max(0, Math.min(100, v)); f.fill.style.transform = f.trail.style.transform = `scaleX(${f.hp / 100})`; f.box.classList.toggle('low', f.hp < 35); }
-let md = 0, mt = 0, mraf = 0, capI = -1;
-const CAPS = [[0, 'Ready to fight back?'], [8, 'Politely asking for a refund…'], [26, 'Sending a firmer email.'], [44, "CC'ing the grievance officer. This means business."], [62, 'Citing the Consumer Protection Act, 2019.'], [80, 'Filing with the consumer forum.'], [100, 'REFUND SECURED. 🎉']];
-function meterLoop() { md += (mt - md) * .22; if (Math.abs(mt - md) < .4) md = mt; mp.textContent = Math.round(md) + '%'; mraf = md === mt ? 0 : requestAnimationFrame(meterLoop); }
-function setMeter(p) {
-  mt = p; if (!mraf) mraf = requestAnimationFrame(meterLoop); mf.style.transform = `scaleX(${p / 100})`; meter.classList.toggle('hot', p >= 68 && p < 100); setHP(corp, 100 - p);
-  let i = 0; CAPS.forEach((c, j) => { if (p >= c[0]) i = j; }); if (i !== capI) { capI = i; mc.textContent = CAPS[i][1]; mc.animate([{ opacity: 0, transform: 'translateY(-7px)' }, { opacity: 1, transform: 'none' }], { duration: 260, easing: EASE }); }
-}
-function dodge(f) { go(f.el.querySelector('.rx'), [{ offset: .3, transform: 'translate(-34px,10px) rotate(-15deg)', easing: 'ease-out' }, { offset: .65, transform: 'translate(-34px,10px) rotate(-15deg)', easing: IO }, { offset: 1, transform: 'translate(0,0) rotate(0deg)' }], 520); emit('puff', 160, 356, 5, { v0: 20, v1: 90, g: -10, life: 1 }); burst(160, 170, 'SLIPPED!', '#8fd3ff'); sfx.whoosh(); }
-const aura = () => { const a = you.el.querySelector('.aura'); a.animate([{ opacity: 0, transform: 'scale(.5)' }, { opacity: 1, transform: 'scale(1.05)', offset: .5 }, { opacity: 0, transform: 'scale(1.4)' }], { duration: 1100, easing: EASE }); sfx.power(); emit('star', 150, 330, 18, { a0: -2.7, a1: -.4, v0: 120, v1: 340, g: 260, cols: ['#E8A33D', '#fff'], r0: 3, r1: 6 }); vib([20, 30, 80]); };
+/* ================= SUPPORT WORKSPACE (admin / agents) ================= */
+if (admin) {
+  const isMine = m => (m.senderId && m.senderId === staff.uid) || (!m.senderId && m.sender === staff.role);
+  const chat = makeChat($('messages'), m => {
+    const s = m.sender === 'customer' ? 'customer' : m.sender === 'admin' ? 'admin' : 'agent', mine = isMine(m);
+    const label = mine ? 'You' : (m.senderName || (s === 'customer' ? 'Customer' : s === 'admin' ? 'Super Admin' : 'Agent'));
+    const stat = mine ? (m.failed ? FAILED_STAT : m.pending ? PENDING_STAT : '') : '';
+    return bubble(`msg ${s}${mine ? ' mine' : ''}`, [label, mine ? '' : (s === 'admin' ? 'SUPER ADMIN' : s === 'agent' ? 'AGENT' : 'CUSTOMER'), time(m)].filter(Boolean).join(' · '), m.text, stat);
+  }, 'empty', 'No messages yet. Start the conversation.');
 
-/* disco moves */
-function disco() {   // one arm points to the sky, the other on the hip, knee dipped
-  const R = you.el, q = c => R.querySelector(c), [uf, ff] = you.base.f, [ub, fb] = you.base.b, hold = (a, b, z) => [{ offset: .22, transform: `rotate(${a}deg)`, easing: SPRING }, { offset: .78, transform: `rotate(${a}deg)`, easing: IO }, { offset: 1, transform: `rotate(${z}deg)` }];
-  go(q('.ua.f'), hold(-62, 0, uf), 800); go(q('.fa.f'), hold(-2, 0, ff), 800); go(q('.ua.b'), hold(118, 0, ub), 800); go(q('.fa.b'), hold(-75, 0, fb), 800);
-  go(q('.rx'), [{ offset: .22, transform: 'translate(-3px,3px) rotate(-7deg)', easing: SPRING }, { offset: .78, transform: 'translate(-3px,3px) rotate(-7deg)', easing: IO }, { offset: 1, transform: 'translate(0,0) rotate(0deg)' }], 800);
-  emit('star', 196, 132, 8, { a0: -2.5, a1: -.6, v0: 60, v1: 200, g: 200, cols: ['#E8A33D', '#fff'], r0: 3, r1: 5 }); sfx.ting();
+  let busy = false, again = false;
+  window.loadMessages = async function () {
+    if (!current) return;
+    if (busy) { again = true; return; }
+    busy = true; const cid = current.caseId;
+    try {
+      const list = await api('/api/admin/cases/' + encodeURIComponent(cid) + '/messages');
+      if (!current || current.caseId !== cid) return;
+      chat.reset(cid); chat.sync(list);
+      const last = list[list.length - 1];
+      if (last && last.createdAt) { await markRead({ ...current, lastMessageAt: last.createdAt });
+        const r = cases.find(c => c.caseId === cid); if (r && (r.unreadCount || r.unread)) { r.unreadCount = 0; r.unread = false; renderList(); } }
+    } catch (e) { console.error('loadMessages', e); }
+    finally { busy = false; if (again) { again = false; loadMessages(); } }
+  };
+  const _oc = window.openCase;
+  window.openCase = function (id) { chat.reset(id); const p = _oc.apply(this, arguments); loadMessages(); return p; };   // messages load in parallel with details
+  const _rl = window.renderList;   // unread total in the tab title
+  window.renderList = function () { _rl.apply(this, arguments); const n = cases.reduce((a, c) => a + Number(c.unreadCount || 0), 0); D.title = (n ? `(${n}) ` : '') + 'RefundWaapsi — Support Workspace'; };
+  window.openChatStream = function (caseId) {
+    closeChatStream(); const run = throttled(() => { loadMessages(); loadCases(true).catch(() => {}); }, 500);
+    const es = new EventSource('/api/admin/cases/' + encodeURIComponent(caseId) + '/stream');
+    es.addEventListener('message', ev => { try { const d = JSON.parse(ev.data), m = d && (d.message || d); if (m && m.text && m.createdAt && m.sender) chat.add(m); } catch (_) {} run(); });
+    es.onerror = () => {}; chatStream = es;
+  };
+  async function attemptStaff(text, tempKey, caseId) {
+    try {
+      const sent = await api('/api/admin/cases/' + encodeURIComponent(caseId) + '/messages', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text }) });
+      const at = sent.createdAt || new Date().toISOString();
+      if (current && current.caseId === caseId) {
+        chat.resolvePending(tempKey, { ...sent, text: sent.text || text, createdAt: at, sender: staff.role, senderId: staff.uid, senderName: staff.name });
+        Object.assign(current, { lastMessageText: sent.text || text, lastMessageAt: at, lastMessageSender: staff.role, lastMessageSenderName: staff.name, unread: false });
+        await markRead(current); renderList();
+      }
+    } catch (e) { if (current && current.caseId === caseId) chat.failPending(tempKey); }
+  }
+  $('send').onclick = () => {
+    const t = $('composer').value.trim(); if (!t || !current) return;
+    const caseId = current.caseId; $('composer').value = ''; $('composer').focus();   // clears instantly
+    const tempKey = uid();
+    chat.addPending(tempKey, { text: t, createdAt: new Date().toISOString(), sender: staff.role, senderId: staff.uid, senderName: staff.name, pending: true });
+    attemptStaff(t, tempKey, caseId);
+  };
+  $('messages').addEventListener('click', e => { const el = e.target.closest('.msg.failed'); if (!el || !el.dataset.tmp || !current) return;
+    const tempKey = el.dataset.tmp, msg = chat.retryPending(tempKey); if (msg) attemptStaff(msg.text, tempKey, current.caseId); });
 }
-function spin() { const c = 'scaleX'; A(you.el.querySelector('.rx'), [{ transform: `${c}(1) translateY(0px)` }, { transform: `${c}(.05) translateY(-14px)`, offset: .25 }, { transform: `${c}(-1) translateY(-18px)`, offset: .5 }, { transform: `${c}(.05) translateY(-10px)`, offset: .75 }, { transform: `${c}(1) translateY(0px)` }], { duration: 520, easing: 'ease-in-out' }); }
-
-/* state */
-const WORDS = ['DHISHOOM!', 'RTI!', 'DHISHOOM!', 'LEGAL NOTICE!', 'DHISHOOM!', 'GRIEVANCE!', 'DHISHOOM!', 'CONSUMER ACT!', 'DHISHOOM!', 'FORUM FILED!', 'DHISHOOM!', 'CHARGEBACK!'];
-const CWORDS = { kase: 'T&C APPLY!', slap: 'PLEASE HOLD…', big: 'ESCALATE: L2!' };
-const MOVES = ['jab', 'cross', 'jab', 'hook', 'cross', 'upper'], GAIN = { jab: 3.4, cross: 4.4, hook: 4.8, upper: 6.2 };
-let idleT = 0, lastCorpAtk = 0, prog = 0, combo = 0, lastHit = 0, lastPunch = 0, lastPress = 0, lastPD = 0, mi = 0, wi = 0, over = false, canReset = false, aiOn = false, corpNext = 0, invuln = 0, boost = false, wind = false, atk = null;
-const done = false;   // (kept for reel's legacy guard)
-
-function hurt(d) { setHP(you, Math.max(18, you.hp - d)); if (you.hp <= 32 && !wind) secondWind(); }
-function secondWind() { wind = boost = true; invuln = performance.now() + 1800; aura(); disco(); shout('wind', { force: true, rate: 1, pitch: .6 }); setHP(you, 60); burst(170, 160, 'SECOND WIND!', '#E8A33D'); camFx({ shake: 6, dur: 300 }); btn.classList.add('rage'); }
-
-function land(k) {                       // a punch of yours connected
-  if (over) return; const n = performance.now(); combo = n - lastHit < 900 ? combo + 1 : 1; lastHit = n;
-  prog = Math.min(100, prog + GAIN[k] * (1 + Math.min(combo, 6) * .06) * (boost ? 1.35 : 1)); const fin = prog >= 100;
-  impact(corp, { p: k === 'upper' || combo % 5 === 0 ? 3 : 2, word: WORDS[wi++ % WORDS.length] }); setMeter(fin ? 100 : Math.round(prog));
-  if (fin) return victory();
-  if (combo % 8 === 0) spin();
-  if (combo >= 3 && n - lastCorpAtk < 2000) corpNext = Math.max(corpNext, n + 650);                                    // a combo keeps him stunned
-  if (atk && n < atk.end && Math.random() < .25) { clearTimeout(atk.t); atk = null; burst(corp.hit[0] - 6, 150, 'INTERRUPTED!', '#8fd3ff'); }   // you break his wind-up
-}
-function corpAttack(n) {                 // he fights back on his own clock
-  lastCorpAtk = n; const k = ['kase', 'slap', 'kase', 'big'][Math.random() * 4 | 0], at = swing(corp, k);
-  atk = { end: n + at, t: setTimeout(() => { atk = null; if (over) return; const m = performance.now();
-    if (m < invuln || (m - lastPunch > 350 && Math.random() < .35)) dodge(you); else { impact(you, { p: k === 'big' ? 4 : 3, word: CWORDS[k] }); hurt(k === 'big' ? 15 : 9); } }, at / TS.v) };
-}
-function ai() { if (!aiOn || over) return; const n = performance.now(); if (n >= corpNext && !document.hidden) { corpAttack(n); corpNext = n + rnd(850, 1250) - Math.min(prog * 2, 150); } requestAnimationFrame(ai); }
-
-async function victory() {
-  over = true; aiOn = false; canReset = false; beat.stop(); clearTimeout(idleT); you.el.classList.remove('groove'); if (atk) { clearTimeout(atk.t); atk = null; }
-  stop(200); slow(.22, 1300); camFx({ shake: 18, zoom: .4, fx: 62, fy: 48, dur: 1500 }); flash(); vib([60, 40, 60, 40, 200]);
-  A(corp.el.querySelector('.rx'), [{ transform: 'translate(0,0) rotate(0deg)' }, { transform: 'translate(-50px,-90px) rotate(-40deg)', offset: .45 }, { transform: 'translate(-104px,16px) rotate(-100deg)' }], { duration: 950, easing: 'cubic-bezier(.2,.7,.3,1)', fill: 'forwards' });
-  corp.el.dataset.face = 'hit'; emit('paper', 262, 190, 26, { a0: -3, a1: -.2, v0: 120, v1: 420, g: 300, life: 2.4 }); emit('spark', 262, 200, 40, { v0: 200, v1: 520, g: 150, life: .8 });
-  await wait(1400); ring.classList.add('cheer'); sfx.bell(); sfx.cheer(); shout('ko', { force: true, rate: .8, pitch: .5 }); banner('K.O.!', 1100, true);
-  emit('conf', 220, 40, 110, { a0: 1.2, a1: 1.9, v0: 60, v1: 260, g: 260, life: 3, cols: ['#E8A33D', '#C1272D', '#2C5F8A', '#F0E6CC'], r0: 3, r1: 6 });
-  you.el.dataset.face = 'win'; const q = c => you.el.querySelector(c), lp = (el, kf, d) => holds.push(A(el, kf, { duration: d, iterations: Infinity, easing: 'ease-in-out' }));
-  lp(q('.ua.f'), [rot(-62), rot(70), rot(-62)], 1000); lp(q('.fa.f'), [rot(-2), rot(-60), rot(-2)], 1000); lp(q('.ua.b'), [rot(100), rot(-62), rot(100)], 1000); lp(q('.fa.b'), [rot(-70), rot(-2), rot(-70)], 1000);
-  lp(q('.rx'), [{ transform: 'translate(0,0) rotate(-4deg)' }, { transform: 'translate(0,-12px) rotate(4deg)' }, { transform: 'translate(0,0) rotate(-4deg)' }], 500);   // disco point, alternating arms
-  await wait(1200); shout('win', { force: true, rate: 1, pitch: .7 }); banner('YOU WIN!', 1400); btn.textContent = 'Rematch 🔁'; btn.classList.remove('rage'); canReset = true;
-}
-function reset() {
-  holds.splice(0).forEach(a => { try { a.cancel(); } catch (e) {} }); ring.classList.remove('cheer'); btn.classList.remove('rage'); [you, corp].forEach(f => f.el.dataset.face = '');
-  beat.stop(); clearTimeout(idleT); you.el.classList.remove('groove'); try { speechSynthesis.cancel(); } catch (e) {} prog = combo = mi = wi = 0; over = canReset = aiOn = boost = wind = false; invuln = 0; atk = null; setHP(you, 100); md = mt = 0; capI = -1; setMeter(0); mp.textContent = '0%'; btn.textContent = 'Throw a Punch 👊';
-}
-
-/* ---------- input: acts on pointer-DOWN, same frame, no queue, no turns ---------- */
-function press() {
-  const n = performance.now(); if (n - lastPress < 55) return; lastPress = n;
-  if (over) { if (canReset) reset(); return; }
-  ctx(); btn.animate([{ transform: 'scale(.94)' }, { transform: 'scale(1)' }], { duration: 160, easing: EASE });
-  if (!aiOn) { aiOn = true; lastCorpAtk = n; corpNext = n + 900; requestAnimationFrame(ai); banner('FIGHT!', 650, true); sfx.bell(); btn.textContent = 'Keep Punching! 👊'; you.el.classList.add('groove'); beat.start(); }
-  lastPunch = n; shout(combo >= 4 ? 'hhh' : combo >= 2 ? 'hh' : 'h'); clearTimeout(idleT); idleT = setTimeout(() => { if (!over && aiOn && combo >= 3) disco(); }, 650);
-  const k = MOVES[mi++ % MOVES.length]; sfx.whoosh(); const at = swing(you, k); setTimeout(() => land(k), at / TS.v);
-}
-btn.addEventListener('pointerdown', e => { if (e.pointerType === 'mouse' && e.button !== 0) return; lastPD = performance.now(); e.preventDefault(); press(); });
-btn.addEventListener('keydown', e => { if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); lastPD = performance.now(); press(); } });
-btn.addEventListener('click', () => { if (performance.now() - lastPD > 700) press(); });   // assistive tech / synthetic clicks
-const warm = () => { try { nz(ctx()); } catch (e) {} }; btn.addEventListener('pointerover', warm, { once: true }); btn.addEventListener('touchstart', warm, { once: true, passive: true });
-
-/* intro: fighters walk in when the ring scrolls into view */
-new IntersectionObserver(([e], o) => { if (!e.isIntersecting) return; o.disconnect(); if (reduce) return;
-  A(you.el.querySelector('.rx'), [{ transform: 'translate(-150px,0)' }, { transform: 'translate(0,0)' }], { duration: 900, easing: SPRING }); A(corp.el.querySelector('.rx'), [{ transform: 'translate(-150px,0)' }, { transform: 'translate(0,0)' }], { duration: 900, easing: SPRING, delay: 120 }); }, { threshold: .35 }).observe(ring);
-setMeter(0);
+D.addEventListener('visibilitychange', () => { if (D.visibilityState !== 'visible') return; if (admin) loadCases(true).catch(() => {}); else if (currentCaseId) loadMessages(); else loadCases(); });
 })();
 </script>
 <script>/* Fraudify FX — drop-in motion + speed layer (no dependencies).
@@ -1409,7 +894,7 @@ if (!reduce) {
     new MutationObserver(() => { const rows = $$(sel, el);
       if (rows.length && !had) rows.slice(0, 14).forEach((r, i) => { r.style.setProperty('--i', i); r.classList.add('rw-pop'); });
       had = rows.length > 0; }).observe(el, { childList: true }); };
-  watchList($('#caseList'), '.case-row,.case');
+  watchList($('#caseList'), '.case-row,.case,.rw-cust');
 
   const watchChat = el => { if (!el) return; let prev = 0;
     new MutationObserver(() => { const k = [...el.children].filter(c => /msg/.test(c.className)), n = k.length;
