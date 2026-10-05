@@ -167,8 +167,7 @@
     margin-bottom:18px;
   }
   h1.hero-title{font-size:clamp(36px, 5vw, 60px); color:var(--ink);}
-  .hero-logo{ margin-bottom:22px; }
-  .hero-logo-img{ height:clamp(64px,9vw,120px); width:auto; display:block; filter:drop-shadow(4px 4px 0 var(--ink)); }
+
   h1.hero-title .hl{color:var(--crimson); -webkit-text-stroke: 1.5px var(--ink);}
   .hero-sub{font-size:18px; line-height:1.55; max-width:48ch; margin:22px 0 28px; color:#3a3226;}
   .hero-ctas{display:flex; gap:14px; flex-wrap:wrap; margin-bottom:10px;}
@@ -536,7 +535,7 @@
 
 <nav id="siteNav">
   <div class="nav-inner">
-    <a href="#" class="logo"><img src="/logo-lockup-nav.png" alt="Fraudify" class="nav-logo-img" width="160" height="56" fetchpriority="high" decoding="async"></a>
+    <a href="#" class="logo"><img src="/logo-lockup-nav.png" alt="Fraudify" class="nav-logo-img" width="368" height="112" fetchpriority="high" decoding="async"></a>
     <button class="mobile-nav-toggle" id="mobileNavToggle" type="button" aria-label="Open navigation" aria-expanded="false">
       <span class="icon-menu">☰</span><span class="icon-close">×</span>
     </button>
@@ -559,7 +558,6 @@
 <section class="hero" id="heroSection">
   <div class="wrap hero-inner">
     <div>
-      <div class="hero-logo"><img src="/logo-lockup-hero.png" alt="Fraudify" class="hero-logo-img" width="426" height="140" fetchpriority="high" decoding="async"></div>
       <span class="kicker">CONSUMER JUSTICE FOR BHARAT, GLOVES ON</span>
       <h1 class="hero-title">Company gave you<br><span class="hl">gyaan</span>, not a refund?</h1>
       <p class="hero-sub">Refund stuck "in process"? Order still not delivered? Service you paid for never showed up? Promise made, promise broken? Fraudify tells you exactly what to do, what to say, and which channel to use — then helps you push it through until it's actually resolved. No legal jargon, no three-hour hold music, no "sir please be patient."</p>
@@ -1165,16 +1163,8 @@ const beat = { t: 0, i: 0, id: 0,       // original 120-BPM disco groove, schedu
   note(i, at) { const k = i % 8; if (k % 2 === 0) tone('sine', 130, 42, .16, .17, at); else noise('highpass', 7000, 9000, .05, .05, 1, at);
     const B = [55, 0, 55, 82.4, 0, 55, 73.4, 82.4][k]; if (B) tone('sawtooth', B * 2, B * 2, .16, .05, at); }
 };
-// Browser text-to-speech (Hindi voice if the device has one). A generic voice, not anyone's real voice.
-const VO = { h: ['ढिशूम!', 'Dhishoom!'], hh: ['ढिशूम! ढिशूम!', 'Dhishoom! Dhishoom!'], hhh: ['ढिशूम! ढिशूम! ढिशूम!', 'Dhishoom! Dhishoom! Dhishoom!'], ko: ['ढिशूऊऊम!', 'Dhishooooom!'], win: ['रिफंड मिल गया!', 'Refund mil gaya!'], wind: ['अब आएगा मज़ा!', 'Ab aayega maza!'] };
-let vLast = 0;
-function shout(key, { rate = 1.3, pitch = .7, force = false } = {}) {
-  if (muted || !('speechSynthesis' in window)) return; const n = performance.now(); if (!force && n - vLast < 450) return; vLast = n;
-  try { const vs = speechSynthesis.getVoices(), v = vs.find(x => /^hi/i.test(x.lang)) || vs.find(x => /^en[-_]IN/i.test(x.lang)) || null;
-    speechSynthesis.cancel(); const u = new SpeechSynthesisUtterance(VO[key][v && /^hi/i.test(v.lang) ? 0 : 1]); if (v) { u.voice = v; u.lang = v.lang; } else u.lang = 'en-IN'; u.rate = rate; u.pitch = pitch; u.volume = 1; speechSynthesis.speak(u); } catch (e) {}
-}
 const sb = $('sndBtn'); const paintSnd = () => { sb.textContent = muted ? '🔇' : '🔊'; sb.setAttribute('aria-pressed', String(!muted)); }; paintSnd();
-sb.addEventListener('click', () => { muted = !muted; if (muted) { try { speechSynthesis.cancel(); } catch (e) {} beat.stop(); } else if (aiOn && !over) beat.start(); try { localStorage.setItem('rw-mute', muted ? '1' : '0'); } catch (e) {} paintSnd(); });
+sb.addEventListener('click', () => { muted = !muted; if (muted) { beat.stop(); } else if (aiOn && !over) beat.start(); try { localStorage.setItem('rw-mute', muted ? '1' : '0'); } catch (e) {} paintSnd(); });
 
 /* ---------- particles (one canvas, rAF only while alive) ---------- */
 const cv = $('fxCanvas'), cx = cv.getContext('2d'); let P = [], run = false, last = 0, DPR = 1, SC = 1;
@@ -1285,7 +1275,7 @@ let idleT = 0, lastCorpAtk = 0, prog = 0, combo = 0, lastHit = 0, lastPunch = 0,
 const done = false;   // (kept for reel's legacy guard)
 
 function hurt(d) { setHP(you, Math.max(18, you.hp - d)); if (you.hp <= 32 && !wind) secondWind(); }
-function secondWind() { wind = boost = true; invuln = performance.now() + 1800; aura(); disco(); shout('wind', { force: true, rate: 1, pitch: .6 }); setHP(you, 60); burst(170, 160, 'SECOND WIND!', '#E8A33D'); camFx({ shake: 6, dur: 300 }); btn.classList.add('rage'); }
+function secondWind() { wind = boost = true; invuln = performance.now() + 1800; aura(); disco(); setHP(you, 60); burst(170, 160, 'SECOND WIND!', '#E8A33D'); camFx({ shake: 6, dur: 300 }); btn.classList.add('rage'); }
 
 function land(k) {                       // a punch of yours connected
   if (over) return; const n = performance.now(); combo = n - lastHit < 900 ? combo + 1 : 1; lastHit = n;
@@ -1308,16 +1298,16 @@ async function victory() {
   stop(200); slow(.22, 1300); camFx({ shake: 18, zoom: .4, fx: 62, fy: 48, dur: 1500 }); flash(); vib([60, 40, 60, 40, 200]);
   A(corp.el.querySelector('.rx'), [{ transform: 'translate(0,0) rotate(0deg)' }, { transform: 'translate(-50px,-90px) rotate(-40deg)', offset: .45 }, { transform: 'translate(-104px,16px) rotate(-100deg)' }], { duration: 950, easing: 'cubic-bezier(.2,.7,.3,1)', fill: 'forwards' });
   corp.el.dataset.face = 'hit'; emit('paper', 262, 190, 26, { a0: -3, a1: -.2, v0: 120, v1: 420, g: 300, life: 2.4 }); emit('spark', 262, 200, 40, { v0: 200, v1: 520, g: 150, life: .8 });
-  await wait(1400); ring.classList.add('cheer'); sfx.bell(); sfx.cheer(); shout('ko', { force: true, rate: .8, pitch: .5 }); banner('K.O.!', 1100, true);
+  await wait(1400); ring.classList.add('cheer'); sfx.bell(); sfx.cheer(); banner('K.O.!', 1100, true);
   emit('conf', 220, 40, 110, { a0: 1.2, a1: 1.9, v0: 60, v1: 260, g: 260, life: 3, cols: ['#E8A33D', '#C1272D', '#2C5F8A', '#F0E6CC'], r0: 3, r1: 6 });
   you.el.dataset.face = 'win'; const q = c => you.el.querySelector(c), lp = (el, kf, d) => holds.push(A(el, kf, { duration: d, iterations: Infinity, easing: 'ease-in-out' }));
   lp(q('.ua.f'), [rot(-62), rot(70), rot(-62)], 1000); lp(q('.fa.f'), [rot(-2), rot(-60), rot(-2)], 1000); lp(q('.ua.b'), [rot(100), rot(-62), rot(100)], 1000); lp(q('.fa.b'), [rot(-70), rot(-2), rot(-70)], 1000);
   lp(q('.rx'), [{ transform: 'translate(0,0) rotate(-4deg)' }, { transform: 'translate(0,-12px) rotate(4deg)' }, { transform: 'translate(0,0) rotate(-4deg)' }], 500);   // disco point, alternating arms
-  await wait(1200); shout('win', { force: true, rate: 1, pitch: .7 }); banner('YOU WIN!', 1400); btn.textContent = 'Rematch 🔁'; btn.classList.remove('rage'); canReset = true;
+  await wait(1200); banner('YOU WIN!', 1400); btn.textContent = 'Rematch 🔁'; btn.classList.remove('rage'); canReset = true;
 }
 function reset() {
   holds.splice(0).forEach(a => { try { a.cancel(); } catch (e) {} }); ring.classList.remove('cheer'); btn.classList.remove('rage'); [you, corp].forEach(f => f.el.dataset.face = '');
-  beat.stop(); clearTimeout(idleT); you.el.classList.remove('groove'); try { speechSynthesis.cancel(); } catch (e) {} prog = combo = mi = wi = 0; over = canReset = aiOn = boost = wind = false; invuln = 0; atk = null; setHP(you, 100); md = mt = 0; capI = -1; setMeter(0); mp.textContent = '0%'; btn.textContent = 'Throw a Punch 👊';
+  beat.stop(); clearTimeout(idleT); you.el.classList.remove('groove'); prog = combo = mi = wi = 0; over = canReset = aiOn = boost = wind = false; invuln = 0; atk = null; setHP(you, 100); md = mt = 0; capI = -1; setMeter(0); mp.textContent = '0%'; btn.textContent = 'Throw a Punch 👊';
 }
 
 /* ---------- input: acts on pointer-DOWN, same frame, no queue, no turns ---------- */
@@ -1326,7 +1316,7 @@ function press() {
   if (over) { if (canReset) reset(); return; }
   ctx(); btn.animate([{ transform: 'scale(.94)' }, { transform: 'scale(1)' }], { duration: 160, easing: EASE });
   if (!aiOn) { aiOn = true; lastCorpAtk = n; corpNext = n + 900; requestAnimationFrame(ai); banner('FIGHT!', 650, true); sfx.bell(); btn.textContent = 'Keep Punching! 👊'; you.el.classList.add('groove'); beat.start(); }
-  lastPunch = n; shout(combo >= 4 ? 'hhh' : combo >= 2 ? 'hh' : 'h'); clearTimeout(idleT); idleT = setTimeout(() => { if (!over && aiOn && combo >= 3) disco(); }, 650);
+  lastPunch = n; clearTimeout(idleT); idleT = setTimeout(() => { if (!over && aiOn && combo >= 3) disco(); }, 650);
   const k = MOVES[mi++ % MOVES.length]; sfx.whoosh(); const at = swing(you, k); setTimeout(() => land(k), at / TS.v);
 }
 btn.addEventListener('pointerdown', e => { if (e.pointerType === 'mouse' && e.button !== 0) return; lastPD = performance.now(); e.preventDefault(); press(); });
