@@ -102,7 +102,7 @@
 
 <nav>
   <div class="nav-inner">
-    <a href="/" class="logo"><img src="/logo-lockup-nav.png" alt="Fraudify" class="nav-logo-img" width="140" height="49" decoding="async"></a>
+    <a href="/" class="logo"><img src="/logo-lockup-nav.png" alt="Fraudify" class="nav-logo-img" width="368" height="112" decoding="async"></a>
     <div class="user-chip">
       <span id="userNameChip">…</span>
       <button class="logout-btn" id="logoutBtn">Log Out</button>
@@ -142,9 +142,19 @@
   <div id="screenDetails" class="hidden">
     <a href="#" class="back-link" id="backFromDetails">← Back to my cases</a>
     <div class="panel">
-      <h2>Tell Us What Happened</h2>
+      <h2 id="detailsHeading">Tell Us What Happened</h2>
       <p class="sub">Case ID: <strong id="detailsCaseId">—</strong> — payment confirmed. Now let's get the details on record.</p>
+      <div id="infoRequestBanner" class="hidden" style="background:#fff3cd; border:2px dashed var(--ink); padding:12px 14px; margin-bottom:16px; font-size:14px;">
+        <strong>📋 Your agent needs a bit more:</strong>
+        <p id="infoRequestText" style="margin:6px 0 0;"></p>
+      </div>
       <form id="detailsForm">
+        <label class="form-label" for="d-title">Give this case a short title</label>
+        <input class="form-input" type="text" id="d-title" required maxlength="200" placeholder="e.g. Refund never issued for cancelled flight">
+
+        <label class="form-label" for="d-company">Which company is this against?</label>
+        <input class="form-input" type="text" id="d-company" required maxlength="160" placeholder="e.g. Zenith Airlines">
+
         <label class="form-label" for="d-category">What kind of company gave you trouble?</label>
         <select class="form-input" id="d-category">
           <option value="ecommerce">🛒 E-commerce</option>
@@ -155,6 +165,9 @@
           <option value="insurance">🛡️ Insurance</option>
           <option value="other">🤷 Something else</option>
         </select>
+
+        <label class="form-label" for="d-amount">Amount in dispute (₹, optional)</label>
+        <input class="form-input" type="number" id="d-amount" min="0" step="1" placeholder="e.g. 4999">
 
         <label class="form-label" for="d-desc">What happened? (at least 20 characters)</label>
         <textarea class="form-input" id="d-desc" required minlength="20" maxlength="4000" placeholder="What did you buy or sign up for, what went wrong, and what have you tried so far?"></textarea>
@@ -175,6 +188,10 @@
       <span style="font-size:12px; font-weight:700; text-transform:uppercase; color:#5a4f3c;">Your Case ID</span>
       <div class="case-id-big" id="caseViewId">RW-0000-XXXXXX</div>
       <span class="status-badge" id="caseViewStatus">—</span>
+      <div id="caseViewMeta" class="hidden" style="margin-top:14px;">
+        <div style="font-size:19px; font-weight:800;" id="caseViewTitle"></div>
+        <div style="font-size:14px; color:#5a4f3c; margin-top:2px;" id="caseViewCompany"></div>
+      </div>
       <h3 style="margin-top:20px; font-size:16px;">Summary</h3>
       <div class="summary-box" id="caseViewSummary">—</div>
       <div class="file-list" id="caseViewFiles"></div>
@@ -309,8 +326,7 @@
       document.getElementById('payMsg').textContent = '';
       showScreen('pay');
     } else if (status === 'awaiting_details') {
-      document.getElementById('detailsCaseId').textContent = caseId;
-      showScreen('details');
+      await openDetailsForm(caseId);
     } else {
       await openCaseView(caseId);
     }
@@ -349,10 +365,10 @@
 
       currentCaseId = data.caseId;
 
-      // Demo/test mode: the server has already marked the case paid.
-      // Go straight to the human chat instead of showing a fake payment screen.
+      // Demo/test mode: the server has already marked the case paid, so skip the fake
+      // payment screen — but every case still needs the intake form (title/company/amount).
       if (data.testMode || data.paymentStatus === 'paid') {
-        await openCaseView(currentCaseId);
+        await resumeCase(currentCaseId, data.status);
         return;
       }
 
@@ -407,7 +423,8 @@
       if (!config.paymentsLive) {
         const res = await fetch(`/api/my/cases/${currentCaseId}/mock-pay`, { method: 'POST' });
         const data = await res.json(); if (!res.ok) throw new Error(data.error || 'Payment failed.');
-        window.__humanSupportOrder=null; applyLeadPrefill(); await openCaseView(currentCaseId);
+        window.__humanSupportOrder=null;
+        if (data.renewed) { await openCaseView(currentCaseId); } else { await openDetailsForm(currentCaseId); }
         return;
       }
       const orderRes = await fetch(`/api/my/cases/${currentCaseId}/payment-order`, { method: 'POST' });
@@ -420,7 +437,8 @@
           const verifyRes=await fetch(`/api/my/cases/${currentCaseId}/verify-payment`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(response)});
           const verifyData=await verifyRes.json();
           if(!verifyRes.ok){msg.textContent=verifyData.error||'Payment verification failed.';msg.className='msg error';return;}
-          window.__humanSupportOrder=null; applyLeadPrefill(); await openCaseView(currentCaseId);
+          window.__humanSupportOrder=null;
+          if (verifyData.renewed) { await openCaseView(currentCaseId); } else { await openDetailsForm(currentCaseId); }
         },
         theme:{color:'#C1272D'}
       };
@@ -436,10 +454,43 @@
     showScreen('pay');
   });
 
+  async function openDetailsForm(caseId) {
+    currentCaseId = caseId;
+    document.getElementById('detailsCaseId').textContent = caseId;
+    document.getElementById('detailsMsg').textContent = '';
+    showScreen('details');
+
+    const form = document.getElementById('detailsForm');
+    form.reset();
+    document.getElementById('infoRequestBanner').classList.add('hidden');
+    document.getElementById('detailsHeading').textContent = 'Tell Us What Happened';
+
+    try {
+      const res = await fetch(`/api/my/cases/${encodeURIComponent(caseId)}`, { cache: 'no-store' });
+      const c = await res.json().catch(() => ({}));
+      if (res.ok) {
+        if (c.title) document.getElementById('d-title').value = c.title;
+        if (c.companyName) document.getElementById('d-company').value = c.companyName;
+        if (c.category) document.getElementById('d-category').value = c.category;
+        if (c.disputeAmountPaise != null) document.getElementById('d-amount').value = Math.round(c.disputeAmountPaise / 100);
+        if (c.description) document.getElementById('d-desc').value = c.description;
+        if (c.infoRequestNote) {
+          document.getElementById('detailsHeading').textContent = 'A Few More Details, Please';
+          document.getElementById('infoRequestText').textContent = c.infoRequestNote;
+          document.getElementById('infoRequestBanner').classList.remove('hidden');
+        }
+      }
+    } catch (err) {
+      console.debug('openDetailsForm prefill:', err);
+    }
+
+    applyLeadPrefill();
+  }
+
   function applyLeadPrefill() {
     if (!prefillLead) return;
-    if (prefillLead.category) document.getElementById('d-category').value = prefillLead.category;
-    if (prefillLead.story) document.getElementById('d-desc').value = prefillLead.story;
+    if (prefillLead.category && !document.getElementById('d-category').value) document.getElementById('d-category').value = prefillLead.category;
+    if (prefillLead.story && !document.getElementById('d-desc').value) document.getElementById('d-desc').value = prefillLead.story;
     prefillLead = null; // use it once
   }
 
@@ -450,7 +501,20 @@
     const msg = document.getElementById('detailsMsg');
     msg.textContent = ''; msg.className = 'msg';
 
+    const title = document.getElementById('d-title').value.trim();
+    const company = document.getElementById('d-company').value.trim();
     const description = document.getElementById('d-desc').value.trim();
+    const amount = document.getElementById('d-amount').value;
+    if (!title) {
+      msg.textContent = 'Please give this case a short title.';
+      msg.className = 'msg error';
+      return;
+    }
+    if (!company) {
+      msg.textContent = 'Please tell us which company this is against.';
+      msg.className = 'msg error';
+      return;
+    }
     if (description.length < 20) {
       msg.textContent = 'Please add a bit more detail (at least 20 characters).';
       msg.className = 'msg error';
@@ -459,8 +523,11 @@
 
     btn.disabled = true; btn.textContent = 'Submitting…';
     const formData = new FormData();
+    formData.append('title', title);
+    formData.append('companyName', company);
     formData.append('category', document.getElementById('d-category').value);
     formData.append('description', description);
+    if (amount !== '') formData.append('disputeAmount', amount);
     if (prefillLeadId) formData.append('leadId', prefillLeadId);
     const files = document.getElementById('d-proofs').files;
     for (let i = 0; i < files.length; i++) formData.append('proofs', files[i]);
@@ -469,7 +536,7 @@
       const res = await fetch(`/api/my/cases/${currentCaseId}/details`, { method: 'POST', body: formData });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Could not submit case details.');
-      openCaseView(currentCaseId);
+      await openCaseView(currentCaseId);
     } catch (err) {
       msg.textContent = err.message; msg.className = 'msg error';
     } finally {
@@ -488,6 +555,10 @@
       document.getElementById('caseViewId').textContent = c.caseId;
       document.getElementById('caseViewStatus').textContent = statusLabel(c.status);
       document.getElementById('caseViewStatus').className = `status-badge status-${c.status}`;
+      const hasMeta = !!(c.title || c.companyName);
+      document.getElementById('caseViewMeta').classList.toggle('hidden', !hasMeta);
+      document.getElementById('caseViewTitle').textContent = c.title || '';
+      document.getElementById('caseViewCompany').textContent = [c.companyName, c.disputeAmountPaise != null ? `₹${(c.disputeAmountPaise / 100).toLocaleString('en-IN')} in dispute` : null].filter(Boolean).join(' · ');
       document.getElementById('caseViewSummary').textContent = c.summary || 'Your case is open. Start the conversation below and a Fraudify human can reply.';
       document.getElementById('caseViewFiles').textContent = c.proofFiles && c.proofFiles.length
         ? `📎 ${c.proofFiles.length} file(s) attached: ${c.proofFiles.map(f => f.originalName).join(', ')}`
@@ -745,7 +816,7 @@ if (dash) {
 
   // case list: loader only on the very first load; re-render only when data really changed; keep last good list on errors
   const row = c => { const locked = !!c.accessExpired, p = locked ? 'Access expired — renew to continue' : (c.lastMessageText ? `${senderLabel(c)}: ${c.lastMessageText}` : 'No messages yet'), n = Number(c.unreadCount || 0);
-    return `<div class="case-row ${n ? 'unread' : ''}" data-case="${escapeHtml(c.caseId)}" data-status="${escapeHtml(c.status || '')}"><div style="min-width:0;flex:1"><div class="case-id">${escapeHtml(c.caseId)}${locked ? ' <span style="color:#9b6810;font-size:11px;font-weight:800;">⏳ EXPIRED</span>' : ''}</div><div class="case-meta">${c.createdAt ? new Date(c.createdAt).toLocaleString('en-IN') : 'Date unavailable'}${c.category ? ' • ' + escapeHtml(c.category) : ''}</div><div class="case-preview"${locked ? ' style="color:#9b6810;font-weight:600;"' : ''}>${escapeHtml(p)}</div></div><div class="case-actions">${n ? `<span class="unread-pill" title="${n} unread message${n === 1 ? '' : 's'}">${n > 99 ? '99+' : n}</span>` : ''}<span class="status-badge status-${escapeHtml(c.status || '')}">${escapeHtml(statusLabel(c.status || ''))}</span></div></div>`; };
+    return `<div class="case-row ${n ? 'unread' : ''}" data-case="${escapeHtml(c.caseId)}" data-status="${escapeHtml(c.status || '')}"><div style="min-width:0;flex:1"><div class="case-id">${escapeHtml(c.title || c.caseId)}${locked ? ' <span style="color:#9b6810;font-size:11px;font-weight:800;">⏳ EXPIRED</span>' : ''}</div><div class="case-meta">${c.companyName ? escapeHtml(c.companyName) + ' • ' : ''}${c.createdAt ? new Date(c.createdAt).toLocaleString('en-IN') : 'Date unavailable'}${c.category ? ' • ' + escapeHtml(c.category) : ''}</div><div class="case-preview"${locked ? ' style="color:#9b6810;font-weight:600;"' : ''}>${escapeHtml(p)}</div></div><div class="case-actions">${n ? `<span class="unread-pill" title="${n} unread message${n === 1 ? '' : 's'}">${n > 99 ? '99+' : n}</span>` : ''}<span class="status-badge status-${escapeHtml(c.status || '')}">${escapeHtml(statusLabel(c.status || ''))}</span></div></div>`; };
   let listBusy = false, listKey = null;
   window.loadCases = async function () {
     if (listBusy) return; listBusy = true; const el = $('caseList');
