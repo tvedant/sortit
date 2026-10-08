@@ -96,6 +96,7 @@
   .back-link:hover{color:var(--crimson);}
   .file-list{font-size:13px; margin-top:8px; color:#5a4f3c;}
   .hidden{display:none;}
+  #newCaseModal:not(.hidden){display:flex;}
 </style>
 <meta name="theme-color" content="#F0E6CC"><style>@view-transition{navigation:auto}::view-transition-old(root){animation:.2s ease both rwo}::view-transition-new(root){animation:.45s cubic-bezier(.22,1,.36,1) both rwn}@keyframes rwo{to{opacity:0;transform:translateY(-12px)}}@keyframes rwn{from{opacity:0;transform:translateY(24px)}}</style><link rel="preconnect" href="https://checkout.razorpay.com"></head>
 <body>
@@ -139,7 +140,7 @@
   </div>
 
   <!-- MODAL: new-case quick intake (one-time, not a gate — chat opens right after) -->
-  <div id="newCaseModal" class="hidden" style="position:fixed; inset:0; background:rgba(26,22,17,.55); z-index:60; display:flex; align-items:center; justify-content:center; padding:20px;">
+  <div id="newCaseModal" class="hidden" style="position:fixed; inset:0; background:rgba(26,22,17,.55); z-index:60; align-items:center; justify-content:center; padding:20px;">
     <div class="panel" style="max-width:460px; width:100%; max-height:90vh; overflow:auto; background:#fff; margin:0;">
       <h2 style="margin-top:0;">Start Your Case</h2>
       <p class="sub">Just the basics — tell us the full story in chat once this is open.</p>
