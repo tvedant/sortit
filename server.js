@@ -161,8 +161,43 @@ function casePatchToDb(p) {
 
   return out;
 }
-async function createCase(c){ if(!DB_ENABLED){const a=readJson(FILES.cases);a.push(c);writeJson(FILES.cases,a);return c;} return caseFromDb((await dbInsert('cases',[casePatchToDb(c)]))[0]); }
-async function updateCase(caseId, patch){ if(!DB_ENABLED){const a=readJson(FILES.cases);const i=a.findIndex(x=>x.caseId===caseId);if(i<0)return null;Object.assign(a[i],patch);writeJson(FILES.cases,a);return a[i];} return caseFromDb((await dbUpdate('cases',`case_id=eq.${encodeURIComponent(caseId)}`,casePatchToDb(patch)))[0]); }
+let CASE_SCHEMA_CACHE = null;
+let CASE_SCHEMA_CACHE_AT = 0;
+const CASE_SCHEMA_TTL_MS = 5 * 60 * 1000;
+const CASE_SCHEMA_WARNED = new Set();
+async function getCaseSchema() {
+  if (!DB_ENABLED) return null;
+  const now = Date.now();
+  if (CASE_SCHEMA_CACHE && now - CASE_SCHEMA_CACHE_AT < CASE_SCHEMA_TTL_MS) return CASE_SCHEMA_CACHE;
+  try {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/`, { method: 'GET', headers: { apikey: SUPABASE_SECRET_KEY, Authorization: `Bearer ${SUPABASE_SECRET_KEY}`, Accept: 'application/openapi+json, application/json' } });
+    if (!res.ok) throw new Error(`Supabase schema discovery failed: ${res.status}`);
+    const spec = await res.json();
+    const definition = spec?.definitions?.cases || spec?.components?.schemas?.cases;
+    const columns = new Set(Object.keys(definition?.properties || {}));
+    if (!columns.size) throw new Error('cases table columns were not exposed by PostgREST');
+    CASE_SCHEMA_CACHE = columns; CASE_SCHEMA_CACHE_AT = now;
+    return columns;
+  } catch (err) {
+    console.warn('Case schema discovery unavailable:', err.message);
+    return CASE_SCHEMA_CACHE || null;
+  }
+}
+// Drops any patch key whose DB column doesn't exist yet, so an un-migrated optional field
+// (e.g. title/company_name before its migration has run) never breaks the rest of the update.
+async function patchForCaseSchema(patch) {
+  const dbPatch = casePatchToDb(patch);
+  const columns = await getCaseSchema();
+  if (!columns) return dbPatch;
+  const out = {};
+  for (const [col, val] of Object.entries(dbPatch)) {
+    if (columns.has(col)) { out[col] = val; continue; }
+    if (!CASE_SCHEMA_WARNED.has(col)) { CASE_SCHEMA_WARNED.add(col); console.warn(`cases.${col} does not exist yet — skipping it until the matching migration is run (value was not saved).`); }
+  }
+  return out;
+}
+async function createCase(c){ if(!DB_ENABLED){const a=readJson(FILES.cases);a.push(c);writeJson(FILES.cases,a);return c;} return caseFromDb((await dbInsert('cases',[await patchForCaseSchema(c)]))[0]); }
+async function updateCase(caseId, patch){ if(!DB_ENABLED){const a=readJson(FILES.cases);const i=a.findIndex(x=>x.caseId===caseId);if(i<0)return null;Object.assign(a[i],patch);writeJson(FILES.cases,a);return a[i];} return caseFromDb((await dbUpdate('cases',`case_id=eq.${encodeURIComponent(caseId)}`,await patchForCaseSchema(patch)))[0]); }
 
 let MESSAGE_SCHEMA_CACHE = null;
 let MESSAGE_SCHEMA_CACHE_AT = 0;
@@ -713,6 +748,15 @@ async function createPaymentOrder(record){
 }
 
 app.post('/api/my/cases',requireAuth,rateLimit('case-create',10,30*60*1000),async(req,res)=>{try{
+  const title=String(req.body?.title||'').trim().slice(0,200);
+  const companyName=String(req.body?.companyName||'').trim().slice(0,160);
+  const category=String(req.body?.category||'other').trim().slice(0,40);
+  if(!title)return res.status(400).json({error:'Please add a short title for this case.'});
+  if(!companyName)return res.status(400).json({error:'Please tell us which company this is against.'});
+  const amountRaw=req.body?.disputeAmount;
+  const disputeAmountPaise=amountRaw!==undefined&&amountRaw!==''&&amountRaw!==null?Math.max(0,Math.round(Number(amountRaw)*100)):null;
+  if(amountRaw!==undefined&&amountRaw!==''&&amountRaw!==null&&!Number.isFinite(disputeAmountPaise))return res.status(400).json({error:'Dispute amount must be a number.'});
+
   let caseId=genCaseId();
   while(await findCase(caseId)) caseId=genCaseId();
 
@@ -724,7 +768,10 @@ app.post('/api/my/cases',requireAuth,rateLimit('case-create',10,30*60*1000),asyn
     userId:req.user.uid,
     userEmail:req.user.email,
     userName:req.user.name,
-    category:null,
+    title,
+    companyName,
+    category,
+    disputeAmountPaise,
     description:null,
     summary:null,
     amountPaise:CASE_FEE_PAISE,
@@ -733,7 +780,7 @@ app.post('/api/my/cases',requireAuth,rateLimit('case-create',10,30*60*1000),asyn
     razorpayOrderId:demoMode?`test_order_${crypto.randomUUID().slice(0,8)}`:null,
     razorpayPaymentId:demoMode?`test_pay_${crypto.randomUUID().slice(0,8)}`:null,
     leadId:null,
-    status:demoMode?'awaiting_details':'awaiting_payment',
+    status:demoMode?'in-progress':'awaiting_payment',
     createdAt:now,
     updatedAt:now
   };
@@ -771,7 +818,7 @@ app.post('/api/my/leads/:leadId/human-support',requireAuth,rateLimit('human-supp
 }catch(e){console.error(e);res.status(500).json({error:'Could not start human support.'});}});
 
 app.post('/api/my/cases/:caseId/payment-order',requireAuth,async(req,res)=>{try{const record=await findCase(req.params.caseId,req.user.uid);if(!record)return res.status(404).json({error:'Case not found.'});if(casePaymentStatus(record)==='paid'&&!isCaseExpired(record))return res.json({ok:true,alreadyPaid:true,caseId:record.caseId});const order=await createPaymentOrder(record);res.json({ok:true,caseId:record.caseId,orderId:order.orderId,amountPaise:record.amountPaise??record.amount_paise,keyId:PAYMENTS_LIVE?RAZORPAY_KEY_ID:null,testMode:!PAYMENTS_LIVE,renewal:isCaseExpired(record)});}catch(e){console.error(e);res.status(502).json({error:'Could not start payment.'});}});
-app.post('/api/my/cases/:caseId/verify-payment',requireAuth,async(req,res)=>{const{razorpay_order_id,razorpay_payment_id,razorpay_signature}=req.body||{};const record=await findCase(req.params.caseId,req.user.uid);if(!record)return res.status(404).json({error:'Case not found.'});if(!PAYMENTS_LIVE)return res.status(400).json({error:'Live payments are not configured. Use the test-mode confirmation instead.'});const expected=crypto.createHmac('sha256',RAZORPAY_KEY_SECRET).update(`${razorpay_order_id}|${razorpay_payment_id}`).digest('hex');const providedSig=String(razorpay_signature||''); if(providedSig.length!==expected.length || !crypto.timingSafeEqual(Buffer.from(expected),Buffer.from(providedSig)))return res.status(400).json({error:'Payment verification failed. Please contact support.'});const firstPayment=casePaymentStatus(record)!=='paid';const now=new Date().toISOString();let nextStatus=record.status;if(firstPayment){nextStatus='awaiting_details';await updateCase(record.caseId,{paymentStatus:'paid',razorpayPaymentId:razorpay_payment_id,status:nextStatus,activatedAt:now,updatedAt:now});if(record.leadId)await importLeadTranscriptIntoCase(record,record.leadId,req.user.name);}else{await updateCase(record.caseId,{paymentStatus:'paid',razorpayPaymentId:razorpay_payment_id,activatedAt:now,updatedAt:now});}res.json({ok:true,caseId:record.caseId,status:nextStatus,humanSupport:Boolean(record.leadId),renewed:!firstPayment});});
+app.post('/api/my/cases/:caseId/verify-payment',requireAuth,async(req,res)=>{const{razorpay_order_id,razorpay_payment_id,razorpay_signature}=req.body||{};const record=await findCase(req.params.caseId,req.user.uid);if(!record)return res.status(404).json({error:'Case not found.'});if(!PAYMENTS_LIVE)return res.status(400).json({error:'Live payments are not configured. Use the test-mode confirmation instead.'});const expected=crypto.createHmac('sha256',RAZORPAY_KEY_SECRET).update(`${razorpay_order_id}|${razorpay_payment_id}`).digest('hex');const providedSig=String(razorpay_signature||''); if(providedSig.length!==expected.length || !crypto.timingSafeEqual(Buffer.from(expected),Buffer.from(providedSig)))return res.status(400).json({error:'Payment verification failed. Please contact support.'});const firstPayment=casePaymentStatus(record)!=='paid';const now=new Date().toISOString();let nextStatus=record.status;if(firstPayment){nextStatus='in-progress';await updateCase(record.caseId,{paymentStatus:'paid',razorpayPaymentId:razorpay_payment_id,status:nextStatus,activatedAt:now,updatedAt:now});if(record.leadId)await importLeadTranscriptIntoCase(record,record.leadId,req.user.name);}else{await updateCase(record.caseId,{paymentStatus:'paid',razorpayPaymentId:razorpay_payment_id,activatedAt:now,updatedAt:now});}res.json({ok:true,caseId:record.caseId,status:nextStatus,humanSupport:Boolean(record.leadId),renewed:!firstPayment});});
 app.post('/api/my/cases/:caseId/mock-pay',requireAuth,asyncHandler(async(req,res)=>{
   if(PAYMENTS_LIVE)return res.status(400).json({error:'Live payments are configured — use real checkout instead.'});
   const record=await findCase(req.params.caseId,req.user.uid);
@@ -781,7 +828,7 @@ app.post('/api/my/cases/:caseId/mock-pay',requireAuth,asyncHandler(async(req,res
   const now=new Date().toISOString();
   let nextStatus=record.status;
   if(firstPayment){
-    nextStatus='awaiting_details';
+    nextStatus='in-progress';
     await updateCase(record.caseId,{paymentStatus:'paid',razorpayPaymentId:`test_pay_${crypto.randomUUID().slice(0,8)}`,status:nextStatus,activatedAt:now,updatedAt:now});
     if(record.leadId)await importLeadTranscriptIntoCase(record,record.leadId,req.user.name);
   } else {
@@ -790,10 +837,20 @@ app.post('/api/my/cases/:caseId/mock-pay',requireAuth,asyncHandler(async(req,res
   res.json({ok:true,caseId:record.caseId,status:nextStatus,humanSupport:Boolean(record.leadId),renewed:!firstPayment});
 }));
 
-app.post('/api/my/cases/:caseId/details',requireAuth,upload.array('proofs',5),async(req,res)=>{try{const record=await findCase(req.params.caseId,req.user.uid);if(!record)return res.status(404).json({error:'Case not found.'});if((record.paymentStatus||record.payment_status)!=='paid')return res.status(402).json({error:'Please complete the ₹59 filing fee first.'});const{category,description,title,companyName}=req.body||{};if(!title||!title.trim())return res.status(400).json({error:'Please add a short title for this case.'});if(!companyName||!companyName.trim())return res.status(400).json({error:'Please tell us which company this is against.'});if(!description||description.trim().length<20)return res.status(400).json({error:'Please describe what happened in at least 20 characters.'});const disputeAmountRupeesRaw=req.body&&req.body.disputeAmount;const disputeAmountPaise=disputeAmountRupeesRaw!==undefined&&disputeAmountRupeesRaw!==''?Math.max(0,Math.round(Number(disputeAmountRupeesRaw)*100)):null;if(disputeAmountRupeesRaw!==undefined&&disputeAmountRupeesRaw!==''&&!Number.isFinite(disputeAmountPaise))return res.status(400).json({error:'Dispute amount must be a number.'});const files=[];for(const file of req.files||[]){const filename=`${Date.now()}-${crypto.randomBytes(8).toString('hex')}-${file.originalname.replace(/[^a-zA-Z0-9._-]/g,'_').slice(-80)}`;const storagePath=`${record.caseId}/${filename}`;if(DB_ENABLED){await uploadToStorage(file,storagePath);const f={id:crypto.randomUUID(),caseId:record.caseId,filename,originalName:file.originalname,size:file.size,mimeType:file.mimetype,storagePath,createdAt:new Date().toISOString()};await createCaseFile(f);files.push(f);}else{const dir=path.join(UPLOADS_DIR,record.caseId);fs.mkdirSync(dir,{recursive:true});fs.writeFileSync(path.join(dir,filename),file.buffer);files.push({filename,originalName:file.originalname,size:file.size});}}
-const cat=(category||'other').slice(0,40);const desc=description.trim().slice(0,4000);const ttl=title.trim().slice(0,200);const comp=companyName.trim().slice(0,160);const summary=buildSummary({category:cat,description:desc});await updateCase(record.caseId,{category:cat,description:desc,title:ttl,companyName:comp,disputeAmountPaise,summary,status:'submitted',infoRequestNote:null,updatedAt:new Date().toISOString()});
+// Optional, not required to unlock chat: attach proof files any time, or touch up the case's
+// title/company/category/amount after creation. Every field here is optional — only what the
+// customer actually sends gets changed. The story itself belongs in the chat.
+app.post('/api/my/cases/:caseId/details',requireAuth,upload.array('proofs',5),async(req,res)=>{try{const record=await findCase(req.params.caseId,req.user.uid);if(!record)return res.status(404).json({error:'Case not found.'});if((record.paymentStatus||record.payment_status)!=='paid')return res.status(402).json({error:'Please complete the ₹59 filing fee first.'});const{category,description,title,companyName}=req.body||{};const disputeAmountRupeesRaw=req.body&&req.body.disputeAmount;const disputeAmountPaise=disputeAmountRupeesRaw!==undefined&&disputeAmountRupeesRaw!==''?Math.max(0,Math.round(Number(disputeAmountRupeesRaw)*100)):undefined;if(disputeAmountRupeesRaw!==undefined&&disputeAmountRupeesRaw!==''&&!Number.isFinite(disputeAmountPaise))return res.status(400).json({error:'Dispute amount must be a number.'});const files=[];for(const file of req.files||[]){const filename=`${Date.now()}-${crypto.randomBytes(8).toString('hex')}-${file.originalname.replace(/[^a-zA-Z0-9._-]/g,'_').slice(-80)}`;const storagePath=`${record.caseId}/${filename}`;if(DB_ENABLED){await uploadToStorage(file,storagePath);const f={id:crypto.randomUUID(),caseId:record.caseId,filename,originalName:file.originalname,size:file.size,mimeType:file.mimetype,storagePath,createdAt:new Date().toISOString()};await createCaseFile(f);files.push(f);}else{const dir=path.join(UPLOADS_DIR,record.caseId);fs.mkdirSync(dir,{recursive:true});fs.writeFileSync(path.join(dir,filename),file.buffer);files.push({filename,originalName:file.originalname,size:file.size});}}
+const patch={updatedAt:new Date().toISOString()};
+if(category!==undefined&&category!==null)patch.category=String(category).slice(0,40);
+if(title!==undefined&&title!==null&&String(title).trim())patch.title=String(title).trim().slice(0,200);
+if(companyName!==undefined&&companyName!==null&&String(companyName).trim())patch.companyName=String(companyName).trim().slice(0,160);
+if(description!==undefined&&description!==null&&String(description).trim())patch.description=String(description).trim().slice(0,4000);
+if(disputeAmountPaise!==undefined)patch.disputeAmountPaise=disputeAmountPaise;
+if(patch.description||patch.category)patch.summary=buildSummary({category:patch.category||record.category||'other',description:patch.description||record.description||''});
+await updateCase(record.caseId,patch);
 const leadId=String(req.body?.leadId||'').trim();if(leadId)await importLeadTranscriptIntoCase(record,leadId,req.user.name);
-res.json({ok:true,caseId:record.caseId,summary,title:ttl,companyName:comp,disputeAmountPaise});}catch(e){console.error(e);res.status(500).json({error:'Could not save case details or evidence.'});}});
+res.json({ok:true,caseId:record.caseId,...patch});}catch(e){console.error(e);res.status(500).json({error:'Could not save case details or evidence.'});}});
 
 function stripInternal(c){const x=caseFromDb(c);const{userId,...rest}=x;return rest;}
 async function decorateCase(c){
@@ -943,7 +1000,7 @@ app.get('/api/admin/cases/:caseId',requireStaff,asyncHandler(async(req,res)=>{
   const c=caseFromDb(record);if(!(await canStaffAccessCase(req.staff,c)))return res.status(403).json({error:'This case is assigned to another agent.'});
   res.json(await decorateCase(record));
 }));
-app.patch('/api/admin/cases/:caseId/status',requireStaff,async(req,res)=>{const allowed=['awaiting_details','submitted','in-progress','won','closed'];if(!allowed.includes(req.body?.status))return res.status(400).json({error:`Status must be one of: ${allowed.join(', ')}`});const record=await findCase(req.params.caseId);if(!record)return res.status(404).json({error:'Case not found.'});if(!(await canStaffAccessCase(req.staff,caseFromDb(record))))return res.status(403).json({error:'This case is assigned to another agent.'});const noteRaw=typeof req.body?.note==='string'?req.body.note.trim().slice(0,500):'';const infoRequestNote=req.body.status==='awaiting_details'&&noteRaw?noteRaw:null;await updateCase(req.params.caseId,{status:req.body.status,infoRequestNote,updatedAt:new Date().toISOString()});res.json({ok:true,infoRequestNote});});
+app.patch('/api/admin/cases/:caseId/status',requireStaff,async(req,res)=>{const allowed=['awaiting_details','submitted','in-progress','won','closed'];if(!allowed.includes(req.body?.status))return res.status(400).json({error:`Status must be one of: ${allowed.join(', ')}`});const record=await findCase(req.params.caseId);if(!record)return res.status(404).json({error:'Case not found.'});if(!(await canStaffAccessCase(req.staff,caseFromDb(record))))return res.status(403).json({error:'This case is assigned to another agent.'});await updateCase(req.params.caseId,{status:req.body.status,updatedAt:new Date().toISOString()});res.json({ok:true});});
 app.patch('/api/admin/cases/:caseId/assign',requireAdmin,async(req,res)=>{try{
   const record=await findCase(req.params.caseId);if(!record)return res.status(404).json({error:'Case not found.'});
   const agentId=req.body?.agentId?String(req.body.agentId):null;
