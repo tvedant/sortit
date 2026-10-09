@@ -2,12 +2,58 @@
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Fraudify — Support Workspace</title><link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png"><link rel="icon" type="image/png" sizes="192x192" href="/favicon-192.png">
 <style>
 :root{--ink:#181613;--paper:#f5f0e7;--panel:#fff;--muted:#756d61;--line:#d8d0c3;--red:#c1272d;--blue:#2457a6;--green:#28734b;--amber:#9b6810}*{box-sizing:border-box}body{margin:0;background:var(--paper);color:var(--ink);font-family:Inter,system-ui,-apple-system,Segoe UI,sans-serif}.top{background:var(--ink);color:#fff;padding:15px 24px;display:flex;align-items:center;justify-content:space-between;gap:20px}.brand{font-weight:900;letter-spacing:.04em;font-size:15px;display:flex;align-items:center;gap:10px}.brand-logo{background:#F0E6CC;border-radius:8px;padding:5px 10px;display:flex;align-items:center;flex:none}.brand-logo img{height:22px;width:auto;display:block}.top-right{display:flex;align-items:center;gap:12px;font-size:13px}.ghost{border:1px solid #777;background:transparent;color:#fff;padding:8px 12px;cursor:pointer}.wrap{max-width:1500px;margin:0 auto;padding:22px}.stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:18px}.stat{background:#fff;border:2px solid var(--ink);padding:16px}.stat b{display:block;font-size:25px}.stat span{font-size:12px;color:var(--muted)}.layout{display:grid;grid-template-columns:1.1fr 1.9fr;gap:16px;min-height:700px}.panel{background:#fff;border:2px solid var(--ink);min-width:0}.panel-head{padding:15px;border-bottom:2px solid var(--ink);display:flex;align-items:center;justify-content:space-between;gap:10px}.panel-head h2{font-size:16px;margin:0}.filters{display:flex;gap:8px;flex-wrap:wrap}.select,.search{border:2px solid var(--ink);background:#fff;padding:9px;font:inherit;font-size:13px}.case-list{max-height:650px;overflow:auto}.case{padding:15px;border-bottom:1px solid var(--line);cursor:pointer;position:relative}.case:hover,.case.active{background:#f6f8fb}.case.unread{background:#fffaf0;border-left:4px solid var(--red);padding-left:11px}.case-preview{font-size:12px;color:var(--muted);margin-top:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}.case-bottom{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:5px}.unread-pill{display:inline-flex;align-items:center;justify-content:center;min-width:20px;height:20px;padding:0 6px;background:var(--red);color:#fff;border-radius:999px;font-size:10px;font-weight:900;box-shadow:0 0 0 0 rgba(193,39,45,.45);animation:unreadPulse 1.8s infinite}@keyframes unreadPulse{0%{box-shadow:0 0 0 0 rgba(193,39,45,.45)}70%{box-shadow:0 0 0 6px rgba(193,39,45,0)}100%{box-shadow:0 0 0 0 rgba(193,39,45,0)}}.last-time{font-size:10px;color:var(--muted)}.case-top{display:flex;justify-content:space-between;gap:10px}.case-id{font-weight:900}.case-meta{font-size:12px;color:var(--muted);margin-top:4px}.badge{display:inline-block;padding:4px 8px;border-radius:999px;font-size:10px;font-weight:900;text-transform:uppercase;background:#eee}.badge.in-progress{background:#e3edff;color:var(--blue)}.badge.won{background:#dff4e7;color:var(--green)}.badge.closed{background:#eee}.badge.awaiting_details,.badge.submitted{background:#fff1cf;color:var(--amber)}.badge.awaiting_payment{background:#ffe1e1;color:var(--red)}.empty{padding:35px;text-align:center;color:var(--muted)}.detail{display:flex;flex-direction:column;height:100%}.detail-head{padding:18px;border-bottom:2px solid var(--ink)}.detail-head h1{margin:0;font-size:22px}.detail-head p{margin:5px 0 0;color:var(--muted);font-size:13px}.detail-tools{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}.btn{border:2px solid var(--ink);background:var(--ink);color:#fff;padding:9px 13px;font-weight:800;cursor:pointer}.btn.secondary{background:#fff;color:var(--ink)}.btn.red{background:var(--red)}.detail-body{padding:18px;overflow:auto}.grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}.field{border-bottom:1px solid var(--line);padding-bottom:10px}.field label{display:block;text-transform:uppercase;font-size:10px;font-weight:900;color:var(--muted);margin-bottom:4px}.field div{font-size:14px;line-height:1.5;white-space:pre-wrap}.chat{border:2px solid var(--ink);margin-top:18px}.messages{height:360px;overflow:auto;padding:14px;background:#fafafa;display:flex;flex-direction:column;gap:10px}.msg{max-width:78%;padding:10px 12px;border:1px solid var(--line);line-height:1.45;font-size:13px}.msg.customer{align-self:flex-start;background:#fff;border-color:#cfc7bb}.msg.agent{align-self:flex-end;background:#e9f0ff;border-color:#9db9e3}.msg.admin{align-self:flex-end;background:#fff0c2;border-color:#d6a91d}.msg .who{font-size:10px;font-weight:900;text-transform:uppercase;color:var(--muted);display:block;margin-bottom:3px}.composer{display:flex;border-top:2px solid var(--ink)}.composer textarea{flex:1;min-height:64px;border:0;padding:12px;font:inherit;resize:vertical}.composer button{border:0;border-left:2px solid var(--ink);padding:0 18px;background:var(--ink);color:#fff;font-weight:900}.side-card{margin-top:18px;border:2px solid var(--ink);padding:14px}.agent-row{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--line)}.agent-row:last-child{border-bottom:0}.agent-name{font-weight:800}.agent-email{font-size:11px;color:var(--muted)}.small{font-size:11px;color:var(--muted)}.hidden{display:none!important}@media(max-width:1000px){.layout{grid-template-columns:1fr}.stats{grid-template-columns:repeat(2,1fr)}.case-list{max-height:380px}}@media(max-width:600px){.wrap{padding:12px}.stats{grid-template-columns:1fr 1fr}.grid2{grid-template-columns:1fr}.top{padding:12px}.top-right span{display:none}}
-</style><meta name="theme-color" content="#F0E6CC"><style>@view-transition{navigation:auto}::view-transition-old(root){animation:.2s ease both rwo}::view-transition-new(root){animation:.45s cubic-bezier(.22,1,.36,1) both rwn}@keyframes rwo{to{opacity:0;transform:translateY(-12px)}}@keyframes rwn{from{opacity:0;transform:translateY(24px)}}</style></head><body>
-<header class="top"><div class="brand"><span class="brand-logo"><img src="/logo-lockup-nav.png" alt="Fraudify" width="368" height="112" decoding="async"></span> / SUPPORT</div><div class="top-right"><button class="ghost hidden" id="statsBtn" type="button">📊 Stats</button><span id="staffName">Loading…</span><span id="staffRole"></span><button class="ghost" id="logout">Log out</button></div></header>
-<div id="statsOverlay" class="hidden" style="position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:50;display:flex;align-items:flex-start;justify-content:center;padding:40px 16px;overflow:auto">
-  <div class="panel" style="max-width:720px;width:100%;background:#fff">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px"><h2 style="margin:0">Case analytics</h2><button class="ghost" id="statsClose" type="button">Close ✕</button></div>
-    <div id="statsBody">Loading…</div>
+</style><meta name="theme-color" content="#F0E6CC"><style>@view-transition{navigation:auto}::view-transition-old(root){animation:.2s ease both rwo}::view-transition-new(root){animation:.45s cubic-bezier(.22,1,.36,1) both rwn}@keyframes rwo{to{opacity:0;transform:translateY(-12px)}}@keyframes rwn{from{opacity:0;transform:translateY(24px)}}
+.stats-trigger{display:inline-flex;align-items:center;gap:7px;border:1px solid #777;background:transparent;color:#fff;padding:8px 13px;font:inherit;font-size:13px;font-weight:700;cursor:pointer;border-radius:8px;transition:background .2s,border-color .2s,transform .15s cubic-bezier(.34,1.56,.64,1)}
+.stats-trigger svg{transition:transform .3s cubic-bezier(.34,1.56,.64,1)}
+.stats-trigger:hover{background:rgba(255,255,255,.12);border-color:#aaa}
+.stats-trigger:hover svg{transform:scaleY(1.25)}
+.stats-trigger:active{transform:scale(.94)}
+#statsOverlay{position:fixed;inset:0;z-index:80;display:flex;align-items:center;justify-content:center;padding:24px}
+#statsOverlay.hidden{display:none}
+#statsScrim{position:absolute;inset:0;background:rgba(24,22,19,.5);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);opacity:0;transition:opacity .32s cubic-bezier(.22,1,.36,1)}
+#statsPanel{position:relative;background:#fff;border:2px solid var(--ink);width:100%;max-width:880px;max-height:min(84vh,860px);display:flex;flex-direction:column;border-radius:14px;box-shadow:0 30px 70px -20px rgba(0,0,0,.45);opacity:0;transform:translateY(22px) scale(.96);transition:opacity .32s cubic-bezier(.22,1,.36,1),transform .38s cubic-bezier(.22,1,.36,1)}
+#statsOverlay.open #statsScrim{opacity:1}
+#statsOverlay.open #statsPanel{opacity:1;transform:translateY(0) scale(1)}
+#statsHead{flex:none;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:18px 22px;border-bottom:2px solid var(--ink)}
+#statsTitle{margin:0;font-size:18px;font-weight:900;display:flex;align-items:center;gap:10px}
+#statsTitle svg{flex:none;color:var(--blue)}
+#statsClose{flex:none;border:0;background:transparent;color:var(--ink);width:34px;height:34px;border-radius:50%;display:grid;place-items:center;cursor:pointer;transition:background .18s,transform .18s}
+#statsClose:hover{background:#f1efe8;transform:rotate(90deg)}
+#statsBody{flex:1;overflow:auto;padding:22px}
+.stats-loading{display:flex;align-items:center;justify-content:center;gap:8px;padding:60px 0}
+.stats-loading span{width:10px;height:10px;border-radius:50%;background:var(--blue);animation:statsBounce 1s ease-in-out infinite}
+.stats-loading span:nth-child(2){background:var(--red);animation-delay:.15s}
+.stats-loading span:nth-child(3){background:var(--amber);animation-delay:.3s}
+@keyframes statsBounce{0%,80%,100%{transform:translateY(0);opacity:.5}40%{transform:translateY(-10px);opacity:1}}
+.stats-kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:26px}
+.stat-card{border:2px solid var(--ink);border-radius:10px;padding:14px;background:#fdfcf9;opacity:0;transform:translateY(14px);animation:statsCardIn .5s cubic-bezier(.22,1,.36,1) forwards}
+.stat-card label{display:block;text-transform:uppercase;font-size:10px;font-weight:900;color:var(--muted);margin-bottom:6px;letter-spacing:.03em}
+.stat-card .v{font-size:24px;font-weight:900;line-height:1.1}
+@keyframes statsCardIn{to{opacity:1;transform:translateY(0)}}
+.stats-section-title{font-size:13px;font-weight:900;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);margin:26px 0 10px;display:flex;align-items:center;gap:8px}
+.stats-section-title::after{content:'';flex:1;height:1px;background:var(--line)}
+.stats-pills{display:flex;flex-wrap:wrap;gap:8px}
+.stats-pill{opacity:0;transform:scale(.7);animation:statsPillIn .4s cubic-bezier(.34,1.56,.64,1) forwards}
+@keyframes statsPillIn{to{opacity:1;transform:scale(1)}}
+.stat-bar-row{opacity:0;transform:translateX(-10px);animation:statsRowIn .45s cubic-bezier(.22,1,.36,1) forwards;margin-bottom:12px}
+@keyframes statsRowIn{to{opacity:1;transform:translateX(0)}}
+.stat-bar-row .top{display:flex;justify-content:space-between;gap:10px;font-size:13px;margin-bottom:5px}
+.stat-bar-row .top .name{font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:60%}
+.stat-bar-row .top .meta{color:var(--muted);white-space:nowrap}
+.stat-bar-track{height:9px;border-radius:999px;background:#eee4d4;overflow:hidden}
+.stat-bar-fill{height:100%;border-radius:999px;width:0;background:linear-gradient(90deg,var(--blue),#5b8fd6);transition:width 1s cubic-bezier(.16,1,.3,1)}
+.stats-empty{padding:28px 0;text-align:center;color:var(--muted);font-size:13px}
+@media(max-width:700px){.stats-kpis{grid-template-columns:repeat(2,1fr)}#statsPanel{max-height:92vh}}
+</style></head><body>
+<header class="top"><div class="brand"><span class="brand-logo"><img src="/logo-lockup-nav.png" alt="Fraudify" width="368" height="112" decoding="async"></span> / SUPPORT</div><div class="top-right"><button class="stats-trigger hidden" id="statsBtn" type="button"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V10"/><path d="M12 20V4"/><path d="M20 20v-7"/></svg><span>Stats</span></button><span id="staffName">Loading…</span><span id="staffRole"></span><button class="ghost" id="logout">Log out</button></div></header>
+<div id="statsOverlay" class="hidden" role="dialog" aria-modal="true" aria-labelledby="statsTitle">
+  <div id="statsScrim"></div>
+  <div id="statsPanel">
+    <div id="statsHead">
+      <h2 id="statsTitle"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v16a2 2 0 0 0 2 2h16"/><path d="m19 9-5 5-4-4-4 4"/></svg>Case Analytics</h2>
+      <button id="statsClose" type="button" aria-label="Close"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
+    </div>
+    <div id="statsBody"><div class="stats-loading"><span></span><span></span><span></span></div></div>
   </div>
 </div>
 <main class="wrap"><div id="bootError" class="hidden" style="margin-bottom:14px;padding:12px;border:2px solid #c1272d;background:#fff0f0;color:#8b1e23;font-weight:700"></div><section class="stats"><div class="stat"><b id="total">0</b><span>Paid cases</span></div><div class="stat"><b id="unassigned">0</b><span>Unassigned</span></div><div class="stat"><b id="mine">0</b><span>Assigned to me</span></div><div class="stat"><b id="open">0</b><span>Open / active</span></div></section>
@@ -67,28 +113,52 @@ $('send').onclick=async()=>{const t=$('composer').value.trim();if(!t||!current)r
 $('composer').addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();$('send').click()}});
 $('status').onchange=async e=>{if(!current)return;try{await api('/api/admin/cases/'+encodeURIComponent(current.caseId)+'/status',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({status:e.target.value})});current.status=e.target.value;await loadCases()}catch(err){alert(err.message)}};
 function money(p){return '₹'+Math.round((p||0)/100).toLocaleString('en-IN')}
+const STATUS_DOT={'in-progress':'#2457a6',won:'#28734b',closed:'#999',submitted:'#9b6810',awaiting_details:'#9b6810',awaiting_payment:'#c1272d'};
+function countUp(el,to,opts={}){
+  const isMoney=!!opts.money; const start=0,dur=900,t0=performance.now();
+  function tick(now){const p=Math.min(1,(now-t0)/dur);const eased=1-Math.pow(1-p,3);const v=Math.round(start+(to-start)*eased);
+    el.textContent=isMoney?('₹'+v.toLocaleString('en-IN')):v.toLocaleString('en-IN');
+    if(p<1)requestAnimationFrame(tick);}
+  requestAnimationFrame(tick);
+}
+function openStatsOverlay(){const ov=$('statsOverlay');ov.classList.remove('hidden');requestAnimationFrame(()=>requestAnimationFrame(()=>ov.classList.add('open')));}
+function closeStatsOverlay(){const ov=$('statsOverlay');ov.classList.remove('open');const onEnd=e=>{if(e.target!==$('statsPanel'))return;ov.classList.add('hidden');ov.removeEventListener('transitionend',onEnd);};ov.addEventListener('transitionend',onEnd);setTimeout(()=>ov.classList.add('hidden'),450);}
 $('statsBtn').addEventListener('click',async()=>{
-  $('statsOverlay').classList.remove('hidden');$('statsBody').textContent='Loading…';
+  openStatsOverlay();
+  $('statsBody').innerHTML='<div class="stats-loading"><span></span><span></span><span></span></div>';
   try{
     const s=await api('/api/admin/stats');
-    const rows=(arr,fmt)=>arr.length?arr.map(fmt).join(''):'<div class="empty" style="padding:10px 0">No data yet.</div>';
+    const maxCat=Math.max(1,...s.byCategory.map(c=>c.count)), maxCo=Math.max(1,...s.byCompany.map(c=>c.count));
+    const barRows=(arr,max,nameKey,delayBase)=>arr.length?arr.map((c,i)=>`
+        <div class="stat-bar-row" style="animation-delay:${delayBase+i*45}ms">
+          <div class="top"><span class="name">${esc(c[nameKey])}</span><span class="meta">${c.count} case${c.count===1?'':'s'} · ${money(c.disputePaise)}</span></div>
+          <div class="stat-bar-track"><div class="stat-bar-fill" data-w="${Math.max(4,Math.round(c.count/max*100))}"></div></div>
+        </div>`).join(''):'<div class="stats-empty">No data yet.</div>';
     $('statsBody').innerHTML=`
-      <div class="grid2" style="margin-bottom:18px">
-        <div class="field"><label>Total paid cases</label><div style="font-size:22px;font-weight:800">${s.totalCases}</div></div>
-        <div class="field"><label>Total amount in dispute</label><div style="font-size:22px;font-weight:800">${money(s.totalDisputePaise)}</div></div>
-        <div class="field"><label>Cases with an amount logged</label><div>${s.casesWithAmount} of ${s.totalCases}</div></div>
-        <div class="field"><label>Average dispute (where logged)</label><div>${money(s.averageDisputePaise)}</div></div>
+      <div class="stats-kpis">
+        <div class="stat-card" style="animation-delay:0ms"><label>Total paid cases</label><div class="v" id="kpi-total">0</div></div>
+        <div class="stat-card" style="animation-delay:60ms"><label>Total in dispute</label><div class="v" id="kpi-dispute">₹0</div></div>
+        <div class="stat-card" style="animation-delay:120ms"><label>With amount logged</label><div class="v" id="kpi-withamt">0 <span style="font-size:13px;font-weight:700;color:var(--muted)">of ${s.totalCases}</span></div></div>
+        <div class="stat-card" style="animation-delay:180ms"><label>Average dispute</label><div class="v" id="kpi-avg">₹0</div></div>
       </div>
-      <h3 style="margin:0 0 8px">By status</h3>
-      <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:18px">${Object.entries(s.byStatus).map(([k,v])=>`<span class="badge ${esc(k)}">${esc(k)}: ${v}</span>`).join('')||'<span class="empty">No data yet.</span>'}</div>
-      <h3 style="margin:0 0 8px">By category</h3>
-      <table style="width:100%;border-collapse:collapse;margin-bottom:18px;font-size:14px">${rows(s.byCategory,c=>`<tr><td style="padding:4px 0;border-bottom:1px solid var(--line)">${esc(c.category)}</td><td style="padding:4px 0;border-bottom:1px solid var(--line);text-align:right">${c.count} case${c.count===1?'':'s'}</td><td style="padding:4px 0;border-bottom:1px solid var(--line);text-align:right;color:var(--muted)">${money(c.disputePaise)}</td></tr>`)}</table>
-      <h3 style="margin:0 0 8px">By company (top 25)</h3>
-      <table style="width:100%;border-collapse:collapse;font-size:14px">${rows(s.byCompany,c=>`<tr><td style="padding:4px 0;border-bottom:1px solid var(--line)">${esc(c.company)}</td><td style="padding:4px 0;border-bottom:1px solid var(--line);text-align:right">${c.count} case${c.count===1?'':'s'}</td><td style="padding:4px 0;border-bottom:1px solid var(--line);text-align:right;color:var(--muted)">${money(c.disputePaise)}</td></tr>`)}</table>`;
-  }catch(err){$('statsBody').textContent=err.message||'Could not load stats.'}
+      <div class="stats-section-title">By status</div>
+      <div class="stats-pills">${Object.entries(s.byStatus).map(([k,v],i)=>`<span class="stats-pill badge ${esc(k)}" style="animation-delay:${i*60}ms">${esc(k.replaceAll('_',' '))}: ${v}</span>`).join('')||'<span class="stats-empty">No data yet.</span>'}</div>
+      <div class="stats-section-title">By category</div>
+      ${barRows(s.byCategory,maxCat,'category',0)}
+      <div class="stats-section-title">By company (top 25)</div>
+      ${barRows(s.byCompany,maxCo,'company',0)}`;
+    countUp($('kpi-total'),s.totalCases);
+    countUp($('kpi-dispute'),Math.round((s.totalDisputePaise||0)/100),{money:true});
+    countUp($('kpi-withamt'),s.casesWithAmount);
+    countUp($('kpi-avg'),Math.round((s.averageDisputePaise||0)/100),{money:true});
+    requestAnimationFrame(()=>requestAnimationFrame(()=>{
+      document.querySelectorAll('.stat-bar-fill').forEach(f=>{f.style.width=f.dataset.w+'%'});
+    }));
+  }catch(err){$('statsBody').innerHTML=`<div class="stats-empty">${esc(err.message||'Could not load stats.')}</div>`}
 });
-$('statsClose').addEventListener('click',()=>$('statsOverlay').classList.add('hidden'));
-$('statsOverlay').addEventListener('click',e=>{if(e.target.id==='statsOverlay')$('statsOverlay').classList.add('hidden')});
+$('statsClose').addEventListener('click',closeStatsOverlay);
+$('statsScrim').addEventListener('click',closeStatsOverlay);
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&$('statsOverlay').classList.contains('open'))closeStatsOverlay();});
 $('assign').onchange=async e=>{if(!current||staff.role!=='admin')return;try{await api('/api/admin/cases/'+encodeURIComponent(current.caseId)+'/assign',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({agentId:e.target.value||null})});await loadCases()}catch(err){alert(err.message)}};
 $('refresh').onclick=loadCases;$('search').oninput=renderList;$('filter').onchange=renderList;$('logout').onclick=async()=>{await fetch('/api/staff/logout',{method:'POST'});location.href='/admin-login'};
 $('agentForm').onsubmit=async e=>{e.preventDefault();try{await api('/api/admin/agents',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:$('aName').value,email:$('aEmail').value,password:$('aPassword').value})});e.target.reset();await loadAgents();}catch(err){alert(err.message)}};
