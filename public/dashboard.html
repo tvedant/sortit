@@ -49,13 +49,15 @@
   .case-row:hover{background:var(--paper-2);}.case-row.unread{border-color:var(--crimson);background:#fff9ed}.case-preview{font-size:12px;color:#5a4f3c;margin-top:6px;max-width:620px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.case-actions{display:flex;align-items:center;gap:8px}.unread-pill{display:inline-flex;align-items:center;justify-content:center;min-width:21px;height:21px;padding:0 6px;background:var(--crimson);color:#fff;border-radius:50%;font-size:10px;font-weight:800;box-shadow:0 0 0 0 rgba(193,39,45,.45);animation:unreadPulse 1.8s infinite}@keyframes unreadPulse{0%{box-shadow:0 0 0 0 rgba(193,39,45,.45)}70%{box-shadow:0 0 0 6px rgba(193,39,45,0)}100%{box-shadow:0 0 0 0 rgba(193,39,45,0)}}
   .case-id{font-family:'Anton',sans-serif; font-size:16px;}
   .case-meta{font-size:12.5px; color:#5a4f3c; margin-top:2px;}
-  .status-badge{padding:4px 12px; border-radius:20px; font-size:11px; font-weight:700; text-transform:uppercase;}
+  .status-badge{padding:4px 12px; border-radius:20px; font-size:11px; font-weight:700; text-transform:uppercase; transition:background .35s ease,color .35s ease;}
   .status-awaiting_payment{background:#fde2e2; color:var(--crimson);}
   .status-awaiting_details{background:#fff3cd; color:#8a6500;}
   .status-submitted{background:#dbe7f5; color:var(--blue);}
-  .status-in-progress{background:#fff3cd; color:#8a6500;}
+  .status-in-progress{background:#dcf1e6; color:#1e7d34;}
   .status-won{background:#d4f7dc; color:#1e7d34;}
   .status-closed{background:#e2e3e5; color:#555;}
+  @keyframes statusFlash{0%{box-shadow:0 0 0 0 rgba(36,87,166,.5);transform:scale(1)}30%{box-shadow:0 0 0 7px rgba(36,87,166,0);transform:scale(1.12)}100%{box-shadow:0 0 0 0 rgba(36,87,166,0);transform:scale(1)}}
+  .status-badge.rw-flash{animation:statusFlash .7s cubic-bezier(.34,1.56,.64,1)}
   .empty-state{border:3px dashed var(--ink); padding:40px; text-align:center; color:#5a4f3c;}
   .loading-state{border:3px solid var(--ink); padding:24px; text-align:center; color:#5a4f3c; background:var(--paper-2);}
   .btn:disabled{opacity:.6; cursor:not-allowed; transform:none;}
@@ -224,7 +226,7 @@
   function isUnread(c){return Number(c?.unreadCount||0)>0;}
   let chatStream=null;
   async function markRead(c){if(!c?.caseId)return;const ts=c.lastMessageAt||null;try{await fetch(`/api/my/cases/${encodeURIComponent(c.caseId)}/read`,{method:'POST',headers:{'Content-Type':'application/json','Accept':'application/json'},body:JSON.stringify({lastReadAt:ts})});}catch(e){console.debug('read-state',e.message);}}
-  function closeChatStream(){if(chatStream){chatStream.close();chatStream=null;}}
+  function closeChatStream(){if(chatStream){chatStream.close();chatStream=null;}clearInterval(window.__rwStreamWatch);}
   function openChatStream(caseId){closeChatStream();chatStream=new EventSource(`/api/my/cases/${encodeURIComponent(caseId)}/stream`);chatStream.addEventListener('message',async()=>{await loadMessages();loadCases(true).catch(()=>{});});chatStream.onerror=()=>{};}
   function senderLabel(c){if(!c.lastMessageSender)return '';if(c.lastMessageSender==='customer')return 'You';if(c.lastMessageSender==='admin')return c.lastMessageSenderName||'Super Admin';if(c.lastMessageSender==='agent')return c.lastMessageSenderName||'Agent';return c.lastMessageSenderName||'Customer';}
 
@@ -249,6 +251,19 @@
       won: 'Won',
       closed: 'Closed',
     })[s] || s;
+  }
+
+  // Paints the open-case status badge, and — when it's a live update rather than the initial
+  // paint — gives it a quick flash so a status that changed itself (e.g. the customer replied
+  // and the case moved out of "Awaiting Details") is visibly, not just silently, reflected.
+  let currentCaseStatus = null;
+  function setCaseViewStatus(status, animate) {
+    const el = document.getElementById('caseViewStatus');
+    if (!el) return;
+    currentCaseStatus = status;
+    el.textContent = statusLabel(status);
+    el.className = `status-badge status-${status}`;
+    if (animate) { el.classList.remove('rw-flash'); void el.offsetWidth; el.classList.add('rw-flash'); }
   }
 
   async function init() {
@@ -468,8 +483,7 @@
       if (!res.ok) throw new Error(c.error || 'Could not open this case.');
 
       document.getElementById('caseViewId').textContent = c.caseId;
-      document.getElementById('caseViewStatus').textContent = statusLabel(c.status);
-      document.getElementById('caseViewStatus').className = `status-badge status-${c.status}`;
+      setCaseViewStatus(c.status, false);
       const hasMeta = !!(c.title || c.companyName);
       document.getElementById('caseViewMeta').classList.toggle('hidden', !hasMeta);
       document.getElementById('caseViewTitle').textContent = c.title || '';
@@ -491,7 +505,7 @@
       if(listCase){listCase.classList.remove('unread');const pill=listCase.querySelector('.unread-pill');if(pill)pill.remove();}
       openChatStream(caseId);
       if (chatPollTimer) clearInterval(chatPollTimer);
-      chatPollTimer = setInterval(()=>loadMessages(), 30000);
+      chatPollTimer = setInterval(()=>loadMessages(), 4000);
     } catch (err) {
       console.error('openCaseView:', err);
       if (chatPollTimer) { clearInterval(chatPollTimer); chatPollTimer = null; }
@@ -702,9 +716,23 @@ if (dash) {
   };
   window.openChatStream = function (caseId) {
     closeChatStream(); const run = throttled(() => loadMessages(), 400);
-    const es = new EventSource(`/api/my/cases/${encodeURIComponent(caseId)}/stream`);
-    es.addEventListener('message', ev => { try { const d = JSON.parse(ev.data), m = d && (d.message || d); if (m && m.text && m.createdAt && m.sender) chat.add(m); } catch (_) {} run(); });
-    es.onerror = () => {}; chatStream = es;
+    let lastBeat = Date.now(), es;
+    const connect = () => {
+      es = new EventSource(`/api/my/cases/${encodeURIComponent(caseId)}/stream`);
+      es.onmessage = () => { lastBeat = Date.now(); };   // default-event pings (heartbeats) still count as "alive"
+      es.addEventListener('message', ev => { lastBeat = Date.now(); try { const d = JSON.parse(ev.data), m = d && (d.message || d); if (m && m.text && m.createdAt && m.sender) chat.add(m); } catch (_) {} run(); });
+      es.addEventListener('case-status', ev => { lastBeat = Date.now(); try { const d = JSON.parse(ev.data); if (d && d.status) setCaseViewStatus(d.status, true); } catch (_) {} });
+      es.addEventListener('ready', () => { lastBeat = Date.now(); });
+      es.onerror = () => { lastBeat = 0; };   // force a self-heal check sooner
+      chatStream = es;
+    };
+    connect();
+    // Self-healing: a stalled/half-open SSE connection (common behind some proxies) won't always
+    // fire a browser-level error, so watch for silence past the heartbeat window and reconnect.
+    clearInterval(window.__rwStreamWatch); window.__rwStreamWatch = setInterval(() => {
+      if (currentCaseId !== caseId) { clearInterval(window.__rwStreamWatch); return; }
+      if (Date.now() - lastBeat > 20000) { try { es.close(); } catch (_) {} connect(); loadMessages(); }
+    }, 5000);
   };
 
   // send: appears the instant you press it (or hit Enter) — the network call happens in the background.
@@ -715,6 +743,9 @@ if (dash) {
       const d = await res.json().catch(() => ({})); if (!res.ok) throw new Error(d.error || `Could not send message (HTTP ${res.status}).`);
       const at = d.createdAt || new Date().toISOString();
       chat.resolvePending(tempKey, { ...d, text: d.text || text, createdAt: at, sender: 'customer' }); markRead({ caseId: currentCaseId, lastMessageAt: at });
+      // The server flips a stalled "Awaiting Details" case the instant the customer replies —
+      // reflect that the moment our own send confirms, no need to even wait for the SSE push.
+      if (d.caseStatus && d.caseStatus !== currentCaseStatus) setCaseViewStatus(d.caseStatus, true);
     } catch (e) { chat.failPending(tempKey); $('chatNotice').textContent = e.message || 'Could not send. Tap the message to retry.'; }
   }
   const send = () => {
