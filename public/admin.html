@@ -202,7 +202,22 @@ function closeChatStream(){if(chatStream){chatStream.close();chatStream=null;}cl
 function openChatStream(caseId){closeChatStream();chatStream=new EventSource('/api/admin/cases/'+encodeURIComponent(caseId)+'/stream');chatStream.addEventListener('message',async()=>{await loadMessages();loadCases(true).catch(()=>{});});chatStream.onerror=()=>{};}
 function senderLabel(c){if(!c.lastMessageSender)return '';if(c.lastMessageSenderId&&c.lastMessageSenderId===staff?.uid)return 'You';if(!c.lastMessageSenderId&&c.lastMessageSender===staff?.role)return 'You';if(c.lastMessageSender==='admin')return c.lastMessageSenderName||'Super Admin';if(c.lastMessageSender==='agent')return c.lastMessageSenderName||'Agent';return c.lastMessageSenderName||'Customer';}
 const $=id=>document.getElementById(id);const esc=v=>{const d=document.createElement('div');d.textContent=v??'';return d.innerHTML};
-async function api(url,opt={}){const r=await fetch(url,opt);let d={};try{d=await r.json()}catch(_){}if(r.status===401){location.href='/admin-login';throw Error('Session expired')}if(!r.ok){const err=Error(d.error||'Request failed');Object.assign(err,d);throw err;}return d}
+async function api(url,opt={}){
+  let r;
+  try{r=await fetch(url,opt);}
+  catch(netErr){throw Error('Could not reach the server. Check your connection and try again.');}
+  let d={},bodyWasJson=true;
+  try{d=await r.json();}catch(_){bodyWasJson=false;}
+  if(r.status===401){location.href='/admin-login';throw Error('Session expired');}
+  if(!r.ok){
+    // A missing .error usually means this never reached our own JSON handlers at all — e.g. a
+    // stale deployment without this route (404), a proxy/timeout page, or a CORS block — so the
+    // status code is the one clue worth surfacing instead of a bare, useless "Request failed".
+    const msg=d.error||(bodyWasJson?`Request failed (HTTP ${r.status})`:`Request failed (HTTP ${r.status} ${r.statusText||''} — the server didn't return a valid response; it may be running an older version without this feature)`.trim());
+    const err=Error(msg);Object.assign(err,d,{httpStatus:r.status});throw err;
+  }
+  return d;
+}
 async function boot(){try{const me=await api('/api/staff/me');staff=me.staff;$('staffName').textContent=staff.name;$('staffRole').textContent='· '+staff.role; if(staff.role==='admin'){$('agentManager').classList.remove('hidden');$('statsBtn').classList.remove('hidden');$('usersBtn').classList.remove('hidden');document.querySelectorAll('.admin-only-btn').forEach(b=>b.classList.remove('hidden'));}await loadAgents();await loadCases();
       listTimer=setInterval(()=>loadCases(true).catch(e=>console.error('case list refresh',e)),2500);
     }catch(e){console.error('Admin workspace boot failed',e);const msg=document.getElementById('bootError');if(msg){msg.textContent=e.message||'Could not load the support workspace.';msg.classList.remove('hidden');}if(String(e.message||'').includes('Session expired') && !location.pathname.includes('admin-login'))location.href='/admin-login'}}
