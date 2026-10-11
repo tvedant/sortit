@@ -840,7 +840,7 @@ app.post('/api/my/cases/:caseId/mock-pay',requireAuth,asyncHandler(async(req,res
 // Optional, not required to unlock chat: attach proof files any time, or touch up the case's
 // title/company/category/amount after creation. Every field here is optional — only what the
 // customer actually sends gets changed. The story itself belongs in the chat.
-app.post('/api/my/cases/:caseId/details',requireAuth,upload.array('proofs',5),async(req,res)=>{try{const record=await findCase(req.params.caseId,req.user.uid);if(!record)return res.status(404).json({error:'Case not found.'});if((record.paymentStatus||record.payment_status)!=='paid')return res.status(402).json({error:'Please complete the ₹59 filing fee first.'});const{category,description,title,companyName}=req.body||{};const disputeAmountRupeesRaw=req.body&&req.body.disputeAmount;const disputeAmountPaise=disputeAmountRupeesRaw!==undefined&&disputeAmountRupeesRaw!==''?Math.max(0,Math.round(Number(disputeAmountRupeesRaw)*100)):undefined;if(disputeAmountRupeesRaw!==undefined&&disputeAmountRupeesRaw!==''&&!Number.isFinite(disputeAmountPaise))return res.status(400).json({error:'Dispute amount must be a number.'});const files=[];for(const file of req.files||[]){const filename=`${Date.now()}-${crypto.randomBytes(8).toString('hex')}-${file.originalname.replace(/[^a-zA-Z0-9._-]/g,'_').slice(-80)}`;const storagePath=`${record.caseId}/${filename}`;if(DB_ENABLED){await uploadToStorage(file,storagePath);const f={id:crypto.randomUUID(),caseId:record.caseId,filename,originalName:file.originalname,size:file.size,mimeType:file.mimetype,storagePath,createdAt:new Date().toISOString()};await createCaseFile(f);files.push(f);}else{const dir=path.join(UPLOADS_DIR,record.caseId);fs.mkdirSync(dir,{recursive:true});fs.writeFileSync(path.join(dir,filename),file.buffer);files.push({filename,originalName:file.originalname,size:file.size});}}
+app.post('/api/my/cases/:caseId/details',requireAuth,upload.array('proofs',5),async(req,res)=>{try{const record=await findCase(req.params.caseId,req.user.uid);if(!record)return res.status(404).json({error:'Case not found.'});if((record.paymentStatus||record.payment_status)!=='paid')return res.status(402).json({error:'Please complete the ₹59 filing fee first.'});if(record.status==='closed')return res.status(409).json({error:'This case is closed and can no longer be edited.',caseClosed:true});const{category,description,title,companyName}=req.body||{};const disputeAmountRupeesRaw=req.body&&req.body.disputeAmount;const disputeAmountPaise=disputeAmountRupeesRaw!==undefined&&disputeAmountRupeesRaw!==''?Math.max(0,Math.round(Number(disputeAmountRupeesRaw)*100)):undefined;if(disputeAmountRupeesRaw!==undefined&&disputeAmountRupeesRaw!==''&&!Number.isFinite(disputeAmountPaise))return res.status(400).json({error:'Dispute amount must be a number.'});const files=[];for(const file of req.files||[]){const filename=`${Date.now()}-${crypto.randomBytes(8).toString('hex')}-${file.originalname.replace(/[^a-zA-Z0-9._-]/g,'_').slice(-80)}`;const storagePath=`${record.caseId}/${filename}`;if(DB_ENABLED){await uploadToStorage(file,storagePath);const f={id:crypto.randomUUID(),caseId:record.caseId,filename,originalName:file.originalname,size:file.size,mimeType:file.mimetype,storagePath,createdAt:new Date().toISOString()};await createCaseFile(f);files.push(f);}else{const dir=path.join(UPLOADS_DIR,record.caseId);fs.mkdirSync(dir,{recursive:true});fs.writeFileSync(path.join(dir,filename),file.buffer);files.push({filename,originalName:file.originalname,size:file.size});}}
 const patch={updatedAt:new Date().toISOString()};
 if(category!==undefined&&category!==null)patch.category=String(category).slice(0,40);
 if(title!==undefined&&title!==null&&String(title).trim())patch.title=String(title).trim().slice(0,200);
@@ -848,7 +848,11 @@ if(companyName!==undefined&&companyName!==null&&String(companyName).trim())patch
 if(description!==undefined&&description!==null&&String(description).trim())patch.description=String(description).trim().slice(0,4000);
 if(disputeAmountPaise!==undefined)patch.disputeAmountPaise=disputeAmountPaise;
 if(patch.description||patch.category)patch.summary=buildSummary({category:patch.category||record.category||'other',description:patch.description||record.description||''});
+// Submitting details/evidence is also "the customer gave us information" — move a stalled
+// case forward the same way replying in chat does, so it doesn't stay stuck either way.
+if(STALLED_ON_CUSTOMER_STATUSES.includes(record.status)){patch.status='in-progress';console.log(`[status-auto] ${record.caseId}: ${record.status} -> in-progress (details/evidence submitted)`);}
 await updateCase(record.caseId,patch);
+if(patch.status)broadcastCaseEvent(record.caseId,'case-status',{caseId:record.caseId,status:patch.status,updatedAt:patch.updatedAt});
 const leadId=String(req.body?.leadId||'').trim();if(leadId)await importLeadTranscriptIntoCase(record,leadId,req.user.name);
 res.json({ok:true,caseId:record.caseId,...patch});}catch(e){console.error(e);res.status(500).json({error:'Could not save case details or evidence.'});}});
 
@@ -921,12 +925,23 @@ app.post('/api/my/cases/:caseId/messages',requireAuth,rateLimit('chat-send',30,5
   const record=await findCase(req.params.caseId,req.user.uid);
   if(!record)return res.status(404).json({error:'Case not found.'});
   if(isCaseExpired(record))return res.status(402).json({error:'Your 48-hour chat access for this case has ended. Please renew to keep messaging.',accessExpired:true,renewalRequired:true});
+  // A closed case is done — block new messages server-side too, not just by disabling the
+  // composer in the UI, so a stale tab or a direct API call can't sneak a message in.
+  if(record.status==='closed')return res.status(409).json({error:'This case is closed. Messaging has ended — open a new case if you need further help.',caseClosed:true});
   const{text}=req.body||{};
   if(!text||!text.trim())return res.status(400).json({error:'Message cannot be empty.'});
   const msg={id:crypto.randomUUID(),caseId:req.params.caseId,sender:'customer',senderName:req.user.name,senderId:req.user.uid,text:text.trim().slice(0,2000),createdAt:new Date().toISOString()};
   const saved=await createMessage(msg);
   broadcastChatMessage(saved);
-  res.status(201).json(saved);
+  let caseStatus=record.status;
+  if (STALLED_ON_CUSTOMER_STATUSES.includes(record.status)) {
+    const updatedAt=new Date().toISOString();
+    caseStatus='in-progress';
+    await updateCase(req.params.caseId,{status:caseStatus,updatedAt});
+    console.log(`[status-auto] ${req.params.caseId}: ${record.status} -> in-progress (customer replied)`);
+    broadcastCaseEvent(req.params.caseId,'case-status',{caseId:req.params.caseId,status:caseStatus,updatedAt});
+  }
+  res.status(201).json({...saved,caseStatus});
 }));
 
 // Lightweight server-push chat transport. Messages are pushed immediately to open conversations;
@@ -940,6 +955,15 @@ function broadcastChatMessage(message) {
   const set=CHAT_STREAMS.get(String(message.caseId)); if(!set)return; const payload=`event: message\ndata: ${JSON.stringify(message)}\n\n`;
   for(const client of [...set]) { try { client.res.write(payload); } catch (_) { removeChatStream(message.caseId,client); } }
 }
+// Pushes a live case-level update (e.g. a status change) to anyone with that case's chat open,
+// so the admin/customer UI updates instantly instead of waiting on the next poll.
+function broadcastCaseEvent(caseId, type, data) {
+  const set=CHAT_STREAMS.get(String(caseId)); if(!set)return; const payload=`event: ${type}\ndata: ${JSON.stringify(data)}\n\n`;
+  for(const client of [...set]) { try { client.res.write(payload); } catch (_) { removeChatStream(caseId,client); } }
+}
+// Statuses that mean "we're waiting on the customer" — once they reply in chat, the case is
+// moving again, so flip it back automatically instead of making an agent remember to do it.
+const STALLED_ON_CUSTOMER_STATUSES = ['awaiting_details', 'submitted'];
 
 // ADMIN / AGENT WORKSPACE
 async function listStaffCases(staff){
@@ -1000,7 +1024,11 @@ app.get('/api/admin/cases/:caseId',requireStaff,asyncHandler(async(req,res)=>{
   const c=caseFromDb(record);if(!(await canStaffAccessCase(req.staff,c)))return res.status(403).json({error:'This case is assigned to another agent.'});
   res.json(await decorateCase(record));
 }));
-app.patch('/api/admin/cases/:caseId/status',requireStaff,async(req,res)=>{const allowed=['awaiting_details','submitted','in-progress','won','closed'];if(!allowed.includes(req.body?.status))return res.status(400).json({error:`Status must be one of: ${allowed.join(', ')}`});const record=await findCase(req.params.caseId);if(!record)return res.status(404).json({error:'Case not found.'});if(!(await canStaffAccessCase(req.staff,caseFromDb(record))))return res.status(403).json({error:'This case is assigned to another agent.'});await updateCase(req.params.caseId,{status:req.body.status,updatedAt:new Date().toISOString()});res.json({ok:true});});
+app.patch('/api/admin/cases/:caseId/status',requireStaff,async(req,res)=>{const allowed=['awaiting_details','submitted','in-progress','won','closed'];if(!allowed.includes(req.body?.status))return res.status(400).json({error:`Status must be one of: ${allowed.join(', ')}`});const record=await findCase(req.params.caseId);if(!record)return res.status(404).json({error:'Case not found.'});if(!(await canStaffAccessCase(req.staff,caseFromDb(record))))return res.status(403).json({error:'This case is assigned to another agent.'});const updatedAt=new Date().toISOString();await updateCase(req.params.caseId,{status:req.body.status,updatedAt});
+  // Push the change live so an open customer chat locks (or unlocks) immediately — e.g. closing
+  // a case should stop them from being able to send another message right away, not just on reload.
+  broadcastCaseEvent(req.params.caseId,'case-status',{caseId:req.params.caseId,status:req.body.status,updatedAt});
+  res.json({ok:true});});
 app.patch('/api/admin/cases/:caseId/assign',requireAdmin,async(req,res)=>{try{
   const record=await findCase(req.params.caseId);if(!record)return res.status(404).json({error:'Case not found.'});
   const agentId=req.body?.agentId?String(req.body.agentId):null;
@@ -1021,7 +1049,11 @@ app.get('/api/admin/cases/:caseId/stream',requireStaff,asyncHandler(async(req,re
 }));
 
 app.get('/api/admin/cases/:caseId/messages',requireStaff,asyncHandler(async(req,res)=>{const record=await findCase(req.params.caseId);if(!record)return res.status(404).json({error:'Case not found.'});if(!(await canStaffAccessCase(req.staff,caseFromDb(record))))return res.status(403).json({error:'This case is assigned to another agent.'});res.json(await listMessages(req.params.caseId));}));
-app.post('/api/admin/cases/:caseId/messages',requireStaff,async(req,res)=>{try{const{text}=req.body||{};if(!text||!text.trim())return res.status(400).json({error:'Message cannot be empty.'});const record=await findCase(req.params.caseId);if(!record)return res.status(404).json({error:'Case not found.'});const c=caseFromDb(record);if(isCaseExpired(c))return res.status(409).json({error:'This case\'s paid access window has ended. The customer needs to renew before messaging can continue.',accessExpired:true});if(!(await canStaffAccessCase(req.staff,c)))return res.status(403).json({error:'This case is assigned to another agent.'});
+app.post('/api/admin/cases/:caseId/messages',requireStaff,async(req,res)=>{try{const{text}=req.body||{};if(!text||!text.trim())return res.status(400).json({error:'Message cannot be empty.'});const record=await findCase(req.params.caseId);if(!record)return res.status(404).json({error:'Case not found.'});const c=caseFromDb(record);if(isCaseExpired(c))return res.status(409).json({error:'This case\'s paid access window has ended. The customer needs to renew before messaging can continue.',accessExpired:true});
+  // Mirrors the customer-side block: a closed case is done on both ends, server-side, not just a
+  // disabled composer — so a stale admin tab (or a direct API call) can't reopen the conversation.
+  if(c.status==='closed')return res.status(409).json({error:'This case is closed. Reopen it (change its status) before sending another message.',caseClosed:true});
+  if(!(await canStaffAccessCase(req.staff,c)))return res.status(403).json({error:'This case is assigned to another agent.'});
   // An agent replying to an unassigned case claims it, preventing two agents from working it simultaneously.
   if(req.staff.role==='agent'&&!c.assignedTo)await updateCase(c.caseId,{assignedTo:req.staff.uid,assignedAt:new Date().toISOString(),updatedAt:new Date().toISOString()});
   const msg={id:crypto.randomUUID(),caseId:req.params.caseId,sender:req.staff.role==='admin'?'admin':'agent',senderName:req.staff.name,senderId:req.staff.uid,text:text.trim().slice(0,2000),createdAt:new Date().toISOString()};const saved=await createMessage(msg);broadcastChatMessage(saved);res.status(201).json(saved);
