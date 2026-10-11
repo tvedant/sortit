@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Fraudify — Support Workspace</title><link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png"><link rel="icon" type="image/png" sizes="192x192" href="/favicon-192.png">
 <style>
-:root{--ink:#181613;--paper:#f5f0e7;--panel:#fff;--muted:#756d61;--line:#d8d0c3;--red:#c1272d;--blue:#2457a6;--green:#28734b;--amber:#9b6810}*{box-sizing:border-box}body{margin:0;background:var(--paper);color:var(--ink);font-family:Inter,system-ui,-apple-system,Segoe UI,sans-serif}.top{background:var(--ink);color:#fff;padding:15px 24px;display:flex;align-items:center;justify-content:space-between;gap:20px}.brand{font-weight:900;letter-spacing:.04em;font-size:15px;display:flex;align-items:center;gap:10px}.brand-logo{background:#F0E6CC;border-radius:8px;padding:5px 10px;display:flex;align-items:center;flex:none}.brand-logo img{height:22px;width:auto;display:block}.top-right{display:flex;align-items:center;gap:12px;font-size:13px}.ghost{border:1px solid #777;background:transparent;color:#fff;padding:8px 12px;cursor:pointer}.wrap{max-width:1500px;margin:0 auto;padding:22px}.stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:18px}.stat{background:#fff;border:2px solid var(--ink);padding:16px}.stat b{display:block;font-size:25px}.stat span{font-size:12px;color:var(--muted)}.layout{display:grid;grid-template-columns:1.1fr 1.9fr;gap:16px;min-height:700px}.panel{background:#fff;border:2px solid var(--ink);min-width:0}.panel-head{padding:15px;border-bottom:2px solid var(--ink);display:flex;align-items:center;justify-content:space-between;gap:10px}.panel-head h2{font-size:16px;margin:0}.filters{display:flex;gap:8px;flex-wrap:wrap}.select,.search{border:2px solid var(--ink);background:#fff;padding:9px;font:inherit;font-size:13px}.case-list{max-height:650px;overflow:auto}.case{padding:15px;border-bottom:1px solid var(--line);cursor:pointer;position:relative}.case:hover,.case.active{background:#f6f8fb}.case.unread{background:#fffaf0;border-left:4px solid var(--red);padding-left:11px}.case-preview{font-size:12px;color:var(--muted);margin-top:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}.case-bottom{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:5px}.unread-pill{display:inline-flex;align-items:center;justify-content:center;min-width:20px;height:20px;padding:0 6px;background:var(--red);color:#fff;border-radius:999px;font-size:10px;font-weight:900;box-shadow:0 0 0 0 rgba(193,39,45,.45);animation:unreadPulse 1.8s infinite}@keyframes unreadPulse{0%{box-shadow:0 0 0 0 rgba(193,39,45,.45)}70%{box-shadow:0 0 0 6px rgba(193,39,45,0)}100%{box-shadow:0 0 0 0 rgba(193,39,45,0)}}.last-time{font-size:10px;color:var(--muted)}.case-top{display:flex;justify-content:space-between;gap:10px}.case-id{font-weight:900}.case-meta{font-size:12px;color:var(--muted);margin-top:4px}.badge{display:inline-block;padding:4px 8px;border-radius:999px;font-size:10px;font-weight:900;text-transform:uppercase;background:#eee}.badge.in-progress{background:#e3edff;color:var(--blue)}.badge.won{background:#dff4e7;color:var(--green)}.badge.closed{background:#eee}.badge.awaiting_details,.badge.submitted{background:#fff1cf;color:var(--amber)}.badge.awaiting_payment{background:#ffe1e1;color:var(--red)}.empty{padding:35px;text-align:center;color:var(--muted)}.detail{display:flex;flex-direction:column;height:100%}.detail-head{padding:18px;border-bottom:2px solid var(--ink)}.detail-head h1{margin:0;font-size:22px}.detail-head p{margin:5px 0 0;color:var(--muted);font-size:13px}.detail-tools{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}.btn{border:2px solid var(--ink);background:var(--ink);color:#fff;padding:9px 13px;font-weight:800;cursor:pointer}.btn.secondary{background:#fff;color:var(--ink)}.btn.red{background:var(--red)}.detail-body{padding:18px;overflow:auto}.grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}.field{border-bottom:1px solid var(--line);padding-bottom:10px}.field label{display:block;text-transform:uppercase;font-size:10px;font-weight:900;color:var(--muted);margin-bottom:4px}.field div{font-size:14px;line-height:1.5;white-space:pre-wrap}.chat{border:2px solid var(--ink);margin-top:18px}.messages{height:360px;overflow:auto;padding:14px;background:#fafafa;display:flex;flex-direction:column;gap:10px}.msg{max-width:78%;padding:10px 12px;border:1px solid var(--line);line-height:1.45;font-size:13px}.msg.customer{align-self:flex-start;background:#fff;border-color:#cfc7bb}.msg.agent{align-self:flex-end;background:#e9f0ff;border-color:#9db9e3}.msg.admin{align-self:flex-end;background:#fff0c2;border-color:#d6a91d}.msg .who{font-size:10px;font-weight:900;text-transform:uppercase;color:var(--muted);display:block;margin-bottom:3px}.composer{display:flex;border-top:2px solid var(--ink)}.composer textarea{flex:1;min-height:64px;border:0;padding:12px;font:inherit;resize:vertical}.composer button{border:0;border-left:2px solid var(--ink);padding:0 18px;background:var(--ink);color:#fff;font-weight:900}.side-card{margin-top:18px;border:2px solid var(--ink);padding:14px}.agent-row{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--line)}.agent-row:last-child{border-bottom:0}.agent-name{font-weight:800}.agent-email{font-size:11px;color:var(--muted)}.small{font-size:11px;color:var(--muted)}.hidden{display:none!important}@media(max-width:1000px){.layout{grid-template-columns:1fr}.stats{grid-template-columns:repeat(2,1fr)}.case-list{max-height:380px}}@media(max-width:600px){.wrap{padding:12px}.stats{grid-template-columns:1fr 1fr}.grid2{grid-template-columns:1fr}.top{padding:12px}.top-right span{display:none}}
+:root{--ink:#181613;--paper:#f5f0e7;--panel:#fff;--muted:#756d61;--line:#d8d0c3;--red:#c1272d;--blue:#2457a6;--green:#28734b;--amber:#9b6810}*{box-sizing:border-box}body{margin:0;background:var(--paper);color:var(--ink);font-family:Inter,system-ui,-apple-system,Segoe UI,sans-serif}.top{background:var(--ink);color:#fff;padding:15px 24px;display:flex;align-items:center;justify-content:space-between;gap:20px}.brand{font-weight:900;letter-spacing:.04em;font-size:15px;display:flex;align-items:center;gap:10px}.brand-logo{background:#F0E6CC;border-radius:8px;padding:5px 10px;display:flex;align-items:center;flex:none}.brand-logo img{height:22px;width:auto;display:block}.top-right{display:flex;align-items:center;gap:12px;font-size:13px}.ghost{border:1px solid #777;background:transparent;color:#fff;padding:8px 12px;cursor:pointer}.wrap{max-width:1500px;margin:0 auto;padding:22px}.stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:18px}.stat{background:#fff;border:2px solid var(--ink);padding:16px}.stat b{display:block;font-size:25px}.stat span{font-size:12px;color:var(--muted)}.layout{display:grid;grid-template-columns:1.1fr 1.9fr;gap:16px;min-height:700px}.panel{background:#fff;border:2px solid var(--ink);min-width:0}.panel-head{padding:15px;border-bottom:2px solid var(--ink);display:flex;align-items:center;justify-content:space-between;gap:10px}.panel-head h2{font-size:16px;margin:0}.filters{display:flex;gap:8px;flex-wrap:wrap}.select,.search{border:2px solid var(--ink);background:#fff;padding:9px;font:inherit;font-size:13px}.case-list{max-height:650px;overflow:auto}.case{padding:15px;border-bottom:1px solid var(--line);cursor:pointer;position:relative}.case:hover,.case.active{background:#f6f8fb}.case.unread{background:#fffaf0;border-left:4px solid var(--red);padding-left:11px}.case-preview{font-size:12px;color:var(--muted);margin-top:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}.case-bottom{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:5px}.unread-pill{display:inline-flex;align-items:center;justify-content:center;min-width:20px;height:20px;padding:0 6px;background:var(--red);color:#fff;border-radius:999px;font-size:10px;font-weight:900;box-shadow:0 0 0 0 rgba(193,39,45,.45);animation:unreadPulse 1.8s infinite}@keyframes unreadPulse{0%{box-shadow:0 0 0 0 rgba(193,39,45,.45)}70%{box-shadow:0 0 0 6px rgba(193,39,45,0)}100%{box-shadow:0 0 0 0 rgba(193,39,45,0)}}.last-time{font-size:10px;color:var(--muted)}.case-top{display:flex;justify-content:space-between;gap:10px}.case-id{font-weight:900}.case-meta{font-size:12px;color:var(--muted);margin-top:4px}.badge{display:inline-block;padding:4px 8px;border-radius:999px;font-size:10px;font-weight:900;text-transform:uppercase;background:#eee}.badge.in-progress{background:#e3edff;color:var(--blue)}.badge.won{background:#dff4e7;color:var(--green)}.badge.closed{background:#eee}.badge.awaiting_details,.badge.submitted{background:#fff1cf;color:var(--amber)}.badge.awaiting_payment{background:#ffe1e1;color:var(--red)}.empty{padding:35px;text-align:center;color:var(--muted)}.detail{display:flex;flex-direction:column;height:100%}.detail-head{padding:18px;border-bottom:2px solid var(--ink)}.detail-head h1{margin:0;font-size:22px}.detail-head p{margin:5px 0 0;color:var(--muted);font-size:13px}.detail-tools{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}.btn{border:2px solid var(--ink);background:var(--ink);color:#fff;padding:9px 13px;font-weight:800;cursor:pointer}.btn.secondary{background:#fff;color:var(--ink)}.btn.red{background:var(--red)}.detail-body{padding:18px;overflow:auto;display:flex;flex-direction:column;flex:1;min-height:0}.grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px;flex:none}.field{border-bottom:1px solid var(--line);padding-bottom:10px}.field label{display:block;text-transform:uppercase;font-size:10px;font-weight:900;color:var(--muted);margin-bottom:4px}.field div{font-size:14px;line-height:1.5;white-space:pre-wrap}.side-card{margin-top:18px;border:2px solid var(--ink);padding:14px}.agent-row{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--line)}.agent-row:last-child{border-bottom:0}.agent-name{font-weight:800}.agent-email{font-size:11px;color:var(--muted)}.small{font-size:11px;color:var(--muted)}.hidden{display:none!important}@media(max-width:1000px){.layout{grid-template-columns:1fr}.stats{grid-template-columns:repeat(2,1fr)}.case-list{max-height:380px}}@media(max-width:600px){.wrap{padding:12px}.stats{grid-template-columns:1fr 1fr}.grid2{grid-template-columns:1fr}.top{padding:12px}.top-right span{display:none}}
 </style><meta name="theme-color" content="#F0E6CC"><style>@view-transition{navigation:auto}::view-transition-old(root){animation:.2s ease both rwo}::view-transition-new(root){animation:.45s cubic-bezier(.22,1,.36,1) both rwn}@keyframes rwo{to{opacity:0;transform:translateY(-12px)}}@keyframes rwn{from{opacity:0;transform:translateY(24px)}}
 .stats-trigger{display:inline-flex;align-items:center;gap:7px;border:1px solid #777;background:transparent;color:#fff;padding:8px 13px;font:inherit;font-size:13px;font-weight:700;cursor:pointer;border-radius:8px;transition:background .2s,border-color .2s,transform .15s cubic-bezier(.34,1.56,.64,1)}
 .stats-trigger svg{transition:transform .3s cubic-bezier(.34,1.56,.64,1)}
@@ -47,6 +47,75 @@
 .select.rw-flash{animation:statusFlash .7s cubic-bezier(.34,1.56,.64,1);border-color:var(--blue)}
 .badge.rw-flash{animation:statusFlash .7s cubic-bezier(.34,1.56,.64,1)}
 @media(max-width:700px){.stats-kpis{grid-template-columns:repeat(2,1fr)}#statsPanel{max-height:92vh}}
+
+/* ---------- Chat thread: no more dead whitespace, buttery entrance motion ---------- */
+.chat{border:2px solid var(--ink);margin-top:18px;border-radius:10px;overflow:hidden;box-shadow:0 10px 26px -18px rgba(24,22,19,.35);display:flex;flex-direction:column;flex:1;min-height:0}
+.messages{
+  flex:1;min-height:280px;overflow-y:auto;padding:18px 16px;
+  display:flex;flex-direction:column;justify-content:flex-end;gap:10px;
+  background:
+    radial-gradient(circle at 1px 1px, rgba(24,22,19,.07) 1px, transparent 0) 0 0/22px 22px,
+    linear-gradient(180deg,#fbf9f4,#f4f0e6 60%,#efe9da);
+  scroll-behavior:smooth;
+}
+.messages::-webkit-scrollbar{width:9px}
+.messages::-webkit-scrollbar-track{background:transparent}
+.messages::-webkit-scrollbar-thumb{background:rgba(24,22,19,.18);border-radius:999px;border:2px solid transparent;background-clip:padding-box}
+.messages::-webkit-scrollbar-thumb:hover{background:rgba(24,22,19,.32);background-clip:padding-box}
+.messages{scrollbar-width:thin;scrollbar-color:rgba(24,22,19,.22) transparent}
+@keyframes msgPopIn{from{opacity:0;transform:translateY(10px) scale(.96)}to{opacity:1;transform:translateY(0) scale(1)}}
+.msg{
+  max-width:72%;padding:10px 13px;border:1px solid var(--line);line-height:1.5;font-size:13.5px;
+  border-radius:14px;box-shadow:0 2px 6px -2px rgba(24,22,19,.18);
+  animation:msgPopIn .32s cubic-bezier(.22,1,.36,1) backwards;
+  transition:transform .18s cubic-bezier(.22,1,.36,1),box-shadow .18s ease;
+  position:relative;
+}
+.msg:hover{transform:translateY(-1px);box-shadow:0 6px 14px -4px rgba(24,22,19,.28)}
+.msg.customer{align-self:flex-start;background:#fff;border-color:#cfc7bb;border-bottom-left-radius:4px}
+.msg.agent{align-self:flex-end;background:linear-gradient(165deg,#eef4ff,#e3ecfb);border-color:#9db9e3;border-bottom-right-radius:4px}
+.msg.admin{align-self:flex-end;background:linear-gradient(165deg,#fff6d9,#fcecb0);border-color:#d6a91d;border-bottom-right-radius:4px}
+.msg .who{font-size:10px;font-weight:900;text-transform:uppercase;color:var(--muted);display:block;margin-bottom:3px;letter-spacing:.02em}
+.messages .empty{
+  flex:none;margin:auto 0;padding:30px 20px;text-align:center;color:var(--muted);
+  display:flex;flex-direction:column;align-items:center;gap:8px;
+  animation:msgPopIn .4s cubic-bezier(.22,1,.36,1) backwards;
+}
+.messages .empty::before{
+  content:'';width:46px;height:46px;border-radius:50%;
+  background:#fff;border:2px solid var(--line);
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23756d61' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z'/%3E%3C/svg%3E");
+  background-repeat:no-repeat;background-position:center;background-size:20px;
+}
+.composer{display:flex;border-top:2px solid var(--ink);background:#fff;transition:box-shadow .2s ease}
+.composer:focus-within{box-shadow:inset 0 0 0 2px var(--blue)}
+.composer textarea{flex:1;min-height:64px;border:0;padding:12px;font:inherit;font-size:13.5px;resize:vertical;background:transparent;transition:background .2s ease}
+.composer textarea:focus{outline:none;background:#fafcff}
+.composer button{border:0;border-left:2px solid var(--ink);padding:0 20px;background:var(--ink);color:#fff;font-weight:900;cursor:pointer;transition:background .18s ease,transform .12s cubic-bezier(.34,1.56,.64,1)}
+.composer button:hover:not(:disabled){background:#2a2520}
+.composer button:active:not(:disabled){transform:scale(.95)}
+.composer button:disabled{opacity:.5;cursor:not-allowed}
+@media(prefers-reduced-motion:reduce){.msg,.messages .empty{animation:none}}
+
+/* ---------- Cases/inbox panel: the grid stretches it to match the chat column's height, which
+   used to leave a slab of bare white space below a short customer list. Now the panel itself
+   flexes so the list fills exactly what's there (scrolling internally once it's genuinely long),
+   and any real leftover room gets a quiet, intentional "caught up" marker instead of empty page. */
+#casesPanel{display:flex;flex-direction:column;min-height:0}
+#casesPanel .panel-head{flex:none}
+#casesPanel .case-list,#casesPanel>.case-list{flex:1;min-height:0;max-height:none;overflow-y:auto;display:flex;flex-direction:column;position:relative}
+#casesPanel .case-list::after{
+  content:'✓ You\'re all caught up';flex:none;margin-top:auto;padding:22px 16px 26px;
+  text-align:center;font-size:11.5px;font-weight:700;letter-spacing:.03em;text-transform:uppercase;
+  color:var(--muted);opacity:.55;
+}
+#casesPanel .case-list:empty::after,#casesPanel .case-list:has(>.empty)::after{display:none}
+#casesPanel .case-list::-webkit-scrollbar{width:9px}
+#casesPanel .case-list::-webkit-scrollbar-track{background:transparent}
+#casesPanel .case-list::-webkit-scrollbar-thumb{background:rgba(24,22,19,.18);border-radius:999px;border:2px solid transparent;background-clip:padding-box}
+#casesPanel .case-list{scrollbar-width:thin;scrollbar-color:rgba(24,22,19,.22) transparent}
+#casesPanel .case{transition:transform .2s cubic-bezier(.22,1,.36,1),background .2s ease}
+#casesPanel .case:hover{transform:translateX(3px)}
 </style></head><body>
 <header class="top"><div class="brand"><span class="brand-logo"><img src="/logo-lockup-nav.png" alt="Fraudify" width="368" height="112" decoding="async"></span> / SUPPORT</div><div class="top-right"><button class="stats-trigger hidden" id="statsBtn" type="button"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V10"/><path d="M12 20V4"/><path d="M20 20v-7"/></svg><span>Stats</span></button><span id="staffName">Loading…</span><span id="staffRole"></span><button class="ghost" id="logout">Log out</button></div></header>
 <div id="statsOverlay" class="hidden" role="dialog" aria-modal="true" aria-labelledby="statsTitle">
@@ -60,7 +129,7 @@
   </div>
 </div>
 <main class="wrap"><div id="bootError" class="hidden" style="margin-bottom:14px;padding:12px;border:2px solid #c1272d;background:#fff0f0;color:#8b1e23;font-weight:700"></div><section class="stats"><div class="stat"><b id="total">0</b><span>Paid cases</span></div><div class="stat"><b id="unassigned">0</b><span>Unassigned</span></div><div class="stat"><b id="mine">0</b><span>Assigned to me</span></div><div class="stat"><b id="open">0</b><span>Open / active</span></div></section>
-<div class="layout"><section class="panel"><div class="panel-head"><h2>Cases</h2><div class="filters"><input class="search" id="search" placeholder="Search case / customer"><select class="select" id="filter"><option value="all">All</option><option value="unassigned">Unassigned</option><option value="mine">My cases</option><option value="in-progress">In progress</option><option value="closed">Closed</option></select><button class="btn secondary" id="refresh">Refresh</button></div></div><div class="case-list" id="caseList"><div class="empty">Loading cases…</div></div></section>
+<div class="layout"><section class="panel" id="casesPanel"><div class="panel-head"><h2>Cases</h2><div class="filters"><input class="search" id="search" placeholder="Search case / customer"><select class="select" id="filter"><option value="all">All</option><option value="unassigned">Unassigned</option><option value="mine">My cases</option><option value="in-progress">In progress</option><option value="closed">Closed</option></select><button class="btn secondary" id="refresh">Refresh</button></div></div><div class="case-list" id="caseList"><div class="empty">Loading cases…</div></div></section>
 <section class="panel detail"><div id="emptyDetail" class="empty" style="margin:auto">Select a paid case to open the conversation.</div><div id="detailContent" class="hidden"><div class="detail-head"><h1 id="dId">—</h1><p id="dCustomer">—</p><div class="detail-tools"><select class="select" id="assign"></select><select class="select" id="status"><option value="awaiting_details">Awaiting details</option><option value="submitted">Submitted</option><option value="in-progress">In progress</option><option value="won">Won</option><option value="closed">Closed</option></select><div id="proofs"></div></div></div><div class="detail-body"><div class="grid2"><div class="field"><label>Title</label><div id="dTitle">—</div></div><div class="field"><label>Company</label><div id="dCompany">—</div></div><div class="field"><label>Category</label><div id="dCategory">—</div></div><div class="field"><label>Dispute amount</label><div id="dAmount">—</div></div><div class="field"><label>Payment</label><div id="dPayment">—</div></div><div class="field" style="grid-column:1/-1"><label>Description</label><div id="dDescription">—</div></div><div class="field" style="grid-column:1/-1"><label>Case summary</label><div id="dSummary">—</div></div></div><div class="chat"><div class="messages" id="messages"></div><div class="composer"><textarea id="composer" maxlength="2000" placeholder="Reply to the customer…"></textarea><button id="send">Send</button></div></div></div></div></section></div><section class="panel hidden" id="agentManager" style="margin-top:16px;padding:18px"><h2 style="margin:0 0 6px">Support team</h2><p class="small">Add support agents who can log in, receive cases, and reply to customers. Disabled agents are immediately unassigned from their cases.</p><form id="agentForm" style="display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:8px;margin-top:12px"><input class="search" id="aName" placeholder="Agent name" required><input class="search" id="aEmail" type="email" placeholder="Agent email" required><input class="search" id="aPassword" type="password" placeholder="Temporary password (8+ chars)" minlength="8" required><button class="btn" type="submit">Add agent</button></form><div id="agentList" style="margin-top:10px"></div></section></main>
 <script>
 let staff=null,cases=[],agents=[],current=null,timer=null,listTimer=null;
@@ -71,7 +140,7 @@ function closeChatStream(){if(chatStream){chatStream.close();chatStream=null;}cl
 function openChatStream(caseId){closeChatStream();chatStream=new EventSource('/api/admin/cases/'+encodeURIComponent(caseId)+'/stream');chatStream.addEventListener('message',async()=>{await loadMessages();loadCases(true).catch(()=>{});});chatStream.onerror=()=>{};}
 function senderLabel(c){if(!c.lastMessageSender)return '';if(c.lastMessageSenderId&&c.lastMessageSenderId===staff?.uid)return 'You';if(!c.lastMessageSenderId&&c.lastMessageSender===staff?.role)return 'You';if(c.lastMessageSender==='admin')return c.lastMessageSenderName||'Super Admin';if(c.lastMessageSender==='agent')return c.lastMessageSenderName||'Agent';return c.lastMessageSenderName||'Customer';}
 const $=id=>document.getElementById(id);const esc=v=>{const d=document.createElement('div');d.textContent=v??'';return d.innerHTML};
-async function api(url,opt={}){const r=await fetch(url,opt);let d={};try{d=await r.json()}catch(_){}if(r.status===401){location.href='/admin-login';throw Error('Session expired')}if(!r.ok)throw Error(d.error||'Request failed');return d}
+async function api(url,opt={}){const r=await fetch(url,opt);let d={};try{d=await r.json()}catch(_){}if(r.status===401){location.href='/admin-login';throw Error('Session expired')}if(!r.ok){const err=Error(d.error||'Request failed');Object.assign(err,d);throw err;}return d}
 async function boot(){try{const me=await api('/api/staff/me');staff=me.staff;$('staffName').textContent=staff.name;$('staffRole').textContent='· '+staff.role; if(staff.role==='admin'){$('agentManager').classList.remove('hidden');$('statsBtn').classList.remove('hidden');}await loadAgents();await loadCases();
       listTimer=setInterval(()=>loadCases(true).catch(e=>console.error('case list refresh',e)),2500);
     }catch(e){console.error('Admin workspace boot failed',e);const msg=document.getElementById('bootError');if(msg){msg.textContent=e.message||'Could not load the support workspace.';msg.classList.remove('hidden');}if(String(e.message||'').includes('Session expired') && !location.pathname.includes('admin-login'))location.href='/admin-login'}}
@@ -93,8 +162,9 @@ async function loadCases(silent=false){
       // but the status control is cheap to sync on its own, so a status change (e.g. the
       // auto-flip out of "Awaiting Details") still shows up live instead of waiting for the
       // next time the case is reopened.
-      if(silent && current.status!==prevStatus && $('status').value!==current.status){
+      if(silent && current.status!==prevStatus && $('status') && $('status').value!==current.status){
         $('status').value=current.status; const sel=$('status'); sel.classList.remove('rw-flash'); void sel.offsetWidth; sel.classList.add('rw-flash');
+        if(window.applyComposerLock)applyComposerLock(current);
       }
     } else closeDetail();
   }
@@ -340,6 +410,15 @@ if (admin) {
     return bubble(`msg ${s}${mine ? ' mine' : ''}`, [label, mine ? '' : (s === 'admin' ? 'SUPER ADMIN' : s === 'agent' ? 'AGENT' : 'CUSTOMER'), time(m)].filter(Boolean).join(' · '), m.text, stat);
   }, 'empty', 'No messages yet. Start the conversation.');
 
+  // Locks the reply box for an expired or closed case, and keeps it in sync live (via the
+  // case-status push below) rather than only at the moment the case was opened.
+  window.applyComposerLock = function (c) {
+    const closed = c.status === 'closed', expired = !!c.accessExpired && !closed;
+    const locked = closed || expired;
+    $('composer').disabled = locked; $('send').disabled = locked;
+    $('composer').placeholder = closed ? 'This case is closed — reopen it to keep messaging.' : expired ? 'Access expired — waiting for the customer to renew…' : 'Type a message…';
+  };
+
   let busy = false, again = false;
   window.loadMessages = async function () {
     if (!current) return;
@@ -372,10 +451,12 @@ if (admin) {
           const d = JSON.parse(ev.data); if (!d || !d.status) return;
           if (current && current.caseId === d.caseId) {
             current.status = d.status;
-            if ($('status').value !== d.status) { $('status').value = d.status; const sel = $('status'); sel.classList.remove('rw-flash'); void sel.offsetWidth; sel.classList.add('rw-flash'); }
+            const sel = $('status');
+            if (sel && sel.value !== d.status) { sel.value = d.status; sel.classList.remove('rw-flash'); void sel.offsetWidth; sel.classList.add('rw-flash'); }
+            applyComposerLock(current);   // e.g. closing the case live should lock the reply box right away
           }
           const row = cases.find(c => c.caseId === d.caseId); if (row) row.status = d.status;
-          renderList();
+          if ($('caseList')) renderList();
         } catch (_) {}
       });
       es.addEventListener('ready', () => { lastBeat = Date.now(); });
@@ -399,10 +480,15 @@ if (admin) {
         Object.assign(current, { lastMessageText: sent.text || text, lastMessageAt: at, lastMessageSender: staff.role, lastMessageSenderName: staff.name, unread: false });
         await markRead(current); renderList();
       }
-    } catch (e) { if (current && current.caseId === caseId) chat.failPending(tempKey); }
+    } catch (e) {
+      if (current && current.caseId === caseId) {
+        chat.failPending(tempKey);
+        if (e.caseClosed) { current.status = 'closed'; applyComposerLock(current); }
+      }
+    }
   }
   $('send').onclick = () => {
-    const t = $('composer').value.trim(); if (!t || !current) return;
+    const t = $('composer').value.trim(); if (!t || !current || current.status === 'closed') return;
     const caseId = current.caseId; $('composer').value = ''; $('composer').focus();   // clears instantly
     const tempKey = uid();
     chat.addPending(tempKey, { text: t, createdAt: new Date().toISOString(), sender: staff.role, senderId: staff.uid, senderName: staff.name, pending: true });
@@ -515,8 +601,7 @@ window.renderDetail = function (c) {
   _rd.apply(this, arguments);
   $('dId').textContent = c.userName || c.caseId;
   $('dCustomer').textContent = `${c.userEmail || ''} · Case ${c.caseId}`;
-  const locked = !!c.accessExpired; $('composer').disabled = locked; $('send').disabled = locked;
-  $('composer').placeholder = locked ? 'Access expired — waiting for the customer to renew…' : 'Type a message…';
+  applyComposerLock(c);
   const k = keyOf(c), mine = cases.filter(x => keyOf(x) === k).sort((a, b) => ts(b) - ts(a));
   tabs.innerHTML = mine.length > 1 ? mine.map(x => `<button type="button" class="rw-tab ${x.caseId === c.caseId ? 'active' : ''}" data-id="${attr(x.caseId)}"><i style="background:${DOT[x.status] || '#999'}"></i>${esc(x.caseId)}</button>`).join('') : '';
 };
