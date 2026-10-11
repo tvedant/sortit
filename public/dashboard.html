@@ -204,6 +204,10 @@
           <p style="margin:6px 0 12px; font-size:13px; color:#5a4f3c;">Your 48-hour chat window for this case is over. Renew to keep messaging with Fraudify.</p>
           <button class="btn" id="renewBtn" style="width:100%; justify-content:center;">Renew Access — ₹<span id="renewFee">59</span></button>
         </div>
+        <div id="closedLock" class="hidden" style="padding:16px; background:#e2e3e5; border-top:2px dashed var(--ink);">
+          <strong>✓ This case is closed.</strong>
+          <p style="margin:6px 0 0; font-size:13px; color:#5a4f3c;">Messaging has ended for this case. If you need further help, open a new case from your dashboard.</p>
+        </div>
         <div class="chat-input-row" id="chatInputRow">
           <input class="chat-input" id="chatInput" type="text" placeholder="Type a message…" maxlength="2000">
           <button class="chat-send" id="chatSendBtn">Send</button>
@@ -264,6 +268,36 @@
     el.textContent = statusLabel(status);
     el.className = `status-badge status-${status}`;
     if (animate) { el.classList.remove('rw-flash'); void el.offsetWidth; el.classList.add('rw-flash'); }
+  }
+
+  // Closed (done, by an agent or automatically) and expired (unpaid-renewal window) both end
+  // messaging, but for different reasons — each gets its own lock panel and copy, and the
+  // compose row is blocked in both. Called on open AND on every live status push, so a case
+  // closed mid-chat locks immediately instead of only after a reload.
+  function applyChatLockState(status, accessExpired) {
+    const closed = status === 'closed', expired = !!accessExpired && !closed;
+    document.getElementById('accessLock').classList.toggle('hidden', !expired);
+    document.getElementById('closedLock').classList.toggle('hidden', !closed);
+    document.getElementById('chatInputRow').classList.toggle('hidden', closed || expired);
+    const statusEl = document.getElementById('caseViewStatus');
+    if (expired && statusEl && !statusEl.textContent.includes('Access Expired')) statusEl.textContent += ' · Access Expired';
+  }
+
+  // A case-status push (SSE) is fire-and-forget — if it lands during a reconnect gap it's gone
+  // for good, and unlike messages there's nothing else that resyncs it while the case is open
+  // (the case-list poll is paused the whole time you're inside a case). So this is called
+  // periodically as a safety net, and right after every stream (re)connect to catch anything a
+  // dropped connection might have missed.
+  async function refreshCaseStatus() {
+    if (!currentCaseId) return;
+    const cid = currentCaseId;
+    try {
+      const res = await fetch(`/api/my/cases/${encodeURIComponent(cid)}`, { cache: 'no-store' });
+      if (!res.ok || cid !== currentCaseId) return;
+      const c = await res.json();
+      if (c.status !== currentCaseStatus) setCaseViewStatus(c.status, true);
+      applyChatLockState(c.status, c.accessExpired);
+    } catch (_) {}
   }
 
   async function init() {
@@ -492,10 +526,7 @@
       document.getElementById('caseViewFiles').textContent = c.proofFiles && c.proofFiles.length
         ? `📎 ${c.proofFiles.length} file(s) attached: ${c.proofFiles.map(f => f.originalName).join(', ')}`
         : '';
-      const locked = !!c.accessExpired;
-      document.getElementById('accessLock').classList.toggle('hidden', !locked);
-      document.getElementById('chatInputRow').classList.toggle('hidden', locked);
-      if (locked) document.getElementById('caseViewStatus').textContent += ' · Access Expired';
+      applyChatLockState(c.status, c.accessExpired);
       document.getElementById('renewFee').textContent = (config && config.caseFeeRupees) || 59;
 
       showScreen('case');
@@ -505,7 +536,7 @@
       if(listCase){listCase.classList.remove('unread');const pill=listCase.querySelector('.unread-pill');if(pill)pill.remove();}
       openChatStream(caseId);
       if (chatPollTimer) clearInterval(chatPollTimer);
-      chatPollTimer = setInterval(()=>loadMessages(), 4000);
+      chatPollTimer = setInterval(()=>{ loadMessages(); refreshCaseStatus(); }, 4000);
     } catch (err) {
       console.error('openCaseView:', err);
       if (chatPollTimer) { clearInterval(chatPollTimer); chatPollTimer = null; }
@@ -721,8 +752,8 @@ if (dash) {
       es = new EventSource(`/api/my/cases/${encodeURIComponent(caseId)}/stream`);
       es.onmessage = () => { lastBeat = Date.now(); };   // default-event pings (heartbeats) still count as "alive"
       es.addEventListener('message', ev => { lastBeat = Date.now(); try { const d = JSON.parse(ev.data), m = d && (d.message || d); if (m && m.text && m.createdAt && m.sender) chat.add(m); } catch (_) {} run(); });
-      es.addEventListener('case-status', ev => { lastBeat = Date.now(); try { const d = JSON.parse(ev.data); if (d && d.status) setCaseViewStatus(d.status, true); } catch (_) {} });
-      es.addEventListener('ready', () => { lastBeat = Date.now(); });
+      es.addEventListener('case-status', ev => { lastBeat = Date.now(); try { const d = JSON.parse(ev.data); if (d && d.status) { setCaseViewStatus(d.status, true); applyChatLockState(d.status, false); } } catch (_) {} });
+      es.addEventListener('ready', () => { lastBeat = Date.now(); refreshCaseStatus(); });
       es.onerror = () => { lastBeat = 0; };   // force a self-heal check sooner
       chatStream = es;
     };
@@ -740,7 +771,17 @@ if (dash) {
   async function attempt(text, tempKey) {
     try {
       const res = await fetch(`/api/my/cases/${encodeURIComponent(currentCaseId)}/messages`, { method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json' }, body: JSON.stringify({ text }) });
-      const d = await res.json().catch(() => ({})); if (!res.ok) throw new Error(d.error || `Could not send message (HTTP ${res.status}).`);
+      const d = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        if (d.caseClosed || d.accessExpired) {
+          // Not a retryable failure — the case is genuinely done. Drop the pending bubble
+          // instead of offering a "tap to retry" that could never succeed, and lock the UI.
+          chat.removePending(tempKey); applyChatLockState(d.caseClosed ? 'closed' : currentCaseStatus, !!d.accessExpired);
+          $('chatNotice').textContent = d.error || 'This case can no longer accept messages.';
+          return;
+        }
+        throw new Error(d.error || `Could not send message (HTTP ${res.status}).`);
+      }
       const at = d.createdAt || new Date().toISOString();
       chat.resolvePending(tempKey, { ...d, text: d.text || text, createdAt: at, sender: 'customer' }); markRead({ caseId: currentCaseId, lastMessageAt: at });
       // The server flips a stalled "Awaiting Details" case the instant the customer replies —
@@ -749,7 +790,7 @@ if (dash) {
     } catch (e) { chat.failPending(tempKey); $('chatNotice').textContent = e.message || 'Could not send. Tap the message to retry.'; }
   }
   const send = () => {
-    const text = ni.value.trim(); if (!text || !currentCaseId) return;
+    const text = ni.value.trim(); if (!text || !currentCaseId || $('chatInputRow').classList.contains('hidden')) return;
     $('chatNotice').textContent = ''; ni.value = ''; ni.focus();   // clears instantly — never waits on the network
     const tempKey = uid();
     chat.addPending(tempKey, { text, createdAt: new Date().toISOString(), sender: 'customer', pending: true });
