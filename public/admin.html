@@ -8,18 +8,18 @@
 .stats-trigger:hover{background:rgba(255,255,255,.12);border-color:#aaa}
 .stats-trigger:hover svg{transform:scaleY(1.25)}
 .stats-trigger:active{transform:scale(.94)}
-#statsOverlay{position:fixed;inset:0;z-index:80;display:flex;align-items:center;justify-content:center;padding:24px}
-#statsOverlay.hidden{display:none}
-#statsScrim{position:absolute;inset:0;background:rgba(24,22,19,.5);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);opacity:0;transition:opacity .32s cubic-bezier(.22,1,.36,1)}
-#statsPanel{position:relative;background:#fff;border:2px solid var(--ink);width:100%;max-width:880px;max-height:min(84vh,860px);display:flex;flex-direction:column;border-radius:14px;box-shadow:0 30px 70px -20px rgba(0,0,0,.45);opacity:0;transform:translateY(22px) scale(.96);transition:opacity .32s cubic-bezier(.22,1,.36,1),transform .38s cubic-bezier(.22,1,.36,1)}
-#statsOverlay.open #statsScrim{opacity:1}
-#statsOverlay.open #statsPanel{opacity:1;transform:translateY(0) scale(1)}
-#statsHead{flex:none;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:18px 22px;border-bottom:2px solid var(--ink)}
-#statsTitle{margin:0;font-size:18px;font-weight:900;display:flex;align-items:center;gap:10px}
-#statsTitle svg{flex:none;color:var(--blue)}
-#statsClose{flex:none;border:0;background:transparent;color:var(--ink);width:34px;height:34px;border-radius:50%;display:grid;place-items:center;cursor:pointer;transition:background .18s,transform .18s}
-#statsClose:hover{background:#f1efe8;transform:rotate(90deg)}
-#statsBody{flex:1;overflow:auto;padding:22px}
+.rw-modal-overlay{position:fixed;inset:0;z-index:80;display:flex;align-items:center;justify-content:center;padding:24px}
+.rw-modal-overlay.hidden{display:none}
+.rw-modal-scrim{position:absolute;inset:0;background:rgba(24,22,19,.5);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);opacity:0;transition:opacity .32s cubic-bezier(.22,1,.36,1)}
+.rw-modal-panel{position:relative;background:#fff;border:2px solid var(--ink);width:100%;max-width:880px;max-height:min(84vh,860px);display:flex;flex-direction:column;border-radius:14px;box-shadow:0 30px 70px -20px rgba(0,0,0,.45);opacity:0;transform:translateY(22px) scale(.96);transition:opacity .32s cubic-bezier(.22,1,.36,1),transform .38s cubic-bezier(.22,1,.36,1)}
+.rw-modal-overlay.open .rw-modal-scrim{opacity:1}
+.rw-modal-overlay.open .rw-modal-panel{opacity:1;transform:translateY(0) scale(1)}
+.rw-modal-head{flex:none;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:18px 22px;border-bottom:2px solid var(--ink)}
+.rw-modal-title{margin:0;font-size:18px;font-weight:900;display:flex;align-items:center;gap:10px}
+.rw-modal-title svg{flex:none;color:var(--blue)}
+.rw-modal-close{flex:none;border:0;background:transparent;color:var(--ink);width:34px;height:34px;border-radius:50%;display:grid;place-items:center;cursor:pointer;transition:background .18s,transform .18s}
+.rw-modal-close:hover{background:#f1efe8;transform:rotate(90deg)}
+.rw-modal-body{flex:1;overflow:auto;padding:22px}
 .stats-loading{display:flex;align-items:center;justify-content:center;gap:8px;padding:60px 0}
 .stats-loading span{width:10px;height:10px;border-radius:50%;background:var(--blue);animation:statsBounce 1s ease-in-out infinite}
 .stats-loading span:nth-child(2){background:var(--red);animation-delay:.15s}
@@ -43,10 +43,61 @@
 .stat-bar-track{height:9px;border-radius:999px;background:#eee4d4;overflow:hidden}
 .stat-bar-fill{height:100%;border-radius:999px;width:0;background:linear-gradient(90deg,var(--blue),#5b8fd6);transition:width 1s cubic-bezier(.16,1,.3,1)}
 .stats-empty{padding:28px 0;text-align:center;color:var(--muted);font-size:13px}
+/* ---------- Customers (Users) panel: roster rows with a spring-in entrance, a manual delete
+   that fades+collapses the row the instant the server confirms, and a danger button that only
+   commits its red on hover so the list doesn't read as alarming at rest. ---------- */
+@keyframes userRowIn{from{opacity:0;transform:translateX(-14px) scale(.98)}to{opacity:1;transform:translateX(0) scale(1)}}
+@keyframes userRowOut{to{opacity:0;transform:scale(.94);max-height:0;margin:0;padding-top:0;padding-bottom:0;border-width:0}}
+.users-roster{display:flex;flex-direction:column;gap:8px}
+.user-row{
+  display:flex;align-items:center;gap:12px;padding:12px 14px;border:1.5px solid var(--line);border-radius:12px;
+  background:#fff;opacity:0;transform:translateX(-14px);animation:userRowIn .4s cubic-bezier(.22,1,.36,1) forwards;
+  transition:border-color .18s ease,box-shadow .18s ease,transform .18s cubic-bezier(.22,1,.36,1);
+  max-height:70px;overflow:hidden;
+}
+.user-row:hover{border-color:var(--blue);box-shadow:0 8px 18px -10px rgba(24,22,19,.3);transform:translateX(2px)}
+.user-row-out{animation:userRowOut .32s cubic-bezier(.4,0,1,1) forwards!important}
+.user-av{flex:none;width:38px;height:38px;border-radius:50%;background:var(--c);color:#fff;font-weight:900;font-size:12px;display:grid;place-items:center;border:2px solid var(--ink)}
+.user-main{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}
+.user-main b{font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.user-main small{font-size:11.5px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.user-stats{display:flex;align-items:center;gap:8px;flex:none}
+.user-pill{font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.02em;background:#f1efe8;color:var(--ink);padding:4px 9px;border-radius:999px;white-space:nowrap}
+.user-last{font-size:11px;color:var(--muted);white-space:nowrap;min-width:64px;text-align:right}
+.user-del{flex:none;display:inline-flex;align-items:center;gap:5px;border:1.5px solid var(--line);background:#fff;color:var(--muted);font-size:11.5px;font-weight:800;padding:7px 11px;border-radius:8px;cursor:pointer;transition:background .18s ease,color .18s ease,border-color .18s ease,transform .12s cubic-bezier(.34,1.56,.64,1)}
+.user-del:hover:not(:disabled){background:var(--red);border-color:var(--red);color:#fff}
+.user-del:active:not(:disabled){transform:scale(.93)}
+.user-del:disabled{opacity:.55;cursor:wait}
+@media(prefers-reduced-motion:reduce){.user-row,.user-row-out{animation:none}}
+.danger-btn{border-color:var(--red)!important;color:var(--red)!important;transition:background .18s ease,color .18s ease,transform .12s cubic-bezier(.34,1.56,.64,1)}
+.danger-btn:hover:not(:disabled){background:var(--red)!important;color:#fff!important}
+.danger-btn:active:not(:disabled){transform:scale(.95)}
+#reopenCaseBtn{transition:background .18s ease,color .18s ease,transform .12s cubic-bezier(.34,1.56,.64,1)}
+#reopenCaseBtn:hover:not(:disabled){background:var(--green);color:#fff;border-color:var(--green)}
+#reopenCaseBtn:active:not(:disabled){transform:scale(.95)}
 @keyframes statusFlash{0%{box-shadow:0 0 0 0 rgba(36,87,166,.55)}30%{box-shadow:0 0 0 6px rgba(36,87,166,0);transform:scale(1.04)}100%{box-shadow:0 0 0 0 rgba(36,87,166,0);transform:scale(1)}}
 .select.rw-flash{animation:statusFlash .7s cubic-bezier(.34,1.56,.64,1);border-color:var(--blue)}
 .badge.rw-flash{animation:statusFlash .7s cubic-bezier(.34,1.56,.64,1)}
-@media(max-width:700px){.stats-kpis{grid-template-columns:repeat(2,1fr)}#statsPanel{max-height:92vh}}
+@media(max-width:700px){.stats-kpis{grid-template-columns:repeat(2,1fr)}.rw-modal-panel{max-height:92vh}}
+
+/* ---------- Toasts: punchy confirmation for the super-admin override actions (delete/reopen) —
+   a spring-in from the bottom-right, an auto-filling progress rail, and a bouncy exit. ---------- */
+#toastHost{position:fixed;right:18px;bottom:18px;z-index:200;display:flex;flex-direction:column-reverse;gap:10px;pointer-events:none}
+@keyframes toastIn{from{opacity:0;transform:translateY(16px) scale(.9)}to{opacity:1;transform:translateY(0) scale(1)}}
+@keyframes toastOut{to{opacity:0;transform:translateX(40px) scale(.92)}}
+@keyframes toastRail{from{width:100%}to{width:0%}}
+.toast{
+  pointer-events:auto;min-width:260px;max-width:360px;background:var(--ink);color:#fff;border-radius:12px;
+  padding:13px 16px;box-shadow:0 18px 40px -16px rgba(0,0,0,.5);display:flex;align-items:center;gap:10px;
+  animation:toastIn .45s cubic-bezier(.34,1.56,.64,1) both;position:relative;overflow:hidden;
+}
+.toast.out{animation:toastOut .3s cubic-bezier(.4,0,1,1) forwards}
+.toast .ic{flex:none;width:22px;height:22px;border-radius:50%;display:grid;place-items:center;font-size:13px}
+.toast.ok .ic{background:var(--green);color:#fff}
+.toast.err .ic{background:var(--red);color:#fff}
+.toast .tx{font-size:13px;font-weight:700;line-height:1.35}
+.toast .rail{position:absolute;left:0;bottom:0;height:3px;background:rgba(255,255,255,.4);animation:toastRail 3.2s linear forwards}
+@media(prefers-reduced-motion:reduce){.toast{animation:none}.toast.out{animation:none}.toast .rail{animation:none}}
 
 /* ---------- Chat thread: no more dead whitespace, buttery entrance motion ---------- */
 .chat{border:2px solid var(--ink);margin-top:18px;border-radius:10px;overflow:hidden;box-shadow:0 10px 26px -18px rgba(24,22,19,.35);display:flex;flex-direction:column;flex:1;min-height:0}
@@ -117,20 +168,31 @@
 #casesPanel .case{transition:transform .2s cubic-bezier(.22,1,.36,1),background .2s ease}
 #casesPanel .case:hover{transform:translateX(3px)}
 </style></head><body>
-<header class="top"><div class="brand"><span class="brand-logo"><img src="/logo-lockup-nav.png" alt="Fraudify" width="368" height="112" decoding="async"></span> / SUPPORT</div><div class="top-right"><button class="stats-trigger hidden" id="statsBtn" type="button"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V10"/><path d="M12 20V4"/><path d="M20 20v-7"/></svg><span>Stats</span></button><span id="staffName">Loading…</span><span id="staffRole"></span><button class="ghost" id="logout">Log out</button></div></header>
-<div id="statsOverlay" class="hidden" role="dialog" aria-modal="true" aria-labelledby="statsTitle">
-  <div id="statsScrim"></div>
-  <div id="statsPanel">
-    <div id="statsHead">
-      <h2 id="statsTitle"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v16a2 2 0 0 0 2 2h16"/><path d="m19 9-5 5-4-4-4 4"/></svg>Case Analytics</h2>
-      <button id="statsClose" type="button" aria-label="Close"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
+<div id="toastHost" aria-live="polite"></div>
+<header class="top"><div class="brand"><span class="brand-logo"><img src="/logo-lockup-nav.png" alt="Fraudify" width="368" height="112" decoding="async"></span> / SUPPORT</div><div class="top-right"><button class="stats-trigger hidden" id="usersBtn" type="button"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg><span>Users</span></button><button class="stats-trigger hidden" id="statsBtn" type="button"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V10"/><path d="M12 20V4"/><path d="M20 20v-7"/></svg><span>Stats</span></button><span id="staffName">Loading…</span><span id="staffRole"></span><button class="ghost" id="logout">Log out</button></div></header>
+<div id="statsOverlay" class="rw-modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="statsTitle">
+  <div class="rw-modal-scrim"></div>
+  <div class="rw-modal-panel">
+    <div class="rw-modal-head">
+      <h2 class="rw-modal-title" id="statsTitle"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v16a2 2 0 0 0 2 2h16"/><path d="m19 9-5 5-4-4-4 4"/></svg>Case Analytics</h2>
+      <button class="rw-modal-close" id="statsClose" type="button" aria-label="Close"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
     </div>
-    <div id="statsBody"><div class="stats-loading"><span></span><span></span><span></span></div></div>
+    <div class="rw-modal-body" id="statsBody"><div class="stats-loading"><span></span><span></span><span></span></div></div>
+  </div>
+</div>
+<div id="usersOverlay" class="rw-modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="usersTitle">
+  <div class="rw-modal-scrim"></div>
+  <div class="rw-modal-panel">
+    <div class="rw-modal-head">
+      <h2 class="rw-modal-title" id="usersTitle"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>Customers</h2>
+      <button class="rw-modal-close" id="usersClose" type="button" aria-label="Close"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
+    </div>
+    <div class="rw-modal-body" id="usersBody"><div class="stats-loading"><span></span><span></span><span></span></div></div>
   </div>
 </div>
 <main class="wrap"><div id="bootError" class="hidden" style="margin-bottom:14px;padding:12px;border:2px solid #c1272d;background:#fff0f0;color:#8b1e23;font-weight:700"></div><section class="stats"><div class="stat"><b id="total">0</b><span>Paid cases</span></div><div class="stat"><b id="unassigned">0</b><span>Unassigned</span></div><div class="stat"><b id="mine">0</b><span>Assigned to me</span></div><div class="stat"><b id="open">0</b><span>Open / active</span></div></section>
 <div class="layout"><section class="panel" id="casesPanel"><div class="panel-head"><h2>Cases</h2><div class="filters"><input class="search" id="search" placeholder="Search case / customer"><select class="select" id="filter"><option value="all">All</option><option value="unassigned">Unassigned</option><option value="mine">My cases</option><option value="in-progress">In progress</option><option value="closed">Closed</option></select><button class="btn secondary" id="refresh">Refresh</button></div></div><div class="case-list" id="caseList"><div class="empty">Loading cases…</div></div></section>
-<section class="panel detail"><div id="emptyDetail" class="empty" style="margin:auto">Select a paid case to open the conversation.</div><div id="detailContent" class="hidden"><div class="detail-head"><h1 id="dId">—</h1><p id="dCustomer">—</p><div class="detail-tools"><select class="select" id="assign"></select><select class="select" id="status"><option value="awaiting_details">Awaiting details</option><option value="submitted">Submitted</option><option value="in-progress">In progress</option><option value="won">Won</option><option value="closed">Closed</option></select><div id="proofs"></div></div></div><div class="detail-body"><div class="grid2"><div class="field"><label>Title</label><div id="dTitle">—</div></div><div class="field"><label>Company</label><div id="dCompany">—</div></div><div class="field"><label>Category</label><div id="dCategory">—</div></div><div class="field"><label>Dispute amount</label><div id="dAmount">—</div></div><div class="field"><label>Payment</label><div id="dPayment">—</div></div><div class="field" style="grid-column:1/-1"><label>Description</label><div id="dDescription">—</div></div><div class="field" style="grid-column:1/-1"><label>Case summary</label><div id="dSummary">—</div></div></div><div class="chat"><div class="messages" id="messages"></div><div class="composer"><textarea id="composer" maxlength="2000" placeholder="Reply to the customer…"></textarea><button id="send">Send</button></div></div></div></div></section></div><section class="panel hidden" id="agentManager" style="margin-top:16px;padding:18px"><h2 style="margin:0 0 6px">Support team</h2><p class="small">Add support agents who can log in, receive cases, and reply to customers. Disabled agents are immediately unassigned from their cases.</p><form id="agentForm" style="display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:8px;margin-top:12px"><input class="search" id="aName" placeholder="Agent name" required><input class="search" id="aEmail" type="email" placeholder="Agent email" required><input class="search" id="aPassword" type="password" placeholder="Temporary password (8+ chars)" minlength="8" required><button class="btn" type="submit">Add agent</button></form><div id="agentList" style="margin-top:10px"></div></section></main>
+<section class="panel detail"><div id="emptyDetail" class="empty" style="margin:auto">Select a paid case to open the conversation.</div><div id="detailContent" class="hidden"><div class="detail-head"><h1 id="dId">—</h1><p id="dCustomer">—</p><div class="detail-tools"><select class="select" id="assign"></select><select class="select" id="status"><option value="awaiting_details">Awaiting details</option><option value="submitted">Submitted</option><option value="in-progress">In progress</option><option value="won">Won</option><option value="closed">Closed</option></select><div id="proofs"></div><button type="button" class="btn secondary admin-only-btn hidden" id="reopenCaseBtn" title="Reopen this case without the customer paying again">↺ Reopen (no payment)</button><button type="button" class="btn danger-btn admin-only-btn hidden" id="deleteCaseBtn" title="Permanently delete this case">🗑 Delete case</button></div></div><div class="detail-body"><div class="grid2"><div class="field"><label>Title</label><div id="dTitle">—</div></div><div class="field"><label>Company</label><div id="dCompany">—</div></div><div class="field"><label>Category</label><div id="dCategory">—</div></div><div class="field"><label>Dispute amount</label><div id="dAmount">—</div></div><div class="field"><label>Payment</label><div id="dPayment">—</div></div><div class="field" style="grid-column:1/-1"><label>Description</label><div id="dDescription">—</div></div><div class="field" style="grid-column:1/-1"><label>Case summary</label><div id="dSummary">—</div></div></div><div class="chat"><div class="messages" id="messages"></div><div class="composer"><textarea id="composer" maxlength="2000" placeholder="Reply to the customer…"></textarea><button id="send">Send</button></div></div></div></div></section></div><section class="panel hidden" id="agentManager" style="margin-top:16px;padding:18px"><h2 style="margin:0 0 6px">Support team</h2><p class="small">Add support agents who can log in, receive cases, and reply to customers. Disabled agents are immediately unassigned from their cases.</p><form id="agentForm" style="display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:8px;margin-top:12px"><input class="search" id="aName" placeholder="Agent name" required><input class="search" id="aEmail" type="email" placeholder="Agent email" required><input class="search" id="aPassword" type="password" placeholder="Temporary password (8+ chars)" minlength="8" required><button class="btn" type="submit">Add agent</button></form><div id="agentList" style="margin-top:10px"></div></section></main>
 <script>
 let staff=null,cases=[],agents=[],current=null,timer=null,listTimer=null;
 function isUnread(c){return Number(c?.unreadCount||0)>0;}
@@ -141,7 +203,7 @@ function openChatStream(caseId){closeChatStream();chatStream=new EventSource('/a
 function senderLabel(c){if(!c.lastMessageSender)return '';if(c.lastMessageSenderId&&c.lastMessageSenderId===staff?.uid)return 'You';if(!c.lastMessageSenderId&&c.lastMessageSender===staff?.role)return 'You';if(c.lastMessageSender==='admin')return c.lastMessageSenderName||'Super Admin';if(c.lastMessageSender==='agent')return c.lastMessageSenderName||'Agent';return c.lastMessageSenderName||'Customer';}
 const $=id=>document.getElementById(id);const esc=v=>{const d=document.createElement('div');d.textContent=v??'';return d.innerHTML};
 async function api(url,opt={}){const r=await fetch(url,opt);let d={};try{d=await r.json()}catch(_){}if(r.status===401){location.href='/admin-login';throw Error('Session expired')}if(!r.ok){const err=Error(d.error||'Request failed');Object.assign(err,d);throw err;}return d}
-async function boot(){try{const me=await api('/api/staff/me');staff=me.staff;$('staffName').textContent=staff.name;$('staffRole').textContent='· '+staff.role; if(staff.role==='admin'){$('agentManager').classList.remove('hidden');$('statsBtn').classList.remove('hidden');}await loadAgents();await loadCases();
+async function boot(){try{const me=await api('/api/staff/me');staff=me.staff;$('staffName').textContent=staff.name;$('staffRole').textContent='· '+staff.role; if(staff.role==='admin'){$('agentManager').classList.remove('hidden');$('statsBtn').classList.remove('hidden');$('usersBtn').classList.remove('hidden');document.querySelectorAll('.admin-only-btn').forEach(b=>b.classList.remove('hidden'));}await loadAgents();await loadCases();
       listTimer=setInterval(()=>loadCases(true).catch(e=>console.error('case list refresh',e)),2500);
     }catch(e){console.error('Admin workspace boot failed',e);const msg=document.getElementById('bootError');if(msg){msg.textContent=e.message||'Could not load the support workspace.';msg.classList.remove('hidden');}if(String(e.message||'').includes('Session expired') && !location.pathname.includes('admin-login'))location.href='/admin-login'}}
 async function loadAgents(){if(staff?.role!=='admin')return;agents=await api('/api/admin/agents');renderAgents();}
@@ -195,6 +257,40 @@ async function loadMessages(){if(!current)return;try{const arr=await api('/api/a
 $('send').onclick=async()=>{const t=$('composer').value.trim();if(!t||!current)return;$('send').disabled=true;try{const sent=await api('/api/admin/cases/'+encodeURIComponent(current.caseId)+'/messages',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text:t})});$('composer').value='';const el=$('messages');const empty=el.querySelector('.empty');if(empty)empty.remove();const bubble=document.createElement('div');bubble.className='msg '+(staff.role==='admin'?'admin':'agent');bubble.innerHTML=`<span class="who">You · YOU · ${new Date(sent.createdAt||Date.now()).toLocaleString('en-IN')}</span>${esc(sent.text||t)}`;el.appendChild(bubble);el.scrollTop=el.scrollHeight;current.lastMessageText=sent.text||t;current.lastMessageAt=sent.createdAt||new Date().toISOString();current.lastMessageSender=staff.role;current.lastMessageSenderName=staff.name;current.unread=false;await markRead(current);renderList();}catch(e){alert(e.message)}finally{$('send').disabled=false}};
 $('composer').addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();$('send').click()}});
 $('status').onchange=async e=>{if(!current)return;try{await api('/api/admin/cases/'+encodeURIComponent(current.caseId)+'/status',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({status:e.target.value})});current.status=e.target.value;await loadCases()}catch(err){alert(err.message)}};
+$('reopenCaseBtn').onclick=async()=>{
+  if(!current)return;
+  if(!confirm(`Reopen ${current.caseId} without the customer paying again? This marks it paid and restarts the 48-hour chat window.`))return;
+  const btn=$('reopenCaseBtn'); btn.disabled=true; const original=btn.innerHTML; btn.innerHTML='Reopening…';
+  try{
+    const r=await api('/api/admin/cases/'+encodeURIComponent(current.caseId)+'/reopen',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({status:'in-progress'})});
+    current.status=r.status; current.paymentStatus='paid';
+    $('status').value=r.status; const sel=$('status'); sel.classList.remove('rw-flash'); void sel.offsetWidth; sel.classList.add('rw-flash');
+    await loadCases();
+    showToast(`${current.caseId} reopened — no payment required.`);
+  }catch(err){showToast(err.message||'Could not reopen this case.','err')}
+  finally{btn.disabled=false;btn.innerHTML=original;}
+};
+$('deleteCaseBtn').onclick=async()=>{
+  if(!current)return;
+  if(!confirm(`Permanently delete case ${current.caseId} and all its messages and files? This cannot be undone.`))return;
+  const btn=$('deleteCaseBtn'); btn.disabled=true; const original=btn.innerHTML; btn.innerHTML='Deleting…';
+  try{
+    const deletedId=current.caseId;
+    await api('/api/admin/cases/'+encodeURIComponent(current.caseId),{method:'DELETE'});
+    closeDetail();
+    await loadCases();
+    showToast(`${deletedId} permanently deleted.`);
+  }catch(err){showToast(err.message||'Could not delete this case.','err');btn.disabled=false;btn.innerHTML=original;}
+};
+function showToast(message,type='ok'){
+  const t=document.createElement('div'); t.className='toast '+(type==='err'?'err':'ok');
+  t.innerHTML=`<span class="ic">${type==='err'?'✕':'✓'}</span><span class="tx"></span><span class="rail"></span>`;
+  t.querySelector('.tx').textContent=message;
+  $('toastHost').appendChild(t);
+  const kill=()=>{t.classList.add('out');t.addEventListener('animationend',()=>t.remove(),{once:true});};
+  setTimeout(kill,3200);
+  t.addEventListener('click',kill);
+}
 function money(p){return '₹'+Math.round((p||0)/100).toLocaleString('en-IN')}
 const STATUS_DOT={'in-progress':'#2457a6',won:'#28734b',closed:'#999',submitted:'#9b6810',awaiting_details:'#9b6810',awaiting_payment:'#c1272d'};
 function countUp(el,to,opts={}){
@@ -204,8 +300,12 @@ function countUp(el,to,opts={}){
     if(p<1)requestAnimationFrame(tick);}
   requestAnimationFrame(tick);
 }
-function openStatsOverlay(){const ov=$('statsOverlay');ov.classList.remove('hidden');requestAnimationFrame(()=>requestAnimationFrame(()=>ov.classList.add('open')));}
-function closeStatsOverlay(){const ov=$('statsOverlay');ov.classList.remove('open');const onEnd=e=>{if(e.target!==$('statsPanel'))return;ov.classList.add('hidden');ov.removeEventListener('transitionend',onEnd);};ov.addEventListener('transitionend',onEnd);setTimeout(()=>ov.classList.add('hidden'),450);}
+// Shared open/close for any .rw-modal-overlay (Stats, Users, …) — spring-in on open, waits for
+// the CSS transition (or a 450ms worst case) before actually hiding, so the exit never snaps.
+function openModal(id){const ov=$(id);ov.classList.remove('hidden');requestAnimationFrame(()=>requestAnimationFrame(()=>ov.classList.add('open')));}
+function closeModal(id){const ov=$(id);ov.classList.remove('open');const panel=ov.querySelector('.rw-modal-panel');const onEnd=e=>{if(e.target!==panel)return;ov.classList.add('hidden');ov.removeEventListener('transitionend',onEnd);};ov.addEventListener('transitionend',onEnd);setTimeout(()=>ov.classList.add('hidden'),450);}
+function openStatsOverlay(){openModal('statsOverlay');}
+function closeStatsOverlay(){closeModal('statsOverlay');}
 $('statsBtn').addEventListener('click',async()=>{
   openStatsOverlay();
   $('statsBody').innerHTML='<div class="stats-loading"><span></span><span></span><span></span></div>';
@@ -239,9 +339,60 @@ $('statsBtn').addEventListener('click',async()=>{
     }));
   }catch(err){$('statsBody').innerHTML=`<div class="stats-empty">${esc(err.message||'Could not load stats.')}</div>`}
 });
+function timeAgo(iso){
+  if(!iso)return 'No activity yet';
+  const ms=Date.now()-new Date(iso).getTime(); const m=Math.floor(ms/60000),h=Math.floor(ms/3600000),d=Math.floor(ms/86400000);
+  if(m<1)return 'Just now'; if(m<60)return `${m}m ago`; if(h<24)return `${h}h ago`; if(d<30)return `${d}d ago`;
+  return new Date(iso).toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'});
+}
+async function loadUsersPanel(){
+  $('usersBody').innerHTML='<div class="stats-loading"><span></span><span></span><span></span></div>';
+  try{
+    const users=await api('/api/admin/users');
+    $('usersBody').innerHTML=users.length?`<div class="users-roster">${users.map((u,i)=>`
+      <div class="user-row" data-uid="${esc(u.id)}" style="animation-delay:${Math.min(i,16)*40}ms">
+        <span class="user-av" style="--c:${hueFor(u.email||u.name||u.id)}">${esc(initialsFor(u.name))}</span>
+        <span class="user-main">
+          <b>${esc(u.name||'Unnamed customer')}</b>
+          <small>${esc(u.email||'')}</small>
+        </span>
+        <span class="user-stats">
+          <span class="user-pill" title="Cases filed">${u.caseCount} case${u.caseCount===1?'':'s'}</span>
+          <span class="user-pill" title="Still open">${u.openCaseCount} open</span>
+          <span class="user-last">${esc(timeAgo(u.lastActivityAt||u.createdAt))}</span>
+        </span>
+        <button type="button" class="user-del" title="Permanently delete this customer and all their cases">
+          <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>
+          Delete
+        </button>
+      </div>`).join('')}</div>` : '<div class="stats-empty">No customers yet.</div>';
+  }catch(err){$('usersBody').innerHTML=`<div class="stats-empty">${esc(err.message||'Could not load customers.')}</div>`}
+}
+const hueFor=s=>['#c1272d','#2457a6','#28734b','#9b6810','#6b3fa0','#0f766e'][[...String(s)].reduce((a,ch)=>(a*31+ch.charCodeAt(0))>>>0,7)%6];
+const initialsFor=n=>String(n||'?').trim().split(/\s+/).slice(0,2).map(w=>w[0]).join('').toUpperCase()||'?';
+$('usersBtn').addEventListener('click',()=>{openModal('usersOverlay');loadUsersPanel();});
+$('usersBody').addEventListener('click',async e=>{
+  const btn=e.target.closest('.user-del'); if(!btn)return;
+  const row=btn.closest('.user-row'), uid=row.dataset.uid, name=row.querySelector('.user-main b').textContent;
+  if(!confirm(`Permanently delete ${name} and ALL of their cases, messages and files? This cannot be undone.`))return;
+  btn.disabled=true; btn.innerHTML='Deleting…';
+  try{
+    await api('/api/admin/users/'+encodeURIComponent(uid),{method:'DELETE'});
+    row.classList.add('user-row-out');
+    row.addEventListener('animationend',()=>{row.remove();if(!$('usersBody').querySelector('.user-row'))$('usersBody').innerHTML='<div class="stats-empty">No customers yet.</div>';},{once:true});
+    await loadCases();
+    showToast(`${name} and all their cases deleted.`);
+  }catch(err){showToast(err.message||'Could not delete this customer.','err');btn.disabled=false;btn.innerHTML='Delete';}
+});
 $('statsClose').addEventListener('click',closeStatsOverlay);
-$('statsScrim').addEventListener('click',closeStatsOverlay);
-document.addEventListener('keydown',e=>{if(e.key==='Escape'&&$('statsOverlay').classList.contains('open'))closeStatsOverlay();});
+$('statsOverlay').querySelector('.rw-modal-scrim').addEventListener('click',closeStatsOverlay);
+$('usersClose').addEventListener('click',()=>closeModal('usersOverlay'));
+$('usersOverlay').querySelector('.rw-modal-scrim').addEventListener('click',()=>closeModal('usersOverlay'));
+document.addEventListener('keydown',e=>{
+  if(e.key!=='Escape')return;
+  if($('statsOverlay').classList.contains('open'))closeStatsOverlay();
+  if($('usersOverlay').classList.contains('open'))closeModal('usersOverlay');
+});
 $('assign').onchange=async e=>{if(!current||staff.role!=='admin')return;try{await api('/api/admin/cases/'+encodeURIComponent(current.caseId)+'/assign',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({agentId:e.target.value||null})});await loadCases()}catch(err){alert(err.message)}};
 $('refresh').onclick=loadCases;$('search').oninput=renderList;$('filter').onchange=renderList;$('logout').onclick=async()=>{await fetch('/api/staff/logout',{method:'POST'});location.href='/admin-login'};
 $('agentForm').onsubmit=async e=>{e.preventDefault();try{await api('/api/admin/agents',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:$('aName').value,email:$('aEmail').value,password:$('aPassword').value})});e.target.reset();await loadAgents();}catch(err){alert(err.message)}};
@@ -456,6 +607,15 @@ if (admin) {
             applyComposerLock(current);   // e.g. closing the case live should lock the reply box right away
           }
           const row = cases.find(c => c.caseId === d.caseId); if (row) row.status = d.status;
+          if ($('caseList')) renderList();
+        } catch (_) {}
+      });
+      es.addEventListener('case-deleted', ev => {
+        lastBeat = Date.now();
+        try {
+          const d = JSON.parse(ev.data); if (!d || !d.caseId) return;
+          if (current && current.caseId === d.caseId) { closeDetail(); }
+          cases = cases.filter(c => c.caseId !== d.caseId);
           if ($('caseList')) renderList();
         } catch (_) {}
       });
