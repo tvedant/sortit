@@ -199,6 +199,65 @@ async function patchForCaseSchema(patch) {
 async function createCase(c){ if(!DB_ENABLED){const a=readJson(FILES.cases);a.push(c);writeJson(FILES.cases,a);return c;} return caseFromDb((await dbInsert('cases',[await patchForCaseSchema(c)]))[0]); }
 async function updateCase(caseId, patch){ if(!DB_ENABLED){const a=readJson(FILES.cases);const i=a.findIndex(x=>x.caseId===caseId);if(i<0)return null;Object.assign(a[i],patch);writeJson(FILES.cases,a);return a[i];} return caseFromDb((await dbUpdate('cases',`case_id=eq.${encodeURIComponent(caseId)}`,await patchForCaseSchema(patch)))[0]); }
 
+// Deletes every message for a case. Messages may be keyed by the public RW-... case id or by
+// cases.id (a uuid) depending on how the live schema's foreign key was set up (see createMessage,
+// which has the exact same ambiguity) — delete by both so neither leaves orphan rows behind.
+async function deleteMessagesForCase(caseId, record) {
+  if (!DB_ENABLED) {
+    const kept = readJson(FILES.messages).filter(m => m.caseId !== caseId);
+    writeJson(FILES.messages, kept);
+    invalidateMessageMetaCache();
+    return;
+  }
+  try { await dbDelete('messages', `case_id=eq.${encodeURIComponent(caseId)}`); } catch (_) {}
+  if (record && record.id && record.id !== caseId) {
+    try { await dbDelete('messages', `case_id=eq.${encodeURIComponent(record.id)}`); } catch (_) {}
+  }
+  invalidateMessageMetaCache();
+}
+
+// Full, permanent removal of a case: its messages, any uploaded proof files (storage + row,
+// or the local uploads folder in JSON-fallback mode), and the case row itself. This is a
+// super-admin-only destructive action — see the DELETE /api/admin/cases/:caseId route.
+async function deleteCaseCascade(caseId) {
+  const record = await findCase(caseId);
+  if (!record) return false;
+  if (DB_ENABLED) {
+    const files = await listCaseFiles(caseId);
+    for (const f of files) { if (f.storagePath) await deleteFromStorage(f.storagePath); }
+    try { await dbDelete('case_files', `case_id=eq.${encodeURIComponent(record.id)}`); } catch (_) {}
+  } else {
+    try { fs.rmSync(path.join(UPLOADS_DIR, caseId), { recursive: true, force: true }); } catch (_) {}
+  }
+  await deleteMessagesForCase(caseId, record);
+  if (DB_ENABLED) {
+    await dbDelete('cases', `case_id=eq.${encodeURIComponent(caseId)}`);
+  } else {
+    writeJson(FILES.cases, readJson(FILES.cases).filter(c => c.caseId !== caseId));
+  }
+  // Tell anyone with this case open (customer or staff) that it's gone, so a stale tab doesn't
+  // keep showing a chat window for a case that no longer exists.
+  broadcastCaseEvent(caseId, 'case-deleted', { caseId });
+  CHAT_STREAMS.delete(String(caseId));
+  return true;
+}
+
+// Full, permanent removal of a customer account and everything that belongs to them. Staff/admin
+// accounts are never touched here — those are managed through the separate agents panel.
+async function deleteUserCascade(userId) {
+  const user = await findUserById(userId);
+  if (!user) return null;
+  if (user.role && user.role !== 'customer') throw new Error('Only customer accounts can be deleted here.');
+  const theirCases = (await listCasesForUser(userId)).map(r => DB_ENABLED ? caseFromDb(r) : r);
+  for (const c of theirCases) { await deleteCaseCascade(c.caseId); }
+  if (!DB_ENABLED) {
+    writeJson(FILES.users, readJson(FILES.users).filter(u => u.id !== userId));
+  } else {
+    await dbDelete('users', `id=eq.${encodeURIComponent(userId)}`);
+  }
+  return user;
+}
+
 let MESSAGE_SCHEMA_CACHE = null;
 let MESSAGE_SCHEMA_CACHE_AT = 0;
 const MESSAGE_SCHEMA_TTL_MS = 5 * 60 * 1000;
@@ -593,6 +652,17 @@ async function signedStorageUrl(storagePath, expiresIn=900){
   if(!res.ok) throw new Error(`Storage signing failed ${res.status}: ${JSON.stringify(data)}`);
   return `${SUPABASE_URL}/storage/v1${data.signedURL}`;
 }
+// Best-effort cleanup — used when a super admin permanently deletes a case. Never throws: a
+// storage object that's already gone (or a transient network blip) shouldn't block the rest
+// of the deletion.
+async function deleteFromStorage(storagePath) {
+  try {
+    await fetch(`${SUPABASE_URL}/storage/v1/object/${STORAGE_BUCKET}/${storagePath.split('/').map(encodeURIComponent).join('/')}`, {
+      method: 'DELETE',
+      headers: { apikey: SUPABASE_SECRET_KEY, Authorization: `Bearer ${SUPABASE_SECRET_KEY}` }
+    });
+  } catch (_) {}
+}
 
 // Middleware
 app.disable('x-powered-by');
@@ -698,6 +768,58 @@ app.delete('/api/admin/agents/:id',requireAdmin,async(req,res)=>{try{
   else {const a=readJson(FILES.cases);a.forEach(c=>{if(c.assignedTo===req.params.id){c.assignedTo=null;c.assignedAt=null;}});writeJson(FILES.cases,a);}
   res.json({ok:true});
 }catch(e){console.error(e);res.status(500).json({error:'Could not disable agent.'});}});
+
+// CUSTOMER USERS — super-admin-only directory, with manual delete/reopen powers for when a
+// customer asks to be removed, a test/spam case needs purging, or a case should be reopened
+// without making them pay again.
+app.get('/api/admin/users',requireAdmin,asyncHandler(async(req,res)=>{
+  const users=(await listUsers()).filter(u=>!u.role||u.role==='customer');
+  const rawCases=DB_ENABLED?await dbSelect('cases','order=created_at.desc'):readJson(FILES.cases);
+  const byUser=new Map();
+  for(const raw of rawCases){
+    const c=DB_ENABLED?caseFromDb(raw):raw;
+    const uid=c.userId; if(!uid)continue;
+    if(!byUser.has(uid))byUser.set(uid,[]);
+    byUser.get(uid).push(c);
+  }
+  res.json(users.map(u=>{
+    const id=u.id,uc=byUser.get(id)||[];
+    let lastTs=0; for(const c of uc){const t=new Date(c.updatedAt||c.createdAt||0).getTime();if(t>lastTs)lastTs=t;}
+    return {
+      id, name:u.name, email:u.email, createdAt:u.createdAt||u.created_at,
+      caseCount:uc.length, paidCaseCount:uc.filter(c=>c.paymentStatus==='paid').length,
+      openCaseCount:uc.filter(c=>!['closed','won'].includes(c.status)).length,
+      lastActivityAt:lastTs?new Date(lastTs).toISOString():null,
+    };
+  }).sort((a,b)=>new Date(b.lastActivityAt||b.createdAt||0)-new Date(a.lastActivityAt||a.createdAt||0)));
+}));
+app.delete('/api/admin/users/:userId',requireAdmin,asyncHandler(async(req,res)=>{
+  const user=await findUserById(req.params.userId);
+  if(!user)return res.status(404).json({error:'User not found.'});
+  if(user.role && user.role!=='customer')return res.status(400).json({error:'Only customer accounts can be deleted here. Use the support-team panel to remove staff.'});
+  await deleteUserCascade(req.params.userId);
+  console.log(`[admin-delete] user ${req.params.userId} (${user.email}) and all their cases deleted by ${req.staff.email}`);
+  res.json({ok:true,userId:req.params.userId});
+}));
+app.delete('/api/admin/cases/:caseId',requireAdmin,asyncHandler(async(req,res)=>{
+  const record=await findCase(req.params.caseId);
+  if(!record)return res.status(404).json({error:'Case not found.'});
+  await deleteCaseCascade(req.params.caseId);
+  console.log(`[admin-delete] case ${req.params.caseId} deleted by ${req.staff.email}`);
+  res.json({ok:true,caseId:req.params.caseId});
+}));
+app.post('/api/admin/cases/:caseId/reopen',requireAdmin,asyncHandler(async(req,res)=>{
+  const record=await findCase(req.params.caseId);
+  if(!record)return res.status(404).json({error:'Case not found.'});
+  const now=new Date().toISOString();
+  const nextStatus=['awaiting_details','submitted','in-progress'].includes(req.body?.status)?req.body.status:'in-progress';
+  // A super admin can wave the 48-hour paid-access requirement entirely: mark it paid and
+  // restart the access window, with no payment ever touched.
+  await updateCase(req.params.caseId,{status:nextStatus,paymentStatus:'paid',activatedAt:now,updatedAt:now});
+  console.log(`[admin-reopen] case ${req.params.caseId} reopened without payment by ${req.staff.email} -> ${nextStatus}`);
+  broadcastCaseEvent(req.params.caseId,'case-status',{caseId:req.params.caseId,status:nextStatus,updatedAt:now});
+  res.json({ok:true,caseId:req.params.caseId,status:nextStatus});
+}));
 
 // LEAD CHAT
 const LEAD_CATEGORY_LABELS={ecommerce:'an e-commerce purchase or return',banking:'a bank or EMI/lending app charge',telecom:'a telecom billing issue',travel:'a travel or cab booking',food:'a food delivery order',insurance:'an insurance claim',other:'a consumer complaint'};
@@ -1024,11 +1146,11 @@ app.get('/api/admin/cases/:caseId',requireStaff,asyncHandler(async(req,res)=>{
   const c=caseFromDb(record);if(!(await canStaffAccessCase(req.staff,c)))return res.status(403).json({error:'This case is assigned to another agent.'});
   res.json(await decorateCase(record));
 }));
-app.patch('/api/admin/cases/:caseId/status',requireStaff,async(req,res)=>{const allowed=['awaiting_details','submitted','in-progress','won','closed'];if(!allowed.includes(req.body?.status))return res.status(400).json({error:`Status must be one of: ${allowed.join(', ')}`});const record=await findCase(req.params.caseId);if(!record)return res.status(404).json({error:'Case not found.'});if(!(await canStaffAccessCase(req.staff,caseFromDb(record))))return res.status(403).json({error:'This case is assigned to another agent.'});const updatedAt=new Date().toISOString();await updateCase(req.params.caseId,{status:req.body.status,updatedAt});
+app.patch('/api/admin/cases/:caseId/status',requireStaff,asyncHandler(async(req,res)=>{const allowed=['awaiting_details','submitted','in-progress','won','closed'];if(!allowed.includes(req.body?.status))return res.status(400).json({error:`Status must be one of: ${allowed.join(', ')}`});const record=await findCase(req.params.caseId);if(!record)return res.status(404).json({error:'Case not found.'});if(!(await canStaffAccessCase(req.staff,caseFromDb(record))))return res.status(403).json({error:'This case is assigned to another agent.'});const updatedAt=new Date().toISOString();await updateCase(req.params.caseId,{status:req.body.status,updatedAt});
   // Push the change live so an open customer chat locks (or unlocks) immediately — e.g. closing
   // a case should stop them from being able to send another message right away, not just on reload.
   broadcastCaseEvent(req.params.caseId,'case-status',{caseId:req.params.caseId,status:req.body.status,updatedAt});
-  res.json({ok:true});});
+  res.json({ok:true});}));
 app.patch('/api/admin/cases/:caseId/assign',requireAdmin,async(req,res)=>{try{
   const record=await findCase(req.params.caseId);if(!record)return res.status(404).json({error:'Case not found.'});
   const agentId=req.body?.agentId?String(req.body.agentId):null;
