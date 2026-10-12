@@ -90,6 +90,28 @@
   .chat-empty{text-align:center; color:#999; font-size:13px; padding:30px 0;}
   .chat-input-row{display:flex; border-top:3px solid var(--ink);}
   .chat-input{flex:1; border:none; padding:14px; font-family:'Space Grotesk',sans-serif; font-size:14px;}
+  /* iOS zooms the viewport on focus of any input under 16px — keep all mobile text inputs at 16px to stop that jolt. */
+  @media(max-width:640px){ input,textarea,select{font-size:16px!important;} }
+
+  /* ---------- Toasts: same punchy spring-in/rail/bounce-out pattern used on the admin side,
+     retuned to the poster palette — for non-blocking confirmations instead of alert(). ---------- */
+  #toastHost{position:fixed;right:18px;bottom:18px;left:18px;z-index:300;display:flex;flex-direction:column-reverse;align-items:flex-end;gap:10px;pointer-events:none;}
+  @keyframes toastIn{from{opacity:0;transform:translateY(16px) scale(.92)}to{opacity:1;transform:translateY(0) scale(1)}}
+  @keyframes toastOut{to{opacity:0;transform:translateX(40px) scale(.92)}}
+  @keyframes toastRail{from{width:100%}to{width:0%}}
+  .toast{
+    pointer-events:auto; min-width:240px; max-width:360px; background:var(--ink); color:var(--paper);
+    border:2px solid var(--ink); border-radius:4px; padding:13px 16px;
+    box-shadow:5px 5px 0 rgba(0,0,0,.25); display:flex; align-items:center; gap:10px;
+    animation:toastIn .45s cubic-bezier(.34,1.56,.64,1) both; position:relative; overflow:hidden; cursor:pointer;
+  }
+  .toast.out{animation:toastOut .3s cubic-bezier(.4,0,1,1) forwards;}
+  .toast .ic{flex:none; width:22px; height:22px; border-radius:50%; display:grid; place-items:center; font-size:13px; font-weight:900;}
+  .toast.ok .ic{background:var(--green); color:#fff;}
+  .toast.err .ic{background:var(--crimson); color:#fff;}
+  .toast .tx{font-size:13px; font-weight:700; line-height:1.35;}
+  .toast .rail{position:absolute; left:0; bottom:0; height:3px; background:rgba(240,230,204,.4); animation:toastRail 3.2s linear forwards;}
+  @media(prefers-reduced-motion:reduce){ .toast,.toast.out,.toast .rail{animation:none;} }
   .chat-input:focus{outline:none;}
   .chat-send{border:none; background:var(--ink); color:var(--paper); padding:0 22px; font-weight:700; cursor:pointer;}
   .chat-send:hover{background:var(--crimson);}
@@ -102,6 +124,7 @@
 </style>
 <meta name="theme-color" content="#F0E6CC"><style>@view-transition{navigation:auto}::view-transition-old(root){animation:.2s ease both rwo}::view-transition-new(root){animation:.45s cubic-bezier(.22,1,.36,1) both rwn}@keyframes rwo{to{opacity:0;transform:translateY(-12px)}}@keyframes rwn{from{opacity:0;transform:translateY(24px)}}</style><link rel="preconnect" href="https://checkout.razorpay.com"></head>
 <body>
+<div id="toastHost" aria-live="polite"></div>
 
 <nav>
   <div class="nav-inner">
@@ -220,6 +243,16 @@
 </main>
 
 <script>
+  function showToast(message,type='ok'){
+    const host=document.getElementById('toastHost'); if(!host) return;
+    const t=document.createElement('div'); t.className='toast '+(type==='err'?'err':'ok');
+    t.innerHTML=`<span class="ic">${type==='err'?'✕':'✓'}</span><span class="tx"></span><span class="rail"></span>`;
+    t.querySelector('.tx').textContent=message;
+    host.appendChild(t);
+    const kill=()=>{t.classList.add('out');t.addEventListener('animationend',()=>t.remove(),{once:true});};
+    setTimeout(kill,3200);
+    t.addEventListener('click',kill);
+  }
   let currentUser = null;
   let currentCaseId = null;
   let chatPollTimer = null;
@@ -380,7 +413,7 @@
       if (!res.ok) throw new Error(data.error || 'Could not activate the demo case.');
       await openCaseView(caseId);
     } catch (err) {
-      alert(err.message || 'Could not activate this case. Please try again.');
+      showToast(err.message || 'Could not activate this case. Please try again.', 'err');
     } finally {
       rows.forEach(r => { r.style.pointerEvents = ''; });
     }
@@ -542,7 +575,7 @@
       if (chatPollTimer) { clearInterval(chatPollTimer); chatPollTimer = null; }
       closeChatStream();
       currentCaseId = null;
-      alert(err.message || 'Could not open this case. Please try again.');
+      showToast(err.message || 'Could not open this case. Please try again.', 'err');
       showScreen('list');
       await loadCases();
     }
@@ -753,6 +786,16 @@ if (dash) {
       es.onmessage = () => { lastBeat = Date.now(); };   // default-event pings (heartbeats) still count as "alive"
       es.addEventListener('message', ev => { lastBeat = Date.now(); try { const d = JSON.parse(ev.data), m = d && (d.message || d); if (m && m.text && m.createdAt && m.sender) chat.add(m); } catch (_) {} run(); });
       es.addEventListener('case-status', ev => { lastBeat = Date.now(); try { const d = JSON.parse(ev.data); if (d && d.status) { setCaseViewStatus(d.status, true); applyChatLockState(d.status, false); } } catch (_) {} });
+      es.addEventListener('case-deleted', ev => {
+        lastBeat = Date.now();
+        try {
+          const d = JSON.parse(ev.data); if (!d || d.caseId !== currentCaseId) return;
+          clearInterval(window.__rwStreamWatch); closeChatStream();
+          currentCaseId = null;
+          alert('This case was removed by support and is no longer available.');
+          showScreen('list'); loadCases();
+        } catch (_) {}
+      });
       es.addEventListener('ready', () => { lastBeat = Date.now(); refreshCaseStatus(); });
       es.onerror = () => { lastBeat = 0; };   // force a self-heal check sooner
       chatStream = es;
