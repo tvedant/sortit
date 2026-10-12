@@ -79,6 +79,8 @@
   @media (prefers-reduced-motion: reduce){
     *{animation-duration:0.001ms !important; animation-iteration-count:1 !important; transition-duration:0.001ms !important;}
   }
+  /* iOS zooms the viewport on focus of any input under 16px — keep mobile text inputs at 16px to stop that jolt. */
+  @media(max-width:640px){ input,textarea,select{font-size:16px!important;} }
 
   /* ---------- SCROLL PROGRESS ---------- */
   .scroll-progress{
