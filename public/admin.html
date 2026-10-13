@@ -375,10 +375,14 @@ function timeAgo(iso){
   if(m<1)return 'Just now'; if(m<60)return `${m}m ago`; if(h<24)return `${h}h ago`; if(d<30)return `${d}d ago`;
   return new Date(iso).toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'});
 }
-async function loadUsersPanel(){
-  $('usersBody').innerHTML='<div class="stats-loading"><span></span><span></span><span></span></div>';
+let usersPollTimer=null,usersKey=null;
+async function loadUsersPanel(silent){
+  if(!silent)$('usersBody').innerHTML='<div class="stats-loading"><span></span><span></span><span></span></div>';
   try{
     const users=await api('/api/admin/users');
+    const key=JSON.stringify(users.map(u=>[u.id,u.caseCount,u.openCaseCount,u.lastActivityAt]));
+    if(silent&&key===usersKey)return;   // nothing actually changed — skip the re-render so an open panel doesn't flicker
+    usersKey=key;
     $('usersBody').innerHTML=users.length?`<div class="users-roster">${users.map((u,i)=>`
       <div class="user-row" data-uid="${esc(u.id)}" style="animation-delay:${Math.min(i,16)*40}ms">
         <span class="user-av" style="--c:${hueFor(u.email||u.name||u.id)}">${esc(initialsFor(u.name))}</span>
@@ -396,11 +400,22 @@ async function loadUsersPanel(){
           Delete
         </button>
       </div>`).join('')}</div>` : '<div class="stats-empty">No customers yet.</div>';
-  }catch(err){$('usersBody').innerHTML=`<div class="stats-empty">${esc(err.message||'Could not load customers.')}</div>`}
+  }catch(err){
+    if(!silent)$('usersBody').innerHTML=`<div class="stats-empty">${esc(err.message||'Could not load customers.')}</div>`;
+    else console.error('loadUsersPanel (background refresh)',err);
+  }
 }
 const hueFor=s=>['#c1272d','#2457a6','#28734b','#9b6810','#6b3fa0','#0f766e'][[...String(s)].reduce((a,ch)=>(a*31+ch.charCodeAt(0))>>>0,7)%6];
 const initialsFor=n=>String(n||'?').trim().split(/\s+/).slice(0,2).map(w=>w[0]).join('').toUpperCase()||'?';
-$('usersBtn').addEventListener('click',()=>{openModal('usersOverlay');loadUsersPanel();});
+function stopUsersPoll(){clearInterval(usersPollTimer);usersPollTimer=null;}
+function closeUsersOverlay(){closeModal('usersOverlay');stopUsersPoll();}
+$('usersBtn').addEventListener('click',()=>{
+  openModal('usersOverlay');usersKey=null;loadUsersPanel();
+  stopUsersPoll();
+  // Keep the panel current while it's open — a case being added, closed, reopened or deleted
+  // elsewhere in the app should show up here without the admin having to close and reopen it.
+  usersPollTimer=setInterval(()=>loadUsersPanel(true).catch(()=>{}),4000);
+});
 $('usersBody').addEventListener('click',async e=>{
   const btn=e.target.closest('.user-del'); if(!btn)return;
   const row=btn.closest('.user-row'), uid=row.dataset.uid, name=row.querySelector('.user-main b').textContent;
@@ -416,12 +431,12 @@ $('usersBody').addEventListener('click',async e=>{
 });
 $('statsClose').addEventListener('click',closeStatsOverlay);
 $('statsOverlay').querySelector('.rw-modal-scrim').addEventListener('click',closeStatsOverlay);
-$('usersClose').addEventListener('click',()=>closeModal('usersOverlay'));
-$('usersOverlay').querySelector('.rw-modal-scrim').addEventListener('click',()=>closeModal('usersOverlay'));
+$('usersClose').addEventListener('click',closeUsersOverlay);
+$('usersOverlay').querySelector('.rw-modal-scrim').addEventListener('click',closeUsersOverlay);
 document.addEventListener('keydown',e=>{
   if(e.key!=='Escape')return;
   if($('statsOverlay').classList.contains('open'))closeStatsOverlay();
-  if($('usersOverlay').classList.contains('open'))closeModal('usersOverlay');
+  if($('usersOverlay').classList.contains('open'))closeUsersOverlay();
 });
 $('assign').onchange=async e=>{if(!current||staff.role!=='admin')return;try{await api('/api/admin/cases/'+encodeURIComponent(current.caseId)+'/assign',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({agentId:e.target.value||null})});await loadCases()}catch(err){alert(err.message)}};
 $('refresh').onclick=loadCases;$('search').oninput=renderList;$('filter').onchange=renderList;$('logout').onclick=async()=>{await fetch('/api/staff/logout',{method:'POST'});location.href='/admin-login'};
