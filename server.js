@@ -1,1202 +1,993 @@
-require('dotenv').config();
-const express = require('express');
-const cors = require('cors');
-const cookieParser = require('cookie-parser');
-const bcrypt = require('bcryptjs');
-const jwt = require('jsonwebtoken');
-const multer = require('multer');
-const crypto = require('crypto');
-const fs = require('fs');
-const path = require('path');
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Fraudify — Support Workspace</title><link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png"><link rel="icon" type="image/png" sizes="192x192" href="/favicon-192.png">
+<style>
+:root{--ink:#181613;--paper:#f5f0e7;--panel:#fff;--muted:#756d61;--line:#d8d0c3;--red:#c1272d;--blue:#2457a6;--green:#28734b;--amber:#9b6810}*{box-sizing:border-box}body{margin:0;background:var(--paper);color:var(--ink);font-family:Inter,system-ui,-apple-system,Segoe UI,sans-serif}.top{background:var(--ink);color:#fff;padding:15px 24px;display:flex;align-items:center;justify-content:space-between;gap:20px}.brand{font-weight:900;letter-spacing:.04em;font-size:15px;display:flex;align-items:center;gap:10px}.brand-logo{background:#F0E6CC;border-radius:8px;padding:5px 10px;display:flex;align-items:center;flex:none}.brand-logo img{height:22px;width:auto;display:block}.top-right{display:flex;align-items:center;gap:12px;font-size:13px}.ghost{border:1px solid #777;background:transparent;color:#fff;padding:8px 12px;cursor:pointer}.wrap{max-width:1500px;margin:0 auto;padding:22px}.stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:18px}.stat{background:#fff;border:2px solid var(--ink);padding:16px}.stat b{display:block;font-size:25px}.stat span{font-size:12px;color:var(--muted)}.layout{display:grid;grid-template-columns:1.1fr 1.9fr;gap:16px;height:calc(100vh - 210px);min-height:440px}.panel{background:#fff;border:2px solid var(--ink);min-width:0}.layout>.panel{height:100%;display:flex;flex-direction:column;overflow:hidden}.panel-head{padding:15px;border-bottom:2px solid var(--ink);display:flex;align-items:center;justify-content:space-between;gap:10px}.panel-head h2{font-size:16px;margin:0}.filters{display:flex;gap:8px;flex-wrap:wrap}.select,.search{border:2px solid var(--ink);background:#fff;padding:9px;font:inherit;font-size:13px}.case-list{flex:1;overflow:auto}.case{padding:15px;border-bottom:1px solid var(--line);cursor:pointer;position:relative}.case:hover,.case.active{background:#f6f8fb}.case.unread{background:#fffaf0;border-left:4px solid var(--red);padding-left:11px}.case-preview{font-size:12px;color:var(--muted);margin-top:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}.case-bottom{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:5px}.unread-pill{display:inline-flex;align-items:center;justify-content:center;min-width:20px;height:20px;padding:0 6px;background:var(--red);color:#fff;border-radius:999px;font-size:10px;font-weight:900;box-shadow:0 0 0 0 rgba(193,39,45,.45);animation:unreadPulse 1.8s infinite}@keyframes unreadPulse{0%{box-shadow:0 0 0 0 rgba(193,39,45,.45)}70%{box-shadow:0 0 0 6px rgba(193,39,45,0)}100%{box-shadow:0 0 0 0 rgba(193,39,45,0)}}.last-time{font-size:10px;color:var(--muted)}.case-top{display:flex;justify-content:space-between;gap:10px}.case-id{font-weight:900}.case-meta{font-size:12px;color:var(--muted);margin-top:4px}.badge{display:inline-block;padding:4px 8px;border-radius:999px;font-size:10px;font-weight:900;text-transform:uppercase;background:#eee}.badge.in-progress{background:#e3edff;color:var(--blue)}.badge.won{background:#dff4e7;color:var(--green)}.badge.closed{background:#eee}.badge.awaiting_details,.badge.submitted{background:#fff1cf;color:var(--amber)}.badge.awaiting_payment{background:#ffe1e1;color:var(--red)}.empty{padding:35px;text-align:center;color:var(--muted)}.detail{display:flex;flex-direction:column;height:100%;min-height:0}#detailContent{display:flex;flex-direction:column;height:100%;min-height:0}.detail-head{padding:18px;border-bottom:2px solid var(--ink);flex:none}.detail-head h1{margin:0;font-size:22px}.detail-head p{margin:5px 0 0;color:var(--muted);font-size:13px}.detail-tools{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}.btn{border:2px solid var(--ink);background:var(--ink);color:#fff;padding:9px 13px;font-weight:800;cursor:pointer}.btn.secondary{background:#fff;color:var(--ink)}.btn.red{background:var(--red)}.detail-body{padding:18px;overflow:hidden;display:flex;flex-direction:column;flex:1;min-height:0}.grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px;flex:0 1 auto;max-height:260px;overflow:auto}.field{border-bottom:1px solid var(--line);padding-bottom:10px}.field label{display:block;text-transform:uppercase;font-size:10px;font-weight:900;color:var(--muted);margin-bottom:4px}.field div{font-size:14px;line-height:1.5;white-space:pre-wrap}.side-card{margin-top:18px;border:2px solid var(--ink);padding:14px}.agent-row{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--line)}.agent-row:last-child{border-bottom:0}.agent-name{font-weight:800}.agent-email{font-size:11px;color:var(--muted)}.small{font-size:11px;color:var(--muted)}.hidden{display:none!important}@media(max-width:1000px){
+  /* Below this width the two-column workspace stacks into one column. The chat must still be a
+     fixed-size, self-contained box that only scrolls its own messages — never the whole page —
+     so each panel gets its own bounded height instead of growing with its content. */
+  .layout{grid-template-columns:1fr;height:auto;min-height:0;gap:14px}
+  .layout>.panel{height:72vh;min-height:440px;max-height:760px;overflow:hidden}
+  .stats{grid-template-columns:repeat(2,1fr)}
+  .case-list{flex:1;overflow:auto}
+  .detail{height:100%;min-height:0}
+  #detailContent{height:100%;min-height:0}
+  .grid2{max-height:180px}
+  .messages{flex:1;max-height:none;min-height:0}
+}
+@media(max-width:600px){.wrap{padding:12px}.stats{grid-template-columns:1fr 1fr}.grid2{grid-template-columns:1fr;max-height:160px}.top{padding:12px}.top-right span{display:none}.layout>.panel{height:70vh;min-height:400px}}
+@media(max-width:640px){input,textarea,select{font-size:16px!important}}
+.composer textarea{max-height:160px}
+</style><meta name="theme-color" content="#F0E6CC"><style>@view-transition{navigation:auto}::view-transition-old(root){animation:.2s ease both rwo}::view-transition-new(root){animation:.45s cubic-bezier(.22,1,.36,1) both rwn}@keyframes rwo{to{opacity:0;transform:translateY(-12px)}}@keyframes rwn{from{opacity:0;transform:translateY(24px)}}
+.stats-trigger{display:inline-flex;align-items:center;gap:7px;border:1px solid #777;background:transparent;color:#fff;padding:8px 13px;font:inherit;font-size:13px;font-weight:700;cursor:pointer;border-radius:8px;transition:background .2s,border-color .2s,transform .15s cubic-bezier(.34,1.56,.64,1)}
+.stats-trigger svg{transition:transform .3s cubic-bezier(.34,1.56,.64,1)}
+.stats-trigger:hover{background:rgba(255,255,255,.12);border-color:#aaa}
+.stats-trigger:hover svg{transform:scaleY(1.25)}
+.stats-trigger:active{transform:scale(.94)}
+.rw-modal-overlay{position:fixed;inset:0;z-index:80;display:flex;align-items:center;justify-content:center;padding:24px}
+.rw-modal-overlay.hidden{display:none}
+.rw-modal-scrim{position:absolute;inset:0;background:rgba(24,22,19,.5);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);opacity:0;transition:opacity .32s cubic-bezier(.22,1,.36,1)}
+.rw-modal-panel{position:relative;background:#fff;border:2px solid var(--ink);width:100%;max-width:880px;max-height:min(84vh,860px);display:flex;flex-direction:column;border-radius:14px;box-shadow:0 30px 70px -20px rgba(0,0,0,.45);opacity:0;transform:translateY(22px) scale(.96);transition:opacity .32s cubic-bezier(.22,1,.36,1),transform .38s cubic-bezier(.22,1,.36,1)}
+.rw-modal-overlay.open .rw-modal-scrim{opacity:1}
+.rw-modal-overlay.open .rw-modal-panel{opacity:1;transform:translateY(0) scale(1)}
+.rw-modal-head{flex:none;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:18px 22px;border-bottom:2px solid var(--ink)}
+.rw-modal-title{margin:0;font-size:18px;font-weight:900;display:flex;align-items:center;gap:10px}
+.rw-modal-title svg{flex:none;color:var(--blue)}
+.rw-modal-close{flex:none;border:0;background:transparent;color:var(--ink);width:34px;height:34px;border-radius:50%;display:grid;place-items:center;cursor:pointer;transition:background .18s,transform .18s}
+.rw-modal-close:hover{background:#f1efe8;transform:rotate(90deg)}
+.rw-modal-body{flex:1;overflow:auto;padding:22px}
+.stats-loading{display:flex;align-items:center;justify-content:center;gap:8px;padding:60px 0}
+.stats-loading span{width:10px;height:10px;border-radius:50%;background:var(--blue);animation:statsBounce 1s ease-in-out infinite}
+.stats-loading span:nth-child(2){background:var(--red);animation-delay:.15s}
+.stats-loading span:nth-child(3){background:var(--amber);animation-delay:.3s}
+@keyframes statsBounce{0%,80%,100%{transform:translateY(0);opacity:.5}40%{transform:translateY(-10px);opacity:1}}
+.stats-kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:26px}
+.stat-card{border:2px solid var(--ink);border-radius:10px;padding:14px;background:#fdfcf9;opacity:0;transform:translateY(14px);animation:statsCardIn .5s cubic-bezier(.22,1,.36,1) forwards}
+.stat-card label{display:block;text-transform:uppercase;font-size:10px;font-weight:900;color:var(--muted);margin-bottom:6px;letter-spacing:.03em}
+.stat-card .v{font-size:24px;font-weight:900;line-height:1.1}
+@keyframes statsCardIn{to{opacity:1;transform:translateY(0)}}
+.stats-section-title{font-size:13px;font-weight:900;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);margin:26px 0 10px;display:flex;align-items:center;gap:8px}
+.stats-section-title::after{content:'';flex:1;height:1px;background:var(--line)}
+.stats-pills{display:flex;flex-wrap:wrap;gap:8px}
+.stats-pill{opacity:0;transform:scale(.7);animation:statsPillIn .4s cubic-bezier(.34,1.56,.64,1) forwards}
+@keyframes statsPillIn{to{opacity:1;transform:scale(1)}}
+.stat-bar-row{opacity:0;transform:translateX(-10px);animation:statsRowIn .45s cubic-bezier(.22,1,.36,1) forwards;margin-bottom:12px}
+@keyframes statsRowIn{to{opacity:1;transform:translateX(0)}}
+.stat-bar-row .top{display:flex;justify-content:space-between;gap:10px;font-size:13px;margin-bottom:5px}
+.stat-bar-row .top .name{font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:60%}
+.stat-bar-row .top .meta{color:var(--muted);white-space:nowrap}
+.stat-bar-track{height:9px;border-radius:999px;background:#eee4d4;overflow:hidden}
+.stat-bar-fill{height:100%;border-radius:999px;width:0;background:linear-gradient(90deg,var(--blue),#5b8fd6);transition:width 1s cubic-bezier(.16,1,.3,1)}
+.stats-empty{padding:28px 0;text-align:center;color:var(--muted);font-size:13px}
+/* ---------- Customers (Users) panel: roster rows with a spring-in entrance, a manual delete
+   that fades+collapses the row the instant the server confirms, and a danger button that only
+   commits its red on hover so the list doesn't read as alarming at rest. ---------- */
+@keyframes userRowIn{from{opacity:0;transform:translateX(-14px) scale(.98)}to{opacity:1;transform:translateX(0) scale(1)}}
+@keyframes userRowOut{to{opacity:0;transform:scale(.94);max-height:0;margin:0;padding-top:0;padding-bottom:0;border-width:0}}
+.users-roster{display:flex;flex-direction:column;gap:8px}
+.user-row{
+  display:flex;align-items:center;gap:12px;padding:12px 14px;border:1.5px solid var(--line);border-radius:12px;
+  background:#fff;opacity:0;transform:translateX(-14px);animation:userRowIn .4s cubic-bezier(.22,1,.36,1) forwards;
+  transition:border-color .18s ease,box-shadow .18s ease,transform .18s cubic-bezier(.22,1,.36,1);
+  max-height:70px;overflow:hidden;
+}
+.user-row:hover{border-color:var(--blue);box-shadow:0 8px 18px -10px rgba(24,22,19,.3);transform:translateX(2px)}
+.user-row-out{animation:userRowOut .32s cubic-bezier(.4,0,1,1) forwards!important}
+.user-av{flex:none;width:38px;height:38px;border-radius:50%;background:var(--c);color:#fff;font-weight:900;font-size:12px;display:grid;place-items:center;border:2px solid var(--ink)}
+.user-main{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}
+.user-main b{font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.user-main small{font-size:11.5px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.user-stats{display:flex;align-items:center;gap:8px;flex:none}
+.user-pill{font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.02em;background:#f1efe8;color:var(--ink);padding:4px 9px;border-radius:999px;white-space:nowrap}
+.user-last{font-size:11px;color:var(--muted);white-space:nowrap;min-width:64px;text-align:right}
+.user-del{flex:none;display:inline-flex;align-items:center;gap:5px;border:1.5px solid var(--line);background:#fff;color:var(--muted);font-size:11.5px;font-weight:800;padding:7px 11px;border-radius:8px;cursor:pointer;transition:background .18s ease,color .18s ease,border-color .18s ease,transform .12s cubic-bezier(.34,1.56,.64,1)}
+.user-del:hover:not(:disabled){background:var(--red);border-color:var(--red);color:#fff}
+.user-del:active:not(:disabled){transform:scale(.93)}
+.user-del:disabled{opacity:.55;cursor:wait}
+@media(prefers-reduced-motion:reduce){.user-row,.user-row-out{animation:none}}
+.danger-btn{border-color:var(--red)!important;color:var(--red)!important;transition:background .18s ease,color .18s ease,transform .12s cubic-bezier(.34,1.56,.64,1)}
+.danger-btn:hover:not(:disabled){background:var(--red)!important;color:#fff!important}
+.danger-btn:active:not(:disabled){transform:scale(.95)}
+#reopenCaseBtn{transition:background .18s ease,color .18s ease,transform .12s cubic-bezier(.34,1.56,.64,1)}
+#reopenCaseBtn:hover:not(:disabled){background:var(--green);color:#fff;border-color:var(--green)}
+#reopenCaseBtn:active:not(:disabled){transform:scale(.95)}
+@keyframes statusFlash{0%{box-shadow:0 0 0 0 rgba(36,87,166,.55)}30%{box-shadow:0 0 0 6px rgba(36,87,166,0);transform:scale(1.04)}100%{box-shadow:0 0 0 0 rgba(36,87,166,0);transform:scale(1)}}
+.select.rw-flash{animation:statusFlash .7s cubic-bezier(.34,1.56,.64,1);border-color:var(--blue)}
+.badge.rw-flash{animation:statusFlash .7s cubic-bezier(.34,1.56,.64,1)}
+@media(max-width:700px){.stats-kpis{grid-template-columns:repeat(2,1fr)}.rw-modal-panel{max-height:92vh}}
 
-let Razorpay = null;
-try { Razorpay = require('razorpay'); } catch (_) {}
+/* ---------- Toasts: punchy confirmation for the super-admin override actions (delete/reopen) —
+   a spring-in from the bottom-right, an auto-filling progress rail, and a bouncy exit. ---------- */
+#toastHost{position:fixed;right:18px;bottom:18px;z-index:200;display:flex;flex-direction:column-reverse;gap:10px;pointer-events:none}
+@keyframes toastIn{from{opacity:0;transform:translateY(16px) scale(.9)}to{opacity:1;transform:translateY(0) scale(1)}}
+@keyframes toastOut{to{opacity:0;transform:translateX(40px) scale(.92)}}
+@keyframes toastRail{from{width:100%}to{width:0%}}
+.toast{
+  pointer-events:auto;min-width:260px;max-width:360px;background:var(--ink);color:#fff;border-radius:12px;
+  padding:13px 16px;box-shadow:0 18px 40px -16px rgba(0,0,0,.5);display:flex;align-items:center;gap:10px;
+  animation:toastIn .45s cubic-bezier(.34,1.56,.64,1) both;position:relative;overflow:hidden;
+}
+.toast.out{animation:toastOut .3s cubic-bezier(.4,0,1,1) forwards}
+.toast .ic{flex:none;width:22px;height:22px;border-radius:50%;display:grid;place-items:center;font-size:13px}
+.toast.ok .ic{background:var(--green);color:#fff}
+.toast.err .ic{background:var(--red);color:#fff}
+.toast .tx{font-size:13px;font-weight:700;line-height:1.35}
+.toast .rail{position:absolute;left:0;bottom:0;height:3px;background:rgba(255,255,255,.4);animation:toastRail 3.2s linear forwards}
+@media(prefers-reduced-motion:reduce){.toast{animation:none}.toast.out{animation:none}.toast .rail{animation:none}}
 
-const app = express();
-app.set('trust proxy', 1);
-const PORT = Number(process.env.PORT || 3000);
-const IS_PROD = process.env.NODE_ENV === 'production';
+/* ---------- Chat thread: no more dead whitespace, buttery entrance motion ---------- */
+.chat{border:2px solid var(--ink);margin-top:18px;border-radius:10px;overflow:hidden;box-shadow:0 10px 26px -18px rgba(24,22,19,.35);display:flex;flex-direction:column;flex:1;min-height:0}
+.messages{
+  flex:1;min-height:0;overflow-y:auto;padding:18px 16px;
+  display:flex;flex-direction:column;justify-content:flex-end;gap:10px;
+  background:
+    radial-gradient(circle at 1px 1px, rgba(24,22,19,.07) 1px, transparent 0) 0 0/22px 22px,
+    linear-gradient(180deg,#fbf9f4,#f4f0e6 60%,#efe9da);
+  scroll-behavior:smooth;
+}
+.messages::-webkit-scrollbar{width:9px}
+.messages::-webkit-scrollbar-track{background:transparent}
+.messages::-webkit-scrollbar-thumb{background:rgba(24,22,19,.18);border-radius:999px;border:2px solid transparent;background-clip:padding-box}
+.messages::-webkit-scrollbar-thumb:hover{background:rgba(24,22,19,.32);background-clip:padding-box}
+.messages{scrollbar-width:thin;scrollbar-color:rgba(24,22,19,.22) transparent}
+@keyframes msgPopIn{from{opacity:0;transform:translateY(10px) scale(.96)}to{opacity:1;transform:translateY(0) scale(1)}}
+.msg{
+  max-width:72%;padding:10px 13px;border:1px solid var(--line);line-height:1.5;font-size:13.5px;
+  border-radius:14px;box-shadow:0 2px 6px -2px rgba(24,22,19,.18);
+  animation:msgPopIn .32s cubic-bezier(.22,1,.36,1) backwards;
+  transition:transform .18s cubic-bezier(.22,1,.36,1),box-shadow .18s ease;
+  position:relative;
+}
+.msg:hover{transform:translateY(-1px);box-shadow:0 6px 14px -4px rgba(24,22,19,.28)}
+.msg.customer{align-self:flex-start;background:#fff;border-color:#cfc7bb;border-bottom-left-radius:4px}
+.msg.agent{align-self:flex-end;background:linear-gradient(165deg,#eef4ff,#e3ecfb);border-color:#9db9e3;border-bottom-right-radius:4px}
+.msg.admin{align-self:flex-end;background:linear-gradient(165deg,#fff6d9,#fcecb0);border-color:#d6a91d;border-bottom-right-radius:4px}
+.msg .who{font-size:10px;font-weight:900;text-transform:uppercase;color:var(--muted);display:block;margin-bottom:3px;letter-spacing:.02em}
+.messages .empty{
+  flex:none;margin:auto 0;padding:30px 20px;text-align:center;color:var(--muted);
+  display:flex;flex-direction:column;align-items:center;gap:8px;
+  animation:msgPopIn .4s cubic-bezier(.22,1,.36,1) backwards;
+}
+.messages .empty::before{
+  content:'';width:46px;height:46px;border-radius:50%;
+  background:#fff;border:2px solid var(--line);
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23756d61' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z'/%3E%3C/svg%3E");
+  background-repeat:no-repeat;background-position:center;background-size:20px;
+}
+.composer{display:flex;border-top:2px solid var(--ink);background:#fff;transition:box-shadow .2s ease}
+.composer:focus-within{box-shadow:inset 0 0 0 2px var(--blue)}
+.composer textarea{flex:1;min-height:64px;border:0;padding:12px;font:inherit;font-size:13.5px;resize:vertical;background:transparent;transition:background .2s ease}
+.composer textarea:focus{outline:none;background:#fafcff}
+.composer button{border:0;border-left:2px solid var(--ink);padding:0 20px;background:var(--ink);color:#fff;font-weight:900;cursor:pointer;transition:background .18s ease,transform .12s cubic-bezier(.34,1.56,.64,1)}
+.composer button:hover:not(:disabled){background:#2a2520}
+.composer button:active:not(:disabled){transform:scale(.95)}
+.composer button:disabled{opacity:.5;cursor:not-allowed}
+@media(prefers-reduced-motion:reduce){.msg,.messages .empty{animation:none}}
 
-const JWT_SECRET = process.env.JWT_SECRET || (IS_PROD ? '' : 'fraudify-local-development-secret-change-me');
-const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || '';
-if (IS_PROD && JWT_SECRET.length < 32) {
-  throw new Error('JWT_SECRET must be set to a random value of at least 32 characters in production.');
+/* ---------- Cases/inbox panel: the grid stretches it to match the chat column's height, which
+   used to leave a slab of bare white space below a short customer list. Now the panel itself
+   flexes so the list fills exactly what's there (scrolling internally once it's genuinely long),
+   and any real leftover room gets a quiet, intentional "caught up" marker instead of empty page. */
+#casesPanel{display:flex;flex-direction:column;min-height:0}
+#casesPanel .panel-head{flex:none}
+#casesPanel .case-list,#casesPanel>.case-list{flex:1;min-height:0;max-height:none;overflow-y:auto;display:flex;flex-direction:column;position:relative}
+#casesPanel .case-list::after{
+  content:'✓ You\'re all caught up';flex:none;margin-top:auto;padding:22px 16px 26px;
+  text-align:center;font-size:11.5px;font-weight:700;letter-spacing:.03em;text-transform:uppercase;
+  color:var(--muted);opacity:.55;
+}
+#casesPanel .case-list:empty::after,#casesPanel .case-list:has(>.empty)::after{display:none}
+#casesPanel .case-list::-webkit-scrollbar{width:9px}
+#casesPanel .case-list::-webkit-scrollbar-track{background:transparent}
+#casesPanel .case-list::-webkit-scrollbar-thumb{background:rgba(24,22,19,.18);border-radius:999px;border:2px solid transparent;background-clip:padding-box}
+#casesPanel .case-list{scrollbar-width:thin;scrollbar-color:rgba(24,22,19,.22) transparent}
+#casesPanel .case{transition:transform .2s cubic-bezier(.22,1,.36,1),background .2s ease}
+#casesPanel .case:hover{transform:translateX(3px)}
+</style></head><body>
+<div id="toastHost" aria-live="polite"></div>
+<header class="top"><div class="brand"><span class="brand-logo"><img src="/logo-lockup-nav.png" alt="Fraudify" width="368" height="112" decoding="async"></span> / SUPPORT</div><div class="top-right"><button class="stats-trigger hidden" id="usersBtn" type="button"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg><span>Users</span></button><button class="stats-trigger hidden" id="statsBtn" type="button"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V10"/><path d="M12 20V4"/><path d="M20 20v-7"/></svg><span>Stats</span></button><span id="staffName">Loading…</span><span id="staffRole"></span><button class="ghost" id="logout">Log out</button></div></header>
+<div id="statsOverlay" class="rw-modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="statsTitle">
+  <div class="rw-modal-scrim"></div>
+  <div class="rw-modal-panel">
+    <div class="rw-modal-head">
+      <h2 class="rw-modal-title" id="statsTitle"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v16a2 2 0 0 0 2 2h16"/><path d="m19 9-5 5-4-4-4 4"/></svg>Case Analytics</h2>
+      <button class="rw-modal-close" id="statsClose" type="button" aria-label="Close"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
+    </div>
+    <div class="rw-modal-body" id="statsBody"><div class="stats-loading"><span></span><span></span><span></span></div></div>
+  </div>
+</div>
+<div id="usersOverlay" class="rw-modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="usersTitle">
+  <div class="rw-modal-scrim"></div>
+  <div class="rw-modal-panel">
+    <div class="rw-modal-head">
+      <h2 class="rw-modal-title" id="usersTitle"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>Customers</h2>
+      <button class="rw-modal-close" id="usersClose" type="button" aria-label="Close"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
+    </div>
+    <div class="rw-modal-body" id="usersBody"><div class="stats-loading"><span></span><span></span><span></span></div></div>
+  </div>
+</div>
+<main class="wrap"><div id="bootError" class="hidden" style="margin-bottom:14px;padding:12px;border:2px solid #c1272d;background:#fff0f0;color:#8b1e23;font-weight:700"></div><section class="stats"><div class="stat"><b id="total">0</b><span>Paid cases</span></div><div class="stat"><b id="unassigned">0</b><span>Unassigned</span></div><div class="stat"><b id="mine">0</b><span>Assigned to me</span></div><div class="stat"><b id="open">0</b><span>Open / active</span></div></section>
+<div class="layout"><section class="panel" id="casesPanel"><div class="panel-head"><h2>Cases</h2><div class="filters"><input class="search" id="search" placeholder="Search case / customer"><select class="select" id="filter"><option value="all">All</option><option value="unassigned">Unassigned</option><option value="mine">My cases</option><option value="in-progress">In progress</option><option value="closed">Closed</option></select><button class="btn secondary" id="refresh">Refresh</button></div></div><div class="case-list" id="caseList"><div class="empty">Loading cases…</div></div></section>
+<section class="panel detail"><div id="emptyDetail" class="empty" style="margin:auto">Select a paid case to open the conversation.</div><div id="detailContent" class="hidden"><div class="detail-head"><h1 id="dId">—</h1><p id="dCustomer">—</p><div class="detail-tools"><select class="select" id="assign"></select><select class="select" id="status"><option value="awaiting_details">Awaiting details</option><option value="submitted">Submitted</option><option value="in-progress">In progress</option><option value="won">Won</option><option value="closed">Closed</option></select><div id="proofs"></div><button type="button" class="btn secondary admin-only-btn hidden" id="reopenCaseBtn" title="Reopen this case without the customer paying again">↺ Reopen (no payment)</button><button type="button" class="btn danger-btn admin-only-btn hidden" id="deleteCaseBtn" title="Permanently delete this case">🗑 Delete case</button></div></div><div class="detail-body"><div class="grid2"><div class="field"><label>Title</label><div id="dTitle">—</div></div><div class="field"><label>Company</label><div id="dCompany">—</div></div><div class="field"><label>Category</label><div id="dCategory">—</div></div><div class="field"><label>Dispute amount</label><div id="dAmount">—</div></div><div class="field"><label>Payment</label><div id="dPayment">—</div></div><div class="field" style="grid-column:1/-1"><label>Description</label><div id="dDescription">—</div></div><div class="field" style="grid-column:1/-1"><label>Case summary</label><div id="dSummary">—</div></div></div><div class="chat"><div class="messages" id="messages"></div><div class="composer"><textarea id="composer" maxlength="2000" placeholder="Reply to the customer…"></textarea><button id="send">Send</button></div></div></div></div></section></div><section class="panel hidden" id="agentManager" style="margin-top:16px;padding:18px"><h2 style="margin:0 0 6px">Support team</h2><p class="small">Add support agents who can log in, receive cases, and reply to customers. Disabled agents are immediately unassigned from their cases.</p><form id="agentForm" style="display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:8px;margin-top:12px"><input class="search" id="aName" placeholder="Agent name" required><input class="search" id="aEmail" type="email" placeholder="Agent email" required><input class="search" id="aPassword" type="password" placeholder="Temporary password (8+ chars)" minlength="8" required><button class="btn" type="submit">Add agent</button></form><div id="agentList" style="margin-top:10px"></div></section></main>
+<script>
+let staff=null,cases=[],agents=[],current=null,timer=null,listTimer=null;
+function isUnread(c){return Number(c?.unreadCount||0)>0;}
+let chatStream=null;
+async function markRead(c){if(!c?.caseId)return;try{await api('/api/admin/cases/'+encodeURIComponent(c.caseId)+'/read',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({lastReadAt:c.lastMessageAt||null})});}catch(e){console.debug('read-state',e.message);}}
+function closeChatStream(){if(chatStream){chatStream.close();chatStream=null;}clearInterval(window.__rwStreamWatch);}
+function openChatStream(caseId){closeChatStream();chatStream=new EventSource('/api/admin/cases/'+encodeURIComponent(caseId)+'/stream');chatStream.addEventListener('message',async()=>{await loadMessages();loadCases(true).catch(()=>{});});chatStream.onerror=()=>{};}
+function senderLabel(c){if(!c.lastMessageSender)return '';if(c.lastMessageSenderId&&c.lastMessageSenderId===staff?.uid)return 'You';if(!c.lastMessageSenderId&&c.lastMessageSender===staff?.role)return 'You';if(c.lastMessageSender==='admin')return c.lastMessageSenderName||'Super Admin';if(c.lastMessageSender==='agent')return c.lastMessageSenderName||'Agent';return c.lastMessageSenderName||'Customer';}
+const $=id=>document.getElementById(id);const esc=v=>{const d=document.createElement('div');d.textContent=v??'';return d.innerHTML};
+async function api(url,opt={}){
+  let r;
+  try{r=await fetch(url,opt);}
+  catch(netErr){throw Error('Could not reach the server. Check your connection and try again.');}
+  let d={},bodyWasJson=true;
+  try{d=await r.json();}catch(_){bodyWasJson=false;}
+  if(r.status===401){location.href='/admin-login';throw Error('Session expired');}
+  if(!r.ok){
+    // A missing .error usually means this never reached our own JSON handlers at all — e.g. a
+    // stale deployment without this route (404), a proxy/timeout page, or a CORS block — so the
+    // status code is the one clue worth surfacing instead of a bare, useless "Request failed".
+    const msg=d.error||(bodyWasJson?`Request failed (HTTP ${r.status})`:`Request failed (HTTP ${r.status} ${r.statusText||''} — the server didn't return a valid response; it may be running an older version without this feature)`.trim());
+    const err=Error(msg);Object.assign(err,d,{httpStatus:r.status});throw err;
+  }
+  return d;
+}
+async function boot(){try{const me=await api('/api/staff/me');staff=me.staff;$('staffName').textContent=staff.name;$('staffRole').textContent='· '+staff.role; if(staff.role==='admin'){$('agentManager').classList.remove('hidden');$('statsBtn').classList.remove('hidden');$('usersBtn').classList.remove('hidden');document.querySelectorAll('.admin-only-btn').forEach(b=>b.classList.remove('hidden'));}await loadAgents();await loadCases();
+      listTimer=setInterval(()=>loadCases(true).catch(e=>console.error('case list refresh',e)),2500);
+    }catch(e){console.error('Admin workspace boot failed',e);const msg=document.getElementById('bootError');if(msg){msg.textContent=e.message||'Could not load the support workspace.';msg.classList.remove('hidden');}if(String(e.message||'').includes('Session expired') && !location.pathname.includes('admin-login'))location.href='/admin-login'}}
+async function loadAgents(){if(staff?.role!=='admin')return;agents=await api('/api/admin/agents');renderAgents();}
+function renderAgents(){const list=$('agentList');list.innerHTML=agents.length?agents.map(a=>`<div class="agent-row"><div><div class="agent-name">${esc(a.name)}</div><div class="agent-email">${esc(a.email)}</div></div><button class="btn secondary" onclick="disableAgent('${a.id}')">Disable</button></div>`).join(''):'<div class="small">No agents yet.</div>';}
+async function disableAgent(id){if(!confirm('Disable this agent and unassign their cases?'))return;await api('/api/admin/agents/'+id,{method:'DELETE'});await loadAgents();await loadCases();}
+function formatTime(ts){if(!ts)return '';const d=new Date(ts),now=new Date();return now-d<86400000?d.toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'}):d.toLocaleDateString('en-IN',{day:'2-digit',month:'short'});}
+function renderList(){const q=$('search').value.toLowerCase(),f=$('filter').value;const rows=cases.filter(c=>{const match=!q||[c.caseId,c.userName,c.userEmail,c.category,c.lastMessageText].join(' ').toLowerCase().includes(q);const ff=f==='all'||(f==='unassigned'&&!c.assignedTo)||(f==='mine'&&c.assignedTo===staff.uid)||(f===c.status);return match&&ff;});$('total').textContent=cases.length;$('unassigned').textContent=cases.filter(c=>!c.assignedTo).length;$('mine').textContent=cases.filter(c=>c.assignedTo===staff.uid).length;$('open').textContent=cases.filter(c=>!['closed','won'].includes(c.status)).length;const el=$('caseList');el.innerHTML=rows.length?rows.map(c=>{const preview=c.lastMessageText?`${senderLabel(c)}: ${c.lastMessageText}`:'No messages yet';const count=Number(c.unreadCount||0);return `<div class="case ${current?.caseId===c.caseId?'active ':''}${count?'unread':''}" data-id="${esc(c.caseId)}"><div class="case-top"><span class="case-id">${esc(c.caseId)}</span>${badge(c.status)}</div><div class="case-meta">${esc(c.userName)} · ${esc(c.userEmail)}</div><div class="case-meta">${esc(c.category||'No category')} · ${c.assignedTo?esc((agents.find(a=>a.id===c.assignedTo)||{}).name||'Assigned'):'Unassigned'}</div><div class="case-preview">${esc(preview)}</div><div class="case-bottom"><span class="last-time">${formatTime(c.lastMessageAt||c.updatedAt)}</span>${count?`<span class="unread-pill" title="${count} unread message${count===1?'':'s'}">${count>99?'99+':count}</span>`:''}</div></div>`;}).join(''):'<div class="empty">No matching cases.</div>';el.querySelectorAll('.case').forEach(x=>x.onclick=()=>openCase(x.dataset.id));}
+function badge(s){return `<span class="badge ${s}">${esc((s||'').replaceAll('_',' '))}</span>`}
+async function loadCases(silent=false){
+  const fresh=await api('/api/admin/cases');
+  cases=fresh;
+  if(current){
+    const found=cases.find(c=>c.caseId===current.caseId);
+    if(found){
+      const prevStatus=current.status;
+      current={...current,...found};
+      // A silent (SSE/poll) refresh skips the full repaint so it never disturbs an open chat —
+      // but the status control is cheap to sync on its own, so a status change (e.g. the
+      // auto-flip out of "Awaiting Details") still shows up live instead of waiting for the
+      // next time the case is reopened.
+      if(silent && current.status!==prevStatus && $('status') && $('status').value!==current.status){
+        $('status').value=current.status; const sel=$('status'); sel.classList.remove('rw-flash'); void sel.offsetWidth; sel.classList.add('rw-flash');
+        if(window.applyComposerLock)applyComposerLock(current);
+      }
+    } else closeDetail();
+  }
+  renderList();
+  if(current && !silent) renderDetail(current);
 }
 
-const CASE_FEE_PAISE = parseInt(process.env.CASE_FEE_PAISE || '5900', 10);
-// Paid chat access lasts this long from the moment a case (or its renewal) is paid for.
-// After it lapses, customers must pay again before they can send another message.
-const CASE_ACCESS_WINDOW_MS = Math.max(1, parseInt(process.env.CASE_ACCESS_HOURS || '48', 10)) * 60 * 60 * 1000;
-const RAZORPAY_KEY_ID = process.env.RAZORPAY_KEY_ID || '';
-const RAZORPAY_KEY_SECRET = process.env.RAZORPAY_KEY_SECRET || '';
-const PAYMENTS_LIVE = Boolean(RAZORPAY_KEY_ID && RAZORPAY_KEY_SECRET);
-const razorpay = PAYMENTS_LIVE && Razorpay ? new Razorpay({ key_id: RAZORPAY_KEY_ID, key_secret: RAZORPAY_KEY_SECRET }) : null;
-
-const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY || '';
-const ANTHROPIC_MODEL = process.env.ANTHROPIC_MODEL || 'claude-sonnet-5';
-const AI_CHAT_LIVE = Boolean(ANTHROPIC_API_KEY);
-
-// Production storage/database. The application uses Supabase's REST APIs so
-// there is no extra DB driver dependency and the same app can run on Render.
-const SUPABASE_URL = (process.env.SUPABASE_URL || '').replace(/\/$/, '');
-const SUPABASE_SECRET_KEY = process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || '';
-const STORAGE_BUCKET = process.env.SUPABASE_STORAGE_BUCKET || 'case-proofs';
-const DB_ENABLED = Boolean(SUPABASE_URL && SUPABASE_SECRET_KEY);
-if (IS_PROD && !DB_ENABLED) throw new Error('SUPABASE_URL and SUPABASE_SECRET_KEY are required in production.');
-if (IS_PROD && !process.env.ALLOWED_ORIGINS) throw new Error('ALLOWED_ORIGINS is required in production.');
-
-const DATA_DIR = path.join(__dirname, 'data');
-const UPLOADS_DIR = path.join(__dirname, 'uploads');
-const FILES = {
-  users: path.join(DATA_DIR, 'users.json'),
-  cases: path.join(DATA_DIR, 'cases.json'),
-  messages: path.join(DATA_DIR, 'messages.json'),
-  leads: path.join(DATA_DIR, 'leads.json'),
+function renderAssign(c){const canManage=staff.role==='admin';$('assign').disabled=!canManage;$('assign').innerHTML=`<option value="">Unassigned</option>`+agents.map(a=>`<option value="${a.id}">${esc(a.name)}</option>`).join('');$('assign').value=c.assignedTo||'';}
+async function openCase(id){
+  const c=cases.find(x=>x.caseId===id); if(!c)return;
+  current={...c}; markRead(current);
+  $('emptyDetail').classList.add('hidden'); $('detailContent').classList.remove('hidden'); renderDetail(current);
+  if(timer)clearInterval(timer);
+  timer=null;
+  try {
+    const detail=await api('/api/admin/cases/'+encodeURIComponent(id));
+    current={...current,...detail};
+    renderDetail(current);
+    await loadMessages();
+    await markRead(current);
+  } catch(e) { console.error('openCase',e); }
+  openChatStream(id);
+  timer=setInterval(loadMessages,3000);
+}
+function renderDetail(c){$('dId').textContent=c.caseId;$('dCustomer').textContent=`${c.userName} · ${c.userEmail}`;$('dTitle').textContent=c.title||'—';$('dCompany').textContent=c.companyName||'—';$('dCategory').textContent=c.category||'—';$('dAmount').textContent=c.disputeAmountPaise!=null?`₹${(c.disputeAmountPaise/100).toLocaleString('en-IN')}`:'—';$('dPayment').textContent=c.paymentStatus==='paid'?`₹${(c.amountPaise/100).toFixed(0)} paid`:'—';$('dDescription').textContent=c.description||'Customer can add details through their case workspace.';$('dSummary').textContent=c.summary||'—';$('status').value=c.status;renderAssign(c);$('proofs').innerHTML=c.proofFiles?.length?c.proofFiles.map(f=>`<a class="btn secondary" target="_blank" href="/api/admin/cases/${encodeURIComponent(c.caseId)}/files/${encodeURIComponent(f.filename)}">📎 ${esc(f.originalName)}</a>`).join(' '):'';renderList();}
+function closeDetail(){current=null;$('emptyDetail').classList.remove('hidden');$('detailContent').classList.add('hidden');if(timer)clearInterval(timer);timer=null;closeChatStream();}
+async function loadMessages(){if(!current)return;try{const arr=await api('/api/admin/cases/'+encodeURIComponent(current.caseId)+'/messages');const el=$('messages'),atBottom=el.scrollTop+el.clientHeight>=el.scrollHeight-20;el.innerHTML=arr.length?arr.map(m=>{const cls=m.sender==='customer'?'customer':(m.sender==='admin'?'admin':'agent');const mine=(m.senderId&&m.senderId===staff.uid) || (!m.senderId&&m.sender===staff.role);const label=mine?'You':(m.senderName||(m.sender==='customer'?'Customer':m.sender==='admin'?'Super Admin':'Agent'));const roleLabel=mine?'YOU':(m.sender==='admin'?'SUPER ADMIN':m.sender==='agent'?'AGENT':'CUSTOMER'); return `<div class="msg ${cls}"><span class="who">${esc(label)} · ${roleLabel} · ${new Date(m.createdAt).toLocaleString('en-IN')}</span>${esc(m.text)}</div>`;}).join(''):'<div class="empty">No messages yet. Start the conversation.</div>';if(atBottom)el.scrollTop=el.scrollHeight;const latest=arr[arr.length-1];if(latest?.createdAt){await markRead({...current,lastMessageAt:latest.createdAt});const row=cases.find(c=>c.caseId===current.caseId);if(row){row.unreadCount=0;row.unread=false;}renderList();}}catch(e){console.error('loadMessages',e);}}
+$('send').onclick=async()=>{const t=$('composer').value.trim();if(!t||!current)return;$('send').disabled=true;try{const sent=await api('/api/admin/cases/'+encodeURIComponent(current.caseId)+'/messages',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text:t})});$('composer').value='';const el=$('messages');const empty=el.querySelector('.empty');if(empty)empty.remove();const bubble=document.createElement('div');bubble.className='msg '+(staff.role==='admin'?'admin':'agent');bubble.innerHTML=`<span class="who">You · YOU · ${new Date(sent.createdAt||Date.now()).toLocaleString('en-IN')}</span>${esc(sent.text||t)}`;el.appendChild(bubble);el.scrollTop=el.scrollHeight;current.lastMessageText=sent.text||t;current.lastMessageAt=sent.createdAt||new Date().toISOString();current.lastMessageSender=staff.role;current.lastMessageSenderName=staff.name;current.unread=false;await markRead(current);renderList();}catch(e){alert(e.message)}finally{$('send').disabled=false}};
+$('composer').addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();$('send').click()}});
+$('status').onchange=async e=>{if(!current)return;try{await api('/api/admin/cases/'+encodeURIComponent(current.caseId)+'/status',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({status:e.target.value})});current.status=e.target.value;await loadCases()}catch(err){alert(err.message)}};
+$('reopenCaseBtn').onclick=async()=>{
+  if(!current)return;
+  if(!confirm(`Reopen ${current.caseId} without the customer paying again? This marks it paid and restarts the 48-hour chat window.`))return;
+  const btn=$('reopenCaseBtn'); btn.disabled=true; const original=btn.innerHTML; btn.innerHTML='Reopening…';
+  try{
+    const r=await api('/api/admin/cases/'+encodeURIComponent(current.caseId)+'/reopen',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({status:'in-progress'})});
+    current.status=r.status; current.paymentStatus='paid';
+    $('status').value=r.status; const sel=$('status'); sel.classList.remove('rw-flash'); void sel.offsetWidth; sel.classList.add('rw-flash');
+    await loadCases();
+    showToast(`${current.caseId} reopened — no payment required.`);
+  }catch(err){showToast(err.message||'Could not reopen this case.','err')}
+  finally{btn.disabled=false;btn.innerHTML=original;}
 };
-function ensureStore() {
-  if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
-  if (!fs.existsSync(UPLOADS_DIR)) fs.mkdirSync(UPLOADS_DIR, { recursive: true });
-  Object.values(FILES).forEach(f => { if (!fs.existsSync(f)) fs.writeFileSync(f, '[]'); });
+$('deleteCaseBtn').onclick=async()=>{
+  if(!current)return;
+  if(!confirm(`Permanently delete case ${current.caseId} and all its messages and files? This cannot be undone.`))return;
+  const btn=$('deleteCaseBtn'); btn.disabled=true; const original=btn.innerHTML; btn.innerHTML='Deleting…';
+  try{
+    const deletedId=current.caseId;
+    await api('/api/admin/cases/'+encodeURIComponent(current.caseId),{method:'DELETE'});
+    closeDetail();
+    await loadCases();
+    showToast(`${deletedId} permanently deleted.`);
+  }catch(err){showToast(err.message||'Could not delete this case.','err');btn.disabled=false;btn.innerHTML=original;}
+};
+function showToast(message,type='ok'){
+  const t=document.createElement('div'); t.className='toast '+(type==='err'?'err':'ok');
+  t.innerHTML=`<span class="ic">${type==='err'?'✕':'✓'}</span><span class="tx"></span><span class="rail"></span>`;
+  t.querySelector('.tx').textContent=message;
+  $('toastHost').appendChild(t);
+  const kill=()=>{t.classList.add('out');t.addEventListener('animationend',()=>t.remove(),{once:true});};
+  setTimeout(kill,3200);
+  t.addEventListener('click',kill);
 }
-ensureStore();
-function readJson(file) { try { return JSON.parse(fs.readFileSync(file, 'utf8') || '[]'); } catch (_) { return []; } }
-function writeJson(file, data) { fs.writeFileSync(file, JSON.stringify(data, null, 2)); }
-
-async function supa(pathname, options = {}) {
-  if (!DB_ENABLED) throw new Error('Supabase is not configured');
-  const res = await fetch(`${SUPABASE_URL}${pathname}`, {
-    ...options,
-    headers: {
-      apikey: SUPABASE_SECRET_KEY,
-      Authorization: `Bearer ${SUPABASE_SECRET_KEY}`,
-      ...(options.body ? { 'Content-Type': 'application/json' } : {}),
-      ...(options.headers || {}),
-    },
-  });
-  const text = await res.text();
-  let data = null;
-  try { data = text ? JSON.parse(text) : null; } catch (_) { data = text; }
-  if (!res.ok) throw new Error(`Supabase ${res.status}: ${typeof data === 'string' ? data : JSON.stringify(data)}`);
-  return data;
+function money(p){return '₹'+Math.round((p||0)/100).toLocaleString('en-IN')}
+const STATUS_DOT={'in-progress':'#2457a6',won:'#28734b',closed:'#999',submitted:'#9b6810',awaiting_details:'#9b6810',awaiting_payment:'#c1272d'};
+function countUp(el,to,opts={}){
+  const isMoney=!!opts.money; const start=0,dur=900,t0=performance.now();
+  function tick(now){const p=Math.min(1,(now-t0)/dur);const eased=1-Math.pow(1-p,3);const v=Math.round(start+(to-start)*eased);
+    el.textContent=isMoney?('₹'+v.toLocaleString('en-IN')):v.toLocaleString('en-IN');
+    if(p<1)requestAnimationFrame(tick);}
+  requestAnimationFrame(tick);
 }
-async function dbSelect(table, query = '') { return supa(`/rest/v1/${table}?select=*${query ? `&${query}` : ''}`); }
-async function dbSelectColumns(table, columns, query = '') { return supa(`/rest/v1/${table}?select=${encodeURIComponent(columns)}${query ? `&${query}` : ''}`); }
-async function dbRpc(fn, body = {}) { return supa(`/rest/v1/rpc/${fn}`, { method: 'POST', body: JSON.stringify(body) }); }
-async function dbInsert(table, rows) {
-  return supa(`/rest/v1/${table}`, { method: 'POST', headers: { Prefer: 'return=representation' }, body: JSON.stringify(rows) });
+// Shared open/close for any .rw-modal-overlay (Stats, Users, …) — spring-in on open, waits for
+// the CSS transition (or a 450ms worst case) before actually hiding, so the exit never snaps.
+function openModal(id){const ov=$(id);ov.classList.remove('hidden');requestAnimationFrame(()=>requestAnimationFrame(()=>ov.classList.add('open')));}
+function closeModal(id){const ov=$(id);ov.classList.remove('open');const panel=ov.querySelector('.rw-modal-panel');const onEnd=e=>{if(e.target!==panel)return;ov.classList.add('hidden');ov.removeEventListener('transitionend',onEnd);};ov.addEventListener('transitionend',onEnd);setTimeout(()=>ov.classList.add('hidden'),450);}
+function openStatsOverlay(){openModal('statsOverlay');}
+function closeStatsOverlay(){closeModal('statsOverlay');}
+$('statsBtn').addEventListener('click',async()=>{
+  openStatsOverlay();
+  $('statsBody').innerHTML='<div class="stats-loading"><span></span><span></span><span></span></div>';
+  try{
+    const s=await api('/api/admin/stats');
+    const maxCat=Math.max(1,...s.byCategory.map(c=>c.count)), maxCo=Math.max(1,...s.byCompany.map(c=>c.count));
+    const barRows=(arr,max,nameKey,delayBase)=>arr.length?arr.map((c,i)=>`
+        <div class="stat-bar-row" style="animation-delay:${delayBase+i*45}ms">
+          <div class="top"><span class="name">${esc(c[nameKey])}</span><span class="meta">${c.count} case${c.count===1?'':'s'} · ${money(c.disputePaise)}</span></div>
+          <div class="stat-bar-track"><div class="stat-bar-fill" data-w="${Math.max(4,Math.round(c.count/max*100))}"></div></div>
+        </div>`).join(''):'<div class="stats-empty">No data yet.</div>';
+    $('statsBody').innerHTML=`
+      <div class="stats-kpis">
+        <div class="stat-card" style="animation-delay:0ms"><label>Total paid cases</label><div class="v" id="kpi-total">0</div></div>
+        <div class="stat-card" style="animation-delay:60ms"><label>Total in dispute</label><div class="v" id="kpi-dispute">₹0</div></div>
+        <div class="stat-card" style="animation-delay:120ms"><label>With amount logged</label><div class="v" id="kpi-withamt">0 <span style="font-size:13px;font-weight:700;color:var(--muted)">of ${s.totalCases}</span></div></div>
+        <div class="stat-card" style="animation-delay:180ms"><label>Average dispute</label><div class="v" id="kpi-avg">₹0</div></div>
+      </div>
+      <div class="stats-section-title">By status</div>
+      <div class="stats-pills">${Object.entries(s.byStatus).map(([k,v],i)=>`<span class="stats-pill badge ${esc(k)}" style="animation-delay:${i*60}ms">${esc(k.replaceAll('_',' '))}: ${v}</span>`).join('')||'<span class="stats-empty">No data yet.</span>'}</div>
+      <div class="stats-section-title">By category</div>
+      ${barRows(s.byCategory,maxCat,'category',0)}
+      <div class="stats-section-title">By company (top 25)</div>
+      ${barRows(s.byCompany,maxCo,'company',0)}`;
+    countUp($('kpi-total'),s.totalCases);
+    countUp($('kpi-dispute'),Math.round((s.totalDisputePaise||0)/100),{money:true});
+    countUp($('kpi-withamt'),s.casesWithAmount);
+    countUp($('kpi-avg'),Math.round((s.averageDisputePaise||0)/100),{money:true});
+    requestAnimationFrame(()=>requestAnimationFrame(()=>{
+      document.querySelectorAll('.stat-bar-fill').forEach(f=>{f.style.width=f.dataset.w+'%'});
+    }));
+  }catch(err){$('statsBody').innerHTML=`<div class="stats-empty">${esc(err.message||'Could not load stats.')}</div>`}
+});
+function timeAgo(iso){
+  if(!iso)return 'No activity yet';
+  const ms=Date.now()-new Date(iso).getTime(); const m=Math.floor(ms/60000),h=Math.floor(ms/3600000),d=Math.floor(ms/86400000);
+  if(m<1)return 'Just now'; if(m<60)return `${m}m ago`; if(h<24)return `${h}h ago`; if(d<30)return `${d}d ago`;
+  return new Date(iso).toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'});
 }
-async function dbUpsert(table, rows, onConflict) {
-  const query = onConflict ? `?on_conflict=${encodeURIComponent(onConflict)}` : '';
-  return supa(`/rest/v1/${table}${query}`, { method: 'POST', headers: { Prefer: 'resolution=merge-duplicates,return=representation' }, body: JSON.stringify(rows) });
-}
-async function dbUpdate(table, query, patch) {
-  return supa(`/rest/v1/${table}?${query}`, { method: 'PATCH', headers: { Prefer: 'return=representation' }, body: JSON.stringify(patch) });
-}
-async function dbDelete(table, query) { return supa(`/rest/v1/${table}?${query}`, { method: 'DELETE' }); }
-
-async function listUsers() { return DB_ENABLED ? dbSelect('users') : readJson(FILES.users); }
-async function findUserByEmail(email) { const e = email.toLowerCase(); if (!DB_ENABLED) return readJson(FILES.users).find(u => u.email.toLowerCase() === e); const rows = await dbSelect('users', `email=eq.${encodeURIComponent(e)}`); return rows[0] || null; }
-async function findUserById(id) { if (!DB_ENABLED) return readJson(FILES.users).find(u => u.id === id); const rows = await dbSelect('users', `id=eq.${encodeURIComponent(id)}`); return rows[0] || null; }
-async function createUser(user) { if (!DB_ENABLED) { const a = readJson(FILES.users); a.push(user); writeJson(FILES.users, a); return user; } return (await dbInsert('users', [ { id: user.id, name: user.name, email: user.email, password_hash: user.passwordHash, role: user.role || 'customer', created_at: user.createdAt } ]))[0]; }
-
-async function listLeads() { if (!DB_ENABLED) return readJson(FILES.leads); return dbSelect('leads', 'order=created_at.desc'); }
-async function findLead(id) { if (!DB_ENABLED) return readJson(FILES.leads).find(l => l.id === id); return (await dbSelect('leads', `id=eq.${encodeURIComponent(id)}`))[0] || null; }
-function leadFromDb(r) { return r ? { ...r, userId: r.user_id, createdAt: r.created_at } : r; }
-async function createLead(l) { if (!DB_ENABLED) { const a = readJson(FILES.leads); a.unshift(l); writeJson(FILES.leads, a); return l; } const r = (await dbInsert('leads', [{ id:l.id,name:l.name,contact:l.contact,story:l.story,category:l.category,summary:l.summary,stage:l.stage,user_id:l.userId,status:l.status,source:l.source,transcript:l.transcript,created_at:l.createdAt }]))[0]; return leadFromDb(r); }
-async function updateLead(id, patch) { if (!DB_ENABLED) { const a=readJson(FILES.leads); const i=a.findIndex(x=>x.id===id); if(i<0) return null; Object.assign(a[i],patch); writeJson(FILES.leads,a); return a[i]; } const dbPatch={}; for(const [k,v] of Object.entries(patch)){ dbPatch[{userId:'user_id',createdAt:'created_at'}[k]||k]=v; } const r=(await dbUpdate('leads',`id=eq.${encodeURIComponent(id)}`,dbPatch))[0]; return leadFromDb(r); }
-
-async function listCasesForUser(userId) { if (!DB_ENABLED) return readJson(FILES.cases).filter(c=>c.userId===userId); return dbSelect('cases', `user_id=eq.${encodeURIComponent(userId)}&order=created_at.desc`); }
-async function findCase(caseId, userId) { if (!DB_ENABLED) return readJson(FILES.cases).find(c=>c.caseId===caseId && (!userId || c.userId===userId)); const q=`case_id=eq.${encodeURIComponent(caseId)}${userId?`&user_id=eq.${encodeURIComponent(userId)}`:''}`; return (await dbSelect('cases',q))[0]||null; }
-async function listPaidCases() { if (!DB_ENABLED) return readJson(FILES.cases).filter(c=>c.paymentStatus==='paid'); return dbSelect('cases','payment_status=eq.paid&order=created_at.desc'); }
-// Time-boxed chat access. Reads either DB (snake_case) or JSON-fallback (camelCase) shape,
-// so it works the same whether Supabase or the local JSON store is active.
-function caseActivatedAt(r) { const v = r && (r.activatedAt ?? r.activated_at); return v ? new Date(v) : null; }
-function casePaymentStatus(r) { return r && (r.paymentStatus ?? r.payment_status); }
-function isCaseExpired(r) {
-  if (!r || casePaymentStatus(r) !== 'paid') return false;
-  if (r.status === 'won' || r.status === 'closed') return false;   // a resolved case never needs renewal
-  const at = caseActivatedAt(r);
-  return !!at && Date.now() - at.getTime() > CASE_ACCESS_WINDOW_MS;
-}
-function caseAccessInfo(r) {
-  const at = caseActivatedAt(r);
-  return { activatedAt: at ? at.toISOString() : null, accessExpiresAt: at ? new Date(at.getTime() + CASE_ACCESS_WINDOW_MS).toISOString() : null, accessExpired: isCaseExpired(r) };
-}
-function caseFromDb(r) { return r ? { ...r, caseId:r.case_id ?? r.caseId, userId:r.user_id ?? r.userId, userEmail:r.user_email ?? r.userEmail, userName:r.user_name ?? r.userName, amountPaise:r.amount_paise ?? r.amountPaise, paymentStatus:r.payment_status ?? r.paymentStatus, razorpayOrderId:r.razorpay_order_id ?? r.razorpayOrderId, razorpayPaymentId:r.razorpay_payment_id ?? r.razorpayPaymentId, leadId:r.lead_id ?? r.leadId, assignedTo:r.assigned_to ?? r.assignedTo, assignedAt:r.assigned_at ?? r.assignedAt, activatedAt:r.activated_at ?? r.activatedAt ?? null, title:r.title ?? null, companyName:r.company_name ?? r.companyName ?? null, disputeAmountPaise:r.dispute_amount_paise ?? r.disputeAmountPaise ?? null, infoRequestNote:r.info_request_note ?? r.infoRequestNote ?? null, proofFiles:[] , createdAt:r.created_at ?? r.createdAt, updatedAt:r.updated_at ?? r.updatedAt, ...caseAccessInfo(r) } : r; }
-function casePatchToDb(p) {
-  const out = {};
-  const map = {
-    caseId: 'case_id',
-    userId: 'user_id',
-    userEmail: 'user_email',
-    userName: 'user_name',
-    amountPaise: 'amount_paise',
-    paymentStatus: 'payment_status',
-    razorpayOrderId: 'razorpay_order_id',
-    razorpayPaymentId: 'razorpay_payment_id',
-    leadId: 'lead_id',
-    assignedTo: 'assigned_to',
-    assignedAt: 'assigned_at',
-    activatedAt: 'activated_at',
-    title: 'title',
-    companyName: 'company_name',
-    disputeAmountPaise: 'dispute_amount_paise',
-    infoRequestNote: 'info_request_note',
-    createdAt: 'created_at',
-    updatedAt: 'updated_at'
-  };
-
-  for (const [key, value] of Object.entries(p || {})) {
-    if (key === 'caseId') {
-      // The existing production schema requires both identifiers.
-      out.case_id = value;
-      out.case_number = value;
-      continue;
-    }
-
-    if (value !== undefined) {
-      out[map[key] || key] = value;
-    }
-  }
-
-  return out;
-}
-let CASE_SCHEMA_CACHE = null;
-let CASE_SCHEMA_CACHE_AT = 0;
-const CASE_SCHEMA_TTL_MS = 5 * 60 * 1000;
-const CASE_SCHEMA_WARNED = new Set();
-async function getCaseSchema() {
-  if (!DB_ENABLED) return null;
-  const now = Date.now();
-  if (CASE_SCHEMA_CACHE && now - CASE_SCHEMA_CACHE_AT < CASE_SCHEMA_TTL_MS) return CASE_SCHEMA_CACHE;
-  try {
-    const res = await fetch(`${SUPABASE_URL}/rest/v1/`, { method: 'GET', headers: { apikey: SUPABASE_SECRET_KEY, Authorization: `Bearer ${SUPABASE_SECRET_KEY}`, Accept: 'application/openapi+json, application/json' } });
-    if (!res.ok) throw new Error(`Supabase schema discovery failed: ${res.status}`);
-    const spec = await res.json();
-    const definition = spec?.definitions?.cases || spec?.components?.schemas?.cases;
-    const columns = new Set(Object.keys(definition?.properties || {}));
-    if (!columns.size) throw new Error('cases table columns were not exposed by PostgREST');
-    CASE_SCHEMA_CACHE = columns; CASE_SCHEMA_CACHE_AT = now;
-    return columns;
-  } catch (err) {
-    console.warn('Case schema discovery unavailable:', err.message);
-    return CASE_SCHEMA_CACHE || null;
+let usersPollTimer=null,usersKey=null;
+async function loadUsersPanel(silent){
+  if(!silent)$('usersBody').innerHTML='<div class="stats-loading"><span></span><span></span><span></span></div>';
+  try{
+    const users=await api('/api/admin/users');
+    const key=JSON.stringify(users.map(u=>[u.id,u.caseCount,u.openCaseCount,u.lastActivityAt]));
+    if(silent&&key===usersKey)return;   // nothing actually changed — skip the re-render so an open panel doesn't flicker
+    usersKey=key;
+    $('usersBody').innerHTML=users.length?`<div class="users-roster">${users.map((u,i)=>`
+      <div class="user-row" data-uid="${esc(u.id)}" style="animation-delay:${Math.min(i,16)*40}ms">
+        <span class="user-av" style="--c:${hueFor(u.email||u.name||u.id)}">${esc(initialsFor(u.name))}</span>
+        <span class="user-main">
+          <b>${esc(u.name||'Unnamed customer')}</b>
+          <small>${esc(u.email||'')}</small>
+        </span>
+        <span class="user-stats">
+          <span class="user-pill" title="Cases filed">${u.caseCount} case${u.caseCount===1?'':'s'}</span>
+          <span class="user-pill" title="Still open">${u.openCaseCount} open</span>
+          <span class="user-last">${esc(timeAgo(u.lastActivityAt||u.createdAt))}</span>
+        </span>
+        <button type="button" class="user-del" title="Permanently delete this customer and all their cases">
+          <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>
+          Delete
+        </button>
+      </div>`).join('')}</div>` : '<div class="stats-empty">No customers yet.</div>';
+  }catch(err){
+    if(!silent)$('usersBody').innerHTML=`<div class="stats-empty">${esc(err.message||'Could not load customers.')}</div>`;
+    else console.error('loadUsersPanel (background refresh)',err);
   }
 }
-// Drops any patch key whose DB column doesn't exist yet, so an un-migrated optional field
-// (e.g. title/company_name before its migration has run) never breaks the rest of the update.
-async function patchForCaseSchema(patch) {
-  const dbPatch = casePatchToDb(patch);
-  const columns = await getCaseSchema();
-  if (!columns) return dbPatch;
-  const out = {};
-  for (const [col, val] of Object.entries(dbPatch)) {
-    if (columns.has(col)) { out[col] = val; continue; }
-    if (!CASE_SCHEMA_WARNED.has(col)) { CASE_SCHEMA_WARNED.add(col); console.warn(`cases.${col} does not exist yet — skipping it until the matching migration is run (value was not saved).`); }
-  }
-  return out;
-}
-async function createCase(c){ if(!DB_ENABLED){const a=readJson(FILES.cases);a.push(c);writeJson(FILES.cases,a);return c;} return caseFromDb((await dbInsert('cases',[await patchForCaseSchema(c)]))[0]); }
-async function updateCase(caseId, patch){ if(!DB_ENABLED){const a=readJson(FILES.cases);const i=a.findIndex(x=>x.caseId===caseId);if(i<0)return null;Object.assign(a[i],patch);writeJson(FILES.cases,a);return a[i];} return caseFromDb((await dbUpdate('cases',`case_id=eq.${encodeURIComponent(caseId)}`,await patchForCaseSchema(patch)))[0]); }
+const hueFor=s=>['#c1272d','#2457a6','#28734b','#9b6810','#6b3fa0','#0f766e'][[...String(s)].reduce((a,ch)=>(a*31+ch.charCodeAt(0))>>>0,7)%6];
+const initialsFor=n=>String(n||'?').trim().split(/\s+/).slice(0,2).map(w=>w[0]).join('').toUpperCase()||'?';
+function stopUsersPoll(){clearInterval(usersPollTimer);usersPollTimer=null;}
+function closeUsersOverlay(){closeModal('usersOverlay');stopUsersPoll();}
+$('usersBtn').addEventListener('click',()=>{
+  openModal('usersOverlay');usersKey=null;loadUsersPanel();
+  stopUsersPoll();
+  // Keep the panel current while it's open — a case being added, closed, reopened or deleted
+  // elsewhere in the app should show up here without the admin having to close and reopen it.
+  usersPollTimer=setInterval(()=>loadUsersPanel(true).catch(()=>{}),4000);
+});
+$('usersBody').addEventListener('click',async e=>{
+  const btn=e.target.closest('.user-del'); if(!btn)return;
+  const row=btn.closest('.user-row'), uid=row.dataset.uid, name=row.querySelector('.user-main b').textContent;
+  if(!confirm(`Permanently delete ${name} and ALL of their cases, messages and files? This cannot be undone.`))return;
+  btn.disabled=true; btn.innerHTML='Deleting…';
+  try{
+    await api('/api/admin/users/'+encodeURIComponent(uid),{method:'DELETE'});
+    row.classList.add('user-row-out');
+    row.addEventListener('animationend',()=>{row.remove();if(!$('usersBody').querySelector('.user-row'))$('usersBody').innerHTML='<div class="stats-empty">No customers yet.</div>';},{once:true});
+    await loadCases();
+    showToast(`${name} and all their cases deleted.`);
+  }catch(err){showToast(err.message||'Could not delete this customer.','err');btn.disabled=false;btn.innerHTML='Delete';}
+});
+$('statsClose').addEventListener('click',closeStatsOverlay);
+$('statsOverlay').querySelector('.rw-modal-scrim').addEventListener('click',closeStatsOverlay);
+$('usersClose').addEventListener('click',closeUsersOverlay);
+$('usersOverlay').querySelector('.rw-modal-scrim').addEventListener('click',closeUsersOverlay);
+document.addEventListener('keydown',e=>{
+  if(e.key!=='Escape')return;
+  if($('statsOverlay').classList.contains('open'))closeStatsOverlay();
+  if($('usersOverlay').classList.contains('open'))closeUsersOverlay();
+});
+$('assign').onchange=async e=>{if(!current||staff.role!=='admin')return;try{await api('/api/admin/cases/'+encodeURIComponent(current.caseId)+'/assign',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({agentId:e.target.value||null})});await loadCases()}catch(err){alert(err.message)}};
+$('refresh').onclick=loadCases;$('search').oninput=renderList;$('filter').onchange=renderList;$('logout').onclick=async()=>{await fetch('/api/staff/logout',{method:'POST'});location.href='/admin-login'};
+$('agentForm').onsubmit=async e=>{e.preventDefault();try{await api('/api/admin/agents',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:$('aName').value,email:$('aEmail').value,password:$('aPassword').value})});e.target.reset();await loadAgents();}catch(err){alert(err.message)}};
+boot();
+</script><script>/* rw-chat.js — stable, instant-send chat: incremental rendering, optimistic sending, no loading flashes.
+   Loads AFTER the page's inline script and replaces its chat/list functions. */
+(() => {
+'use strict';
+const D = document, $ = id => D.getElementById(id);
+const dash = !!$('screenList'), admin = !!$('agentManager');
+if (!dash && !admin) return;
 
-// Deletes every message for a case. Messages may be keyed by the public RW-... case id or by
-// cases.id (a uuid) depending on how the live schema's foreign key was set up (see createMessage,
-// which has the exact same ambiguity) — delete by both so neither leaves orphan rows behind.
-async function deleteMessagesForCase(caseId, record) {
-  if (!DB_ENABLED) {
-    const kept = readJson(FILES.messages).filter(m => m.caseId !== caseId);
-    writeJson(FILES.messages, kept);
-    invalidateMessageMetaCache();
-    return;
-  }
-  try { await dbDelete('messages', `case_id=eq.${encodeURIComponent(caseId)}`); } catch (_) {}
-  if (record && record.id && record.id !== caseId) {
-    try { await dbDelete('messages', `case_id=eq.${encodeURIComponent(record.id)}`); } catch (_) {}
-  }
-  invalidateMessageMetaCache();
-}
+/* ---------- sides + instant-feel styling ---------- */
+const mineBg = dash ? '#2C5F8A' : '#2457a6';
+const S = D.createElement('style');
+S.textContent = `
+.chat-msg.customer,.chat-msg.agent,.chat-msg.admin,.msg.customer,.msg.agent,.msg.admin{align-self:flex-start}
+.chat-msg.mine,.msg.mine{align-self:flex-end;background:${mineBg}!important;border-color:${dash ? '#1A1611' : mineBg}!important;color:#fff}
+.chat-msg.mine .who,.msg.mine .who{color:#fff;opacity:.8}
+.chat-messages,.messages{overscroll-behavior:contain}
+/* Sent instantly, so the pop-in should read as instant too — not the slower staggered reveal used elsewhere. */
+.chat-messages .rw-pop,.messages .rw-pop{animation-duration:.16s!important;animation-delay:0s!important}
+.chat-msg.pending,.msg.pending{opacity:.62}
+.chat-msg.failed,.msg.failed{opacity:1;background:#fff0f0!important;border-color:#e2a3a3!important;cursor:pointer}
+.rw-stat{display:inline-flex;align-items:center;gap:4px;font-size:10px;opacity:.85;margin-left:6px}
+.rw-clock{width:9px;height:9px;border:1.5px solid currentColor;border-radius:50%;position:relative;flex:none}
+.rw-clock::after{content:'';position:absolute;left:50%;top:50%;width:2.5px;height:2.5px;background:currentColor;border-radius:50%;transform:translate(-50%,-50%)}
+.chat-msg.failed .rw-stat,.msg.failed .rw-stat{color:#c1272d;font-weight:700}
+@keyframes rwping{0%,100%{opacity:.4}50%{opacity:1}}
+.chat-msg.pending .rw-stat,.msg.pending .rw-stat{animation:rwping 1s ease-in-out infinite}`;
+D.head.append(S);
 
-// Full, permanent removal of a case: its messages, any uploaded proof files (storage + row,
-// or the local uploads folder in JSON-fallback mode), and the case row itself. This is a
-// super-admin-only destructive action — see the DELETE /api/admin/cases/:caseId route.
-async function deleteCaseCascade(caseId) {
-  const record = await findCase(caseId);
-  if (!record) return false;
-  if (DB_ENABLED) {
-    const files = await listCaseFiles(caseId);
-    for (const f of files) { if (f.storagePath) await deleteFromStorage(f.storagePath); }
-    try { await dbDelete('case_files', `case_id=eq.${encodeURIComponent(record.id)}`); } catch (_) {}
-  } else {
-    try { fs.rmSync(path.join(UPLOADS_DIR, caseId), { recursive: true, force: true }); } catch (_) {}
-  }
-  await deleteMessagesForCase(caseId, record);
-  if (DB_ENABLED) {
-    await dbDelete('cases', `case_id=eq.${encodeURIComponent(caseId)}`);
-  } else {
-    writeJson(FILES.cases, readJson(FILES.cases).filter(c => c.caseId !== caseId));
-  }
-  // Tell anyone with this case open (customer or staff) that it's gone, so a stale tab doesn't
-  // keep showing a chat window for a case that no longer exists.
-  broadcastCaseEvent(caseId, 'case-deleted', { caseId });
-  CHAT_STREAMS.delete(String(caseId));
-  return true;
-}
+/* ---------- helpers ---------- */
+const keyOf = m => m.id || m._id || (m.createdAt + '|' + m.text);
+const throttled = (fn, gap) => { let last = 0, t; return () => { const w = last + gap - Date.now(); clearTimeout(t); if (w <= 0) { last = Date.now(); fn(); } else t = setTimeout(() => { last = Date.now(); fn(); }, w); }; };
+const time = m => new Date(m.createdAt).toLocaleString('en-IN');
+const uid = () => 'tmp_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
 
-// Full, permanent removal of a customer account and everything that belongs to them. Staff/admin
-// accounts are never touched here — those are managed through the separate agents panel.
-async function deleteUserCascade(userId) {
-  const user = await findUserById(userId);
-  if (!user) return null;
-  if (user.role && user.role !== 'customer') throw new Error('Only customer accounts can be deleted here.');
-  const theirCases = (await listCasesForUser(userId)).map(r => DB_ENABLED ? caseFromDb(r) : r);
-  for (const c of theirCases) { await deleteCaseCascade(c.caseId); }
-  if (!DB_ENABLED) {
-    writeJson(FILES.users, readJson(FILES.users).filter(u => u.id !== userId));
-  } else {
-    await dbDelete('users', `id=eq.${encodeURIComponent(userId)}`);
-  }
-  return user;
-}
+// Read receipts: send once per (case, latest message). Stops any read -> stream event -> read loop.
+const _mr = window.markRead; let lastMR = '';
+window.markRead = c => { const k = (c && c.caseId) + '|' + (c && c.lastMessageAt); if (k === lastMR) return Promise.resolve(); lastMR = k; return _mr(c); };
 
-let MESSAGE_SCHEMA_CACHE = null;
-let MESSAGE_SCHEMA_CACHE_AT = 0;
-const MESSAGE_SCHEMA_TTL_MS = 5 * 60 * 1000;
-let MESSAGE_META_CACHE = null;
-let MESSAGE_META_CACHE_AT = 0;
-const MESSAGE_META_TTL_MS = 2500;
-function invalidateMessageMetaCache(){ MESSAGE_META_CACHE = null; MESSAGE_META_CACHE_AT = 0; }
-
-async function getMessageSchema() {
-  if (!DB_ENABLED) return null;
-  const now = Date.now();
-  if (MESSAGE_SCHEMA_CACHE && now - MESSAGE_SCHEMA_CACHE_AT < MESSAGE_SCHEMA_TTL_MS) {
-    return MESSAGE_SCHEMA_CACHE;
-  }
-
-  try {
-    const res = await fetch(`${SUPABASE_URL}/rest/v1/`, {
-      method: 'GET',
-      headers: {
-        apikey: SUPABASE_SECRET_KEY,
-        Authorization: `Bearer ${SUPABASE_SECRET_KEY}`,
-        Accept: 'application/openapi+json, application/json'
-      }
-    });
-    if (!res.ok) throw new Error(`Supabase schema discovery failed: ${res.status}`);
-    const spec = await res.json();
-    const definition = spec?.definitions?.messages || spec?.components?.schemas?.messages;
-    const properties = definition?.properties || {};
-    const columns = new Set(Object.keys(properties));
-    if (!columns.size) throw new Error('messages table columns were not exposed by PostgREST');
-    MESSAGE_SCHEMA_CACHE = columns;
-    MESSAGE_SCHEMA_CACHE_AT = now;
-    return columns;
-  } catch (err) {
-    console.warn('Message schema discovery unavailable:', err.message);
-    return MESSAGE_SCHEMA_CACHE || null;
-  }
-}
-
-function firstExistingColumn(columns, candidates) {
-  if (!columns) return null;
-  return candidates.find(name => columns.has(name)) || null;
-}
-
-function canonicalSender(value, senderName='') {
-  const v = String(value || '').trim().toLowerCase();
-  if (['customer','user','client','consumer'].includes(v)) return 'customer';
-  if (['admin','superadmin','super_admin','master_admin','administrator'].includes(v)) return 'admin';
-  if (['agent','support','staff','human','representative'].includes(v)) return 'agent';
-  const n = String(senderName || '').toLowerCase();
-  if (/(super\s*admin|administrator|master\s*admin)/i.test(n)) return 'admin';
-  return v || 'agent';
-}
-
-function normalizeMessageRow(row, columns = null) {
-  if (!row) return row;
-  const pick = c => columns ? firstExistingColumn(columns, c) : (c.find(k => row[k] !== undefined) || null);
-  const senderKey = pick(['sender', 'role', 'sender_type', 'author_type']);
-  const senderNameKey = pick(['sender_name', 'author_name', 'senderName', 'name']);
-  const textKey = pick(['text', 'message', 'content', 'body']);
-  const createdKey = pick(['created_at', 'sent_at', 'timestamp', 'createdAt']);
-  const senderName = senderNameKey ? (row[senderNameKey] || '') : '';
+// Incremental renderer: only appends what is new, and never touches confirmed bubbles, so nothing flickers.
+// Optimistic ("pending") bubbles live outside the confirmed-key bookkeeping entirely, so a poll or live-update
+// landing mid-send can never wipe out a message the person just watched appear on screen.
+function makeChat(box, build, emptyClass, emptyText) {
+  let keys = [], id = null; const pending = new Map();
+  const empty = () => { const e = D.createElement('div'); e.className = emptyClass + ' rw-empty'; e.textContent = emptyText; return e; };
+  const near = () => box.scrollTop + box.clientHeight >= box.scrollHeight - 60;
+  const down = smooth => box.scrollTo({ top: box.scrollHeight, behavior: smooth ? 'smooth' : 'auto' });
+  const reflow = () => { for (const p of pending.values()) box.append(p.el); };
   return {
-    ...row,
-    caseId: row.case_id ?? row.caseId ?? row.case_uuid,
-    sender: canonicalSender(senderKey ? row[senderKey] : '', senderName),
-    senderRole: canonicalSender(senderKey ? row[senderKey] : '', senderName),
-    senderName,
-    senderId: row.sender_id ?? row.senderId ?? null,
-    text: textKey ? (row[textKey] || '') : '',
-    createdAt: createdKey ? (row[createdKey] || new Date().toISOString()) : new Date().toISOString()
+    bottom() { down(false); },
+    reset(n) { if (n === id) return; id = n; keys = []; pending.clear(); box.replaceChildren(); },
+    add(m, force) { const k = keyOf(m); if (keys.includes(k)) return; const e = box.querySelector('.rw-empty'); if (e) e.remove(); box.append(build(m)); keys.push(k); reflow(); if (force || near()) down(true); },
+    // Appears the instant the person hits send — before the network round-trip even starts.
+    addPending(tempKey, msg) { const e = box.querySelector('.rw-empty'); if (e) e.remove(); const el = build(msg); el.classList.add('pending'); el.dataset.tmp = tempKey; box.append(el); pending.set(tempKey, { el, msg }); down(true); return el; },
+    resolvePending(tempKey, realMsg) { const p = pending.get(tempKey); if (!p) return; pending.delete(tempKey); p.el.remove(); this.add(realMsg, true); },
+    failPending(tempKey) { const p = pending.get(tempKey); if (!p) return; p.el.classList.remove('pending'); p.el.classList.add('failed'); },
+    retryPending(tempKey) { const p = pending.get(tempKey); if (!p) return null; p.el.classList.remove('failed'); p.el.classList.add('pending'); return p.msg; },
+    removePending(tempKey) { const p = pending.get(tempKey); if (!p) return; p.el.remove(); pending.delete(tempKey); },
+    sync(list) {
+      const nk = list.map(keyOf);
+      if (!nk.length) { if (!box.firstElementChild && !pending.size) box.append(empty()); return; }
+      const same = keys.length <= nk.length && keys.every((k, i) => k === nk[i]);
+      if (same && keys.length === nk.length) { reflow(); return; }
+      const first = !keys.length, stick = first || near();
+      const e = box.querySelector('.rw-empty'); if (e) e.remove();
+      if (same) list.slice(keys.length).forEach(m => box.append(build(m)));
+      else box.replaceChildren(...list.map(build));
+      keys = nk; reflow(); if (stick) down(!first);
+    }
+  };
+}
+const bubble = (cls, who, text, stat) => { const el = D.createElement('div'); el.className = cls; const w = D.createElement('span'); w.className = 'who'; w.textContent = who; el.append(w, D.createTextNode(text)); if (stat) el.insertAdjacentHTML('beforeend', stat); return el; };
+const PENDING_STAT = `<span class="rw-stat"><span class="rw-clock"></span></span>`;
+const FAILED_STAT = `<span class="rw-stat">⚠ Not sent · Tap to retry</span>`;
+
+/* ================= CUSTOMER DASHBOARD ================= */
+if (dash) {
+  const chat = makeChat($('chatMessages'), m => {
+    const s = m.sender === 'admin' ? 'admin' : m.sender === 'agent' ? 'agent' : 'customer', mine = s === 'customer';
+    const label = mine ? 'You' : (m.senderName || (s === 'admin' ? 'Super Admin' : 'Agent'));
+    const stat = mine ? (m.failed ? FAILED_STAT : m.pending ? PENDING_STAT : '') : '';
+    return bubble(`chat-msg ${s}${mine ? ' mine' : ''}`, [label, mine ? '' : (s === 'admin' ? 'SUPER ADMIN' : 'AGENT'), time(m)].filter(Boolean).join(' · '), m.text, stat);
+  }, 'chat-empty', 'No messages yet — say hello!');
+
+  let busy = false, again = false;
+  window.loadMessages = async function () {
+    if (!currentCaseId) return;
+    if (busy) { again = true; return; }
+    busy = true; const cid = currentCaseId;
+    try {
+      const res = await fetch(`/api/my/cases/${encodeURIComponent(cid)}/messages`, { cache: 'no-store' });
+      if (!res.ok || cid !== currentCaseId) return;
+      const list = await res.json(); chat.reset(cid); chat.sync(list);
+      const last = list[list.length - 1]; if (last && last.createdAt) markRead({ caseId: cid, lastMessageAt: last.createdAt });
+    } catch (e) { console.debug('loadMessages', e); }
+    finally { busy = false; if (again) { again = false; loadMessages(); } }
+  };
+  const _ov = window.openCaseView;
+  window.openCaseView = function (id) {   // open instantly; fetch messages in parallel with the case details
+    chat.reset(id); currentCaseId = id; $('caseViewId').textContent = id; $('caseViewStatus').textContent = ''; $('caseViewSummary').textContent = ''; $('caseViewFiles').textContent = '';
+    showScreen('case'); loadMessages();
+    return _ov.apply(this, arguments).then(() => chat.bottom());
+  };
+  window.openChatStream = function (caseId) {
+    closeChatStream(); const run = throttled(() => loadMessages(), 400);
+    const es = new EventSource(`/api/my/cases/${encodeURIComponent(caseId)}/stream`);
+    es.addEventListener('message', ev => { try { const d = JSON.parse(ev.data), m = d && (d.message || d); if (m && m.text && m.createdAt && m.sender) chat.add(m); } catch (_) {} run(); });
+    es.onerror = () => {}; chatStream = es;
+  };
+
+  // send: appears the instant you press it (or hit Enter) — the network call happens in the background.
+  const sb = $('chatSendBtn'), si = $('chatInput'), nb = sb.cloneNode(true), ni = si.cloneNode(true); sb.replaceWith(nb); si.replaceWith(ni);
+  async function attempt(text, tempKey) {
+    try {
+      const res = await fetch(`/api/my/cases/${encodeURIComponent(currentCaseId)}/messages`, { method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json' }, body: JSON.stringify({ text }) });
+      const d = await res.json().catch(() => ({})); if (!res.ok) throw new Error(d.error || `Could not send message (HTTP ${res.status}).`);
+      const at = d.createdAt || new Date().toISOString();
+      chat.resolvePending(tempKey, { ...d, text: d.text || text, createdAt: at, sender: 'customer' }); markRead({ caseId: currentCaseId, lastMessageAt: at });
+    } catch (e) { chat.failPending(tempKey); $('chatNotice').textContent = e.message || 'Could not send. Tap the message to retry.'; }
+  }
+  const send = () => {
+    const text = ni.value.trim(); if (!text || !currentCaseId) return;
+    $('chatNotice').textContent = ''; ni.value = ''; ni.focus();   // clears instantly — never waits on the network
+    const tempKey = uid();
+    chat.addPending(tempKey, { text, createdAt: new Date().toISOString(), sender: 'customer', pending: true });
+    attempt(text, tempKey);
+  };
+  nb.addEventListener('click', send);
+  ni.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.isComposing) send(); });
+  $('chatMessages').addEventListener('click', e => { const el = e.target.closest('.chat-msg.failed'); if (!el || !el.dataset.tmp) return;
+    const tempKey = el.dataset.tmp, msg = chat.retryPending(tempKey); if (msg) attempt(msg.text, tempKey); });
+
+  // case list: loader only on the very first load; re-render only when data really changed; keep last good list on errors
+  const row = c => { const locked = !!c.accessExpired, p = locked ? 'Access expired — renew to continue' : (c.lastMessageText ? `${senderLabel(c)}: ${c.lastMessageText}` : 'No messages yet'), n = Number(c.unreadCount || 0);
+    return `<div class="case-row ${n ? 'unread' : ''}" data-case="${escapeHtml(c.caseId)}" data-status="${escapeHtml(c.status || '')}"><div style="min-width:0;flex:1"><div class="case-id">${escapeHtml(c.caseId)}${locked ? ' <span style="color:#9b6810;font-size:11px;font-weight:800;">⏳ EXPIRED</span>' : ''}</div><div class="case-meta">${c.createdAt ? new Date(c.createdAt).toLocaleString('en-IN') : 'Date unavailable'}${c.category ? ' • ' + escapeHtml(c.category) : ''}</div><div class="case-preview"${locked ? ' style="color:#9b6810;font-weight:600;"' : ''}>${escapeHtml(p)}</div></div><div class="case-actions">${n ? `<span class="unread-pill" title="${n} unread message${n === 1 ? '' : 's'}">${n > 99 ? '99+' : n}</span>` : ''}<span class="status-badge status-${escapeHtml(c.status || '')}">${escapeHtml(statusLabel(c.status || ''))}</span></div></div>`; };
+  let listBusy = false, listKey = null;
+  window.loadCases = async function () {
+    if (listBusy) return; listBusy = true; const el = $('caseList');
+    try {
+      if (!el.firstElementChild) el.innerHTML = '<div class="loading-state">Loading your cases…</div>';
+      const res = await fetch('/api/my/cases', { cache: 'no-store' }), payload = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(payload.error || 'Could not load your cases.');
+      const cases = (Array.isArray(payload) ? payload : []).sort((a, b) => new Date(b.lastMessageAt || b.updatedAt || b.createdAt || 0) - new Date(a.lastMessageAt || a.updatedAt || a.createdAt || 0));
+      const key = JSON.stringify(cases.map(c => [c.caseId, c.status, c.unreadCount, c.lastMessageAt, c.lastMessageText, c.lastMessageSender, c.lastMessageSenderName, c.category, c.createdAt]));
+      if (key === listKey) return; listKey = key;
+      if (!cases.length) { el.innerHTML = '<div class="empty-state">No cases yet. Click "Open a New Case" to file your first one.</div>'; return; }
+      el.innerHTML = cases.map(row).join('');
+      el.querySelectorAll('.case-row').forEach(r => r.addEventListener('click', () => resumeCase(r.dataset.case, r.dataset.status)));
+    } catch (err) {
+      console.error('loadCases:', err);
+      if (listKey === null || !el.querySelector('.case-row')) { listKey = null; el.innerHTML = `<div class="empty-state"><strong>Could not load your cases.</strong><br><span style="font-size:13px;">${escapeHtml(err.message || 'Please refresh and try again.')}</span><br><button class="btn secondary" style="margin-top:16px;" onclick="loadCases()">Try Again</button></div>`; }
+    } finally { listBusy = false; }
   };
 }
 
-function messagePatchForSchema(m, columns, caseDbId) {
-  const out = {};
-  const setIf = (candidates, value) => {
-    const key = firstExistingColumn(columns, candidates);
-    if (key && value !== undefined) out[key] = value;
-    return key;
+/* ================= SUPPORT WORKSPACE (admin / agents) ================= */
+if (admin) {
+  const isMine = m => (m.senderId && m.senderId === staff.uid) || (!m.senderId && m.sender === staff.role);
+  const chat = makeChat($('messages'), m => {
+    const s = m.sender === 'customer' ? 'customer' : m.sender === 'admin' ? 'admin' : 'agent', mine = isMine(m);
+    const label = mine ? 'You' : (m.senderName || (s === 'customer' ? 'Customer' : s === 'admin' ? 'Super Admin' : 'Agent'));
+    const stat = mine ? (m.failed ? FAILED_STAT : m.pending ? PENDING_STAT : '') : '';
+    return bubble(`msg ${s}${mine ? ' mine' : ''}`, [label, mine ? '' : (s === 'admin' ? 'SUPER ADMIN' : s === 'agent' ? 'AGENT' : 'CUSTOMER'), time(m)].filter(Boolean).join(' · '), m.text, stat);
+  }, 'empty', 'No messages yet. Start the conversation.');
+
+  // Locks the reply box for an expired or closed case, and keeps it in sync live (via the
+  // case-status push below) rather than only at the moment the case was opened.
+  window.applyComposerLock = function (c) {
+    const closed = c.status === 'closed', expired = !!c.accessExpired && !closed;
+    const locked = closed || expired;
+    $('composer').disabled = locked; $('send').disabled = locked;
+    $('composer').placeholder = closed ? 'This case is closed — reopen it to keep messaging.' : expired ? 'Access expired — waiting for the customer to renew…' : 'Type a message…';
   };
 
-  const caseKey = firstExistingColumn(columns, ['case_id', 'caseId']);
-  if (caseKey === 'case_id') out.case_id = caseDbId;
-  else if (caseKey === 'caseId') out.caseId = m.caseId;
-  else if (columns?.has('case_uuid')) out.case_uuid = caseDbId;
-
-  setIf(['id', 'message_id'], m.id);
-  setIf(['sender', 'role', 'sender_type', 'author_type'], m.sender);
-  setIf(['sender_name', 'author_name', 'senderName', 'name'], m.senderName);
-  setIf(['sender_id', 'senderId', 'author_id'], m.senderId);
-  setIf(['text', 'message', 'content', 'body'], m.text);
-  setIf(['created_at', 'sent_at', 'timestamp', 'createdAt'], m.createdAt);
-
-  return out;
-}
-
-async function listMessages(caseId) {
-  if (!DB_ENABLED) {
-    return readJson(FILES.messages)
-      .filter(m => m.caseId === caseId)
-      .map(m => normalizeMessageRow(m));
-  }
-
-  const record = await findCase(caseId);
-  if (!record) return [];
-
-  const columns = await getMessageSchema();
-  const caseCandidates = columns
-    ? [firstExistingColumn(columns, ['case_id', 'caseId']), firstExistingColumn(columns, ['case_uuid'])].filter(Boolean)
-    : ['case_id'];
-
-  let lastError = null;
-  for (const caseColumn of caseCandidates) {
-    const values = caseColumn === 'case_id' || caseColumn === 'case_uuid' ? [record.id] : [caseId];
-    for (const value of values) {
-      try {
-        const createdColumn = firstExistingColumn(columns, ['created_at','sent_at','timestamp','createdAt']) || 'created_at';
-        const rows = await dbSelect(
-          'messages',
-          `${caseColumn}=eq.${encodeURIComponent(value)}&order=${encodeURIComponent(createdColumn)}.asc`
-        );
-        return rows.map(row => normalizeMessageRow(row, columns));
-      } catch (err) {
-        lastError = err;
-      }
-    }
-  }
-
-  throw lastError || new Error('Could not read case messages.');
-}
-
-
-function parseReadState(raw) {
-  if (!raw) return {};
-  try {
-    const parsed = JSON.parse(raw);
-    if (!parsed || typeof parsed !== 'object') return {};
-    const out = {};
-    for (const [key, value] of Object.entries(parsed).slice(0, 500)) {
-      if (typeof key === 'string' && typeof value === 'string' && !Number.isNaN(new Date(value).getTime())) out[key] = value;
-    }
-    return out;
-  } catch (_) { return {}; }
-}
-
-let READ_STATE_WARNED = false;
-async function getPersistedReadState(viewerId) {
-  if (!DB_ENABLED || !viewerId) return null;
-  try {
-    const rows = await dbSelectColumns('case_reads','case_id,last_read_at',`viewer_id=eq.${encodeURIComponent(viewerId)}`);
-    const out = {};
-    for (const row of rows || []) {
-      if (row.case_id && row.last_read_at) out[String(row.case_id)] = row.last_read_at;
-    }
-    return out;
-  } catch (err) {
-    if (!READ_STATE_WARNED) {
-      READ_STATE_WARNED = true;
-      console.warn('Persistent read-state table unavailable; using browser fallback until migration is applied:', err.message);
-    }
-    return null;
-  }
-}
-
-async function markCaseRead(viewerId, caseId, requestedAt = null) {
-  let lastReadAt = requestedAt && !Number.isNaN(new Date(requestedAt).getTime()) ? new Date(requestedAt).toISOString() : null;
-  if (!lastReadAt) {
-    const messages = await listMessages(caseId);
-    const latest = messages[messages.length - 1];
-    lastReadAt = latest?.createdAt || null;
-  }
-  if (!lastReadAt) return { ok:true, lastReadAt:null };
-  { const mem = MEM_READS.get(viewerId) || {}; if (!mem[caseId] || new Date(lastReadAt) > new Date(mem[caseId])) mem[caseId] = lastReadAt; MEM_READS.set(viewerId, mem); }
-  if (DB_ENABLED) {
+  let busy = false, again = false;
+  window.loadMessages = async function () {
+    if (!current) return;
+    if (busy) { again = true; return; }
+    busy = true; const cid = current.caseId;
     try {
-      await dbUpsert('case_reads',[{viewer_id:viewerId,case_id:caseId,last_read_at:lastReadAt,updated_at:new Date().toISOString()}], 'viewer_id,case_id');
-      return { ok:true, lastReadAt, persisted:true };
-    } catch (err) {
-      if (!READ_STATE_WARNED) { READ_STATE_WARNED = true; console.warn('Could not persist chat read state:', err.message); }
-    }
-  }
-  return { ok:true, lastReadAt, persisted:false };
-}
-
-const MEM_READS = new Map();
-async function resolveSeenMap(viewerId, fallbackMap) {
-  const persisted = await getPersistedReadState(viewerId);
-  const out = { ...(fallbackMap || {}), ...(persisted || {}) };
-  for (const [k, v] of Object.entries(MEM_READS.get(viewerId) || {})) if (!out[k] || new Date(v) > new Date(out[k])) out[k] = v;
-  return out;
-}
-
-async function getLatestMessageMeta(records, viewerRole, seenMap = {}, viewerId = null) {
-  const rows = Array.isArray(records) ? records : [];
-  const meta = new Map();
-  if (!rows.length) return meta;
-
-  // Production path: let Postgres calculate latest-message and unread state in one query.
-  // This avoids scanning thousands of historical messages on every inbox refresh.
-  if (DB_ENABLED && viewerId) {
-    try {
-      const caseIds = rows.map(r => String(caseFromDb(r).caseId)).filter(Boolean);
-      if (caseIds.length) {
-        const result = await dbRpc('get_case_chat_meta', { p_case_ids: caseIds, p_viewer_id: viewerId, p_viewer_role: viewerRole });
-        for (const r of result || []) {
-          meta.set(String(r.case_id), {
-            lastMessageText: r.last_message_text || '',
-            lastMessageAt: r.last_message_at || null,
-            lastMessageSender: canonicalSender(r.last_message_sender, r.last_message_sender_name),
-            lastMessageSenderName: r.last_message_sender_name || '',
-            lastMessageSenderId: r.last_message_sender_id || null,
-            unreadCount: Number(r.unread_count || 0),
-            unread: Number(r.unread_count || 0) > 0,
-            messageCount: Number(r.message_count || 0)
-          });
-        }
-        for (const r of rows) {
-          const c=caseFromDb(r);
-          if (!meta.has(String(c.caseId))) meta.set(String(c.caseId), {lastMessageText:'',lastMessageAt:null,lastMessageSender:'',lastMessageSenderName:'',lastMessageSenderId:null,unread:false,unreadCount:0,messageCount:0});
-        }
-        // If a read position is known server-side (even one the DB could not save), never report messages at/before it as unread.
-        for (const [cid, mm] of meta) {
-          const seen = seenMap && seenMap[cid];
-          if (seen && mm.unreadCount && mm.lastMessageAt && new Date(mm.lastMessageAt) <= new Date(seen)) { mm.unreadCount = 0; mm.unread = false; }
-        }
-        return meta;
-      }
-    } catch (err) {
-      console.warn('Chat metadata RPC unavailable; using compatibility fallback:', err.message);
-    }
-  }
-
-  const byPublic = new Map(rows.map(r => { const c=caseFromDb(r); return [String(c.caseId),c]; }));
-  const byDb = new Map(rows.map(r => { const c=caseFromDb(r); return [String(c.id),c]; }));
-  const grouped = new Map();
-  const consume = raw => {
-    const m=normalizeMessageRow(raw);
-    const c=byPublic.get(String(m.caseId))||byDb.get(String(m.caseId));
-    if(!c)return; const key=String(c.caseId); const list=grouped.get(key)||[]; list.push(m); grouped.set(key,list);
+      const list = await api('/api/admin/cases/' + encodeURIComponent(cid) + '/messages');
+      if (!current || current.caseId !== cid) return;
+      chat.reset(cid); chat.sync(list);
+      const last = list[list.length - 1];
+      if (last && last.createdAt) { await markRead({ ...current, lastMessageAt: last.createdAt });
+        const r = cases.find(c => c.caseId === cid); if (r && (r.unreadCount || r.unread)) { r.unreadCount = 0; r.unread = false; renderList(); } }
+    } catch (e) { console.error('loadMessages', e); }
+    finally { busy = false; if (again) { again = false; loadMessages(); } }
   };
-  if(!DB_ENABLED){ for(const m of readJson(FILES.messages)) consume(m); }
-  else {
-    const now=Date.now(); let messages=MESSAGE_META_CACHE;
-    if(!messages || now-MESSAGE_META_CACHE_AT>MESSAGE_META_TTL_MS){
-      const columns=await getMessageSchema(); if(!columns)return meta;
-      const caseColumn=firstExistingColumn(columns,['case_id','caseId','case_uuid']); const createdColumn=firstExistingColumn(columns,['created_at','sent_at','timestamp','createdAt']);
-      if(!caseColumn||!createdColumn)return meta;
-      const senderColumn=firstExistingColumn(columns,['sender','role','sender_type','author_type']);
-      const senderNameColumn=firstExistingColumn(columns,['sender_name','author_name','senderName','name']);
-      const senderIdColumn=firstExistingColumn(columns,['sender_id','senderId','author_id']);
-      const textColumn=firstExistingColumn(columns,['text','message','content','body']);
-      const selected=[caseColumn,senderColumn,senderNameColumn,senderIdColumn,textColumn,createdColumn].filter((v,i,a)=>v&&a.indexOf(v)===i).join(',');
-      messages=await dbSelectColumns('messages',selected,`order=${encodeURIComponent(createdColumn)}.desc&limit=10000`); MESSAGE_META_CACHE=messages; MESSAGE_META_CACHE_AT=now;
-    }
-    for(const raw of messages||[])consume(raw);
-  }
-  for(const [caseId,list] of grouped){
-    list.sort((a,b)=>new Date(b.createdAt||0)-new Date(a.createdAt||0)); const latest=list[0]; const seenAt=seenMap?.[caseId]?new Date(seenMap[caseId]).getTime():0;
-    const unreadCount=Number.isNaN(seenAt)?0:list.filter(m=>{const t=new Date(m.createdAt||0).getTime(); return t>seenAt && (m.senderId ? m.senderId!==viewerId : canonicalSender(m.sender,m.senderName)!==viewerRole);}).length;
-    meta.set(caseId,{lastMessageText:latest?.text||'',lastMessageAt:latest?.createdAt||null,lastMessageSender:latest?canonicalSender(latest.sender,latest.senderName):'',lastMessageSenderName:latest?.senderName||'',lastMessageSenderId:latest?.senderId||null,unreadCount,unread:unreadCount>0,messageCount:list.length});
-  }
-  return meta;
-}
-
-function attachMessageMeta(records,meta){return records.map(r=>{const c=caseFromDb(r);return {...c,...(meta.get(c.caseId)||{lastMessageText:'',lastMessageAt:null,lastMessageSender:'',lastMessageSenderName:'',lastMessageSenderId:null,unread:false,unreadCount:0,messageCount:0})};});}
-
-async function createMessage(m) {
-  if (!DB_ENABLED) {
-    const a = readJson(FILES.messages);
-    a.push(m);
-    writeJson(FILES.messages, a);
-    invalidateMessageMetaCache();
-    const cases=readJson(FILES.cases);const idx=cases.findIndex(c=>c.caseId===m.caseId);
-    if(idx>=0){cases[idx].updatedAt=m.createdAt||new Date().toISOString();writeJson(FILES.cases,cases);}
-    return m;
-  }
-
-  const record = await findCase(m.caseId);
-  if (!record) {
-    throw new Error(`Cannot create message: case ${m.caseId} was not found.`);
-  }
-
-  let columns = await getMessageSchema();
-  if (!columns) {
-    throw new Error('Could not determine the production messages table schema.');
-  }
-
-  // The production database has evolved independently of the bundled schema.
-  // Build the insert using only columns that actually exist in the live table.
-  // Prefer the public RW-... case ID; retry with cases.id if the FK is UUID.
-  const attempts = [];
-  const primary = messagePatchForSchema(m, columns, record.id);
-  attempts.push(primary);
-
-  const caseColumn = firstExistingColumn(columns, ['case_id', 'caseId']);
-  if (caseColumn && primary[caseColumn] === m.caseId && record.id !== m.caseId) {
-    attempts.push({ ...primary, [caseColumn]: record.id });
-  }
-
-  let lastError = null;
-  for (const payload of attempts) {
-    try {
-      const r = (await dbInsert('messages', [payload]))[0];
-      await updateCase(m.caseId,{updatedAt:m.createdAt||new Date().toISOString()});
-      invalidateMessageMetaCache();
-      return normalizeMessageRow(r, columns);
-    } catch (err) {
-      lastError = err;
-      const message = String(err?.message || err);
-
-      // A cached PostgREST schema can be stale after a Supabase migration.
-      // Refresh once and retry with the current live columns.
-      if (/schema cache|column .* does not exist/i.test(message)) {
-        MESSAGE_SCHEMA_CACHE = null;
-        MESSAGE_SCHEMA_CACHE_AT = 0;
-        columns = await getMessageSchema();
-        if (columns) {
-          const refreshed = messagePatchForSchema(m, columns, record.id);
-          try {
-            const r = (await dbInsert('messages', [refreshed]))[0];
-            await updateCase(m.caseId,{updatedAt:m.createdAt||new Date().toISOString()});
-            invalidateMessageMetaCache();
-            return normalizeMessageRow(r, columns);
-          } catch (refreshErr) {
-            lastError = refreshErr;
+  const _oc = window.openCase;
+  window.openCase = function (id) { chat.reset(id); const p = _oc.apply(this, arguments); loadMessages(); return p; };   // messages load in parallel with details
+  const _rl = window.renderList;   // unread total in the tab title
+  window.renderList = function () { _rl.apply(this, arguments); const n = cases.reduce((a, c) => a + Number(c.unreadCount || 0), 0); D.title = (n ? `(${n}) ` : '') + 'RefundWaapsi — Support Workspace'; };
+  window.openChatStream = function (caseId) {
+    closeChatStream(); const run = throttled(() => { loadMessages(); loadCases(true).catch(() => {}); }, 500);
+    let lastBeat = Date.now(), es;
+    const connect = () => {
+      es = new EventSource('/api/admin/cases/' + encodeURIComponent(caseId) + '/stream');
+      es.onmessage = () => { lastBeat = Date.now(); };
+      es.addEventListener('message', ev => { lastBeat = Date.now(); try { const d = JSON.parse(ev.data), m = d && (d.message || d); if (m && m.text && m.createdAt && m.sender) chat.add(m); } catch (_) {} run(); });
+      es.addEventListener('case-status', ev => {
+        lastBeat = Date.now();
+        try {
+          const d = JSON.parse(ev.data); if (!d || !d.status) return;
+          if (current && current.caseId === d.caseId) {
+            current.status = d.status;
+            const sel = $('status');
+            if (sel && sel.value !== d.status) { sel.value = d.status; sel.classList.remove('rw-flash'); void sel.offsetWidth; sel.classList.add('rw-flash'); }
+            applyComposerLock(current);   // e.g. closing the case live should lock the reply box right away
           }
-        }
+          const row = cases.find(c => c.caseId === d.caseId); if (row) row.status = d.status;
+          if ($('caseList')) renderList();
+        } catch (_) {}
+      });
+      es.addEventListener('case-deleted', ev => {
+        lastBeat = Date.now();
+        try {
+          const d = JSON.parse(ev.data); if (!d || !d.caseId) return;
+          if (current && current.caseId === d.caseId) { closeDetail(); }
+          cases = cases.filter(c => c.caseId !== d.caseId);
+          if ($('caseList')) renderList();
+        } catch (_) {}
+      });
+      es.addEventListener('ready', () => { lastBeat = Date.now(); });
+      es.onerror = () => { lastBeat = 0; };
+      chatStream = es;
+    };
+    connect();
+    // Self-healing: reconnect if the stream has gone silent past its heartbeat window, rather
+    // than relying solely on the browser's own (slow, inconsistent) reconnect behavior.
+    clearInterval(window.__rwStreamWatch); window.__rwStreamWatch = setInterval(() => {
+      if (!current || current.caseId !== caseId) { clearInterval(window.__rwStreamWatch); return; }
+      if (Date.now() - lastBeat > 20000) { try { es.close(); } catch (_) {} connect(); loadMessages(); loadCases(true).catch(() => {}); }
+    }, 5000);
+  };
+  async function attemptStaff(text, tempKey, caseId) {
+    try {
+      const sent = await api('/api/admin/cases/' + encodeURIComponent(caseId) + '/messages', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text }) });
+      const at = sent.createdAt || new Date().toISOString();
+      if (current && current.caseId === caseId) {
+        chat.resolvePending(tempKey, { ...sent, text: sent.text || text, createdAt: at, sender: staff.role, senderId: staff.uid, senderName: staff.name });
+        Object.assign(current, { lastMessageText: sent.text || text, lastMessageAt: at, lastMessageSender: staff.role, lastMessageSenderName: staff.name, unread: false });
+        await markRead(current); renderList();
+      }
+    } catch (e) {
+      if (current && current.caseId === caseId) {
+        chat.failPending(tempKey);
+        if (e.caseClosed) { current.status = 'closed'; applyComposerLock(current); }
       }
     }
   }
-
-  throw lastError || new Error('Could not create message.');
-}
-
-async function listCaseFiles(caseId) {
-  if (!DB_ENABLED) {
-    return (readJson(FILES.cases).find(c => c.caseId === caseId) || {}).proofFiles || [];
-  }
-
-  // caseId is the public RW-YYYY-XXXXXX identifier.
-  // case_files.case_id stores the UUID from cases.id.
-  const record = await findCase(caseId);
-  if (!record) return [];
-
-  const rows = await dbSelect(
-    'case_files',
-    `case_id=eq.${encodeURIComponent(record.id)}&order=created_at.asc`
-  );
-
-  return rows.map(f => ({
-    id: f.id,
-    filename: f.filename,
-    originalName: f.original_name,
-    size: f.size,
-    mimeType: f.mime_type,
-    storagePath: f.storage_path,
-    createdAt: f.created_at
-  }));
-}
-
-async function createCaseFile(f) {
-  if (!DB_ENABLED) return f;
-
-  // case_files.case_id is a UUID foreign key to cases.id.
-  const record = await findCase(f.caseId);
-  if (!record) {
-    throw new Error(`Cannot create case file: case ${f.caseId} was not found.`);
-  }
-
-  return (await dbInsert('case_files', [{
-    id: f.id,
-    case_id: record.id,
-    filename: f.filename,
-    original_name: f.originalName,
-    storage_path: f.storagePath,
-    mime_type: f.mimeType,
-    size: f.size,
-    created_at: f.createdAt
-  }]))[0];
-}
-
-async function uploadToStorage(file, storagePath) {
-  const res = await fetch(`${SUPABASE_URL}/storage/v1/object/${STORAGE_BUCKET}/${storagePath.split('/').map(encodeURIComponent).join('/')}`, {
-    method:'POST', headers:{apikey:SUPABASE_SECRET_KEY,Authorization:`Bearer ${SUPABASE_SECRET_KEY}`,'Content-Type':file.mimetype,'x-upsert':'false'}, body:file.buffer
-  });
-  if(!res.ok) throw new Error(`Storage upload failed ${res.status}: ${await res.text()}`);
-}
-async function signedStorageUrl(storagePath, expiresIn=900){
-  const res=await fetch(`${SUPABASE_URL}/storage/v1/object/sign/${STORAGE_BUCKET}/${storagePath.split('/').map(encodeURIComponent).join('/')}`,{method:'POST',headers:{apikey:SUPABASE_SECRET_KEY,Authorization:`Bearer ${SUPABASE_SECRET_KEY}`,'Content-Type':'application/json'},body:JSON.stringify({expiresIn})});
-  const data=await res.json().catch(()=>({}));
-  if(!res.ok) throw new Error(`Storage signing failed ${res.status}: ${JSON.stringify(data)}`);
-  return `${SUPABASE_URL}/storage/v1${data.signedURL}`;
-}
-// Best-effort cleanup — used when a super admin permanently deletes a case. Never throws: a
-// storage object that's already gone (or a transient network blip) shouldn't block the rest
-// of the deletion.
-async function deleteFromStorage(storagePath) {
-  try {
-    await fetch(`${SUPABASE_URL}/storage/v1/object/${STORAGE_BUCKET}/${storagePath.split('/').map(encodeURIComponent).join('/')}`, {
-      method: 'DELETE',
-      headers: { apikey: SUPABASE_SECRET_KEY, Authorization: `Bearer ${SUPABASE_SECRET_KEY}` }
-    });
-  } catch (_) {}
-}
-
-// Middleware
-app.disable('x-powered-by');
-app.use((req,res,next)=>{
-  res.setHeader('X-Content-Type-Options','nosniff');
-  res.setHeader('Referrer-Policy','strict-origin-when-cross-origin');
-  res.setHeader('X-Frame-Options','DENY');
-  if (IS_PROD) res.setHeader('Strict-Transport-Security','max-age=31536000; includeSubDomains');
-  next();
-});
-const ALLOWED_ORIGINS=(process.env.ALLOWED_ORIGINS||'').split(',').map(s=>s.trim()).filter(Boolean);
-app.use(cors({origin:(origin,cb)=>{if(!origin || ALLOWED_ORIGINS.length===0 || ALLOWED_ORIGINS.includes(origin))return cb(null,true);return cb(new Error('CORS origin not allowed'));},credentials:true}));
-app.use(express.json({limit:'400kb'}));
-app.use(cookieParser());
-app.use(express.static(path.join(__dirname,'public')));
-const hitLog=new Map();
-function rateLimit(bucket,max,windowMs){return(req,res,next)=>{const key=`${bucket}:${req.ip}`;const now=Date.now();const hits=(hitLog.get(key)||[]).filter(t=>now-t<windowMs);if(hits.length>=max)return res.status(429).json({error:'Too many requests. Please try again in a bit.'});hits.push(now);hitLog.set(key,hits);next();};}
-
-// Express 4 does not automatically forward rejected async route promises to the error middleware.
-// Keep every async API failure inside Express so one bad request can never take down the process.
-function asyncHandler(fn){return function(req,res,next){Promise.resolve(fn(req,res,next)).catch(next);};}
-
-function signToken(user){return jwt.sign({uid:user.id,email:user.email,name:user.name},JWT_SECRET,{expiresIn:'7d'});}
-function requireAuth(req,res,next){const token=req.cookies.token;if(!token)return res.status(401).json({error:'Please log in first.'});try{req.user=jwt.verify(token,JWT_SECRET);next();}catch(_){return res.status(401).json({error:'Your session has expired. Please log in again.'});}}
-const MASTER_ADMIN_VIEWER_ID='00000000-0000-0000-0000-000000000001';
-function signStaffToken(staff){return jwt.sign({uid:staff.id||MASTER_ADMIN_VIEWER_ID,email:staff.email,name:staff.name,role:staff.role,staff:true},JWT_SECRET,{expiresIn:'12h'});}
-function requireStaff(req,res,next){const token=req.cookies.staff_token;if(!token)return res.status(401).json({error:'Please sign in to the staff portal.'});try{const staff=jwt.verify(token,JWT_SECRET);if(!staff.staff || !['admin','agent'].includes(staff.role))throw new Error('invalid');req.staff=staff;next();}catch(_){return res.status(401).json({error:'Your staff session has expired. Please sign in again.'});}}
-function requireAdmin(req,res,next){return requireStaff(req,res,()=>{if(req.staff.role!=='admin')return res.status(403).json({error:'Administrator access required.'});next();});}
-if(IS_PROD && (!process.env.ADMIN_USER || !process.env.ADMIN_PASS || process.env.ADMIN_PASS.length<16)) throw new Error('ADMIN_USER and a strong ADMIN_PASS are required in production.');
-const MASTER_ADMIN_EMAIL=String(process.env.ADMIN_USER||'admin').trim().toLowerCase();
-const MASTER_ADMIN_NAME=process.env.ADMIN_NAME||'Fraudify Admin';
-function genCaseId(){const year=new Date().getFullYear();const chars='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';let code='';for(let i=0;i<6;i++)code+=chars[crypto.randomInt(0,chars.length)];return `RW-${year}-${code}`;}
-function buildSummary({category,description}){const words=description.trim().split(/\s+/).filter(Boolean);const preview=words.slice(0,28).join(' ')+(words.length>28?'…':'');const labels={ecommerce:'an e-commerce purchase or return',banking:'a bank or EMI/lending app charge',telecom:'a telecom billing issue',travel:'a travel or cab booking',food:'a food delivery order',insurance:'an insurance claim',other:'a consumer complaint'};return `This case concerns ${labels[category]||labels.other}. Customer's account: "${preview}" Word count: ${words.length}. Flagged for review and drafting of the appropriate notice (company grievance officer / RBI Ombudsman / TRAI / e-Daakhil, as applicable).`;}
-
-const upload=multer({storage:multer.memoryStorage(),limits:{fileSize:8*1024*1024,files:5},fileFilter:(req,file,cb)=>cb(null,['image/png','image/jpeg','image/webp','application/pdf'].includes(file.mimetype))});
-
-// AUTH
-app.post('/api/auth/signup',rateLimit('signup',8,15*60*1000),async(req,res)=>{try{const{name,email,password}=req.body||{};if(!name||name.trim().length<2)return res.status(400).json({error:'Please enter your name.'});if(!email||!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))return res.status(400).json({error:'Please enter a valid email.'});if(!password||password.length<8)return res.status(400).json({error:'Password must be at least 8 characters.'});if(await findUserByEmail(email))return res.status(409).json({error:'An account with this email already exists. Try logging in.'});const user={id:crypto.randomUUID(),name:name.trim().slice(0,120),email:email.trim().toLowerCase(),passwordHash:await bcrypt.hash(password,12),role:'customer',createdAt:new Date().toISOString()};await createUser(user);const token=signToken(user);res.cookie('token',token,{httpOnly:true,sameSite:'lax',secure:IS_PROD,maxAge:7*24*60*60*1000});res.status(201).json({ok:true,user:{name:user.name,email:user.email}});}catch(e){console.error(e);res.status(500).json({error:'Could not create account.'});}});
-app.post('/api/auth/login',rateLimit('login',10,15*60*1000),async(req,res)=>{try{const{email,password}=req.body||{};if(!email||!password)return res.status(400).json({error:'Please enter your email and password.'});const user=await findUserByEmail(email);if(!user)return res.status(401).json({error:'Incorrect email or password.'});const match=await bcrypt.compare(password,user.passwordHash||user.password_hash);if(!match)return res.status(401).json({error:'Incorrect email or password.'});const token=signToken(user);res.cookie('token',token,{httpOnly:true,sameSite:'lax',secure:IS_PROD,maxAge:7*24*60*60*1000});res.json({ok:true,user:{name:user.name,email:user.email}});}catch(e){console.error(e);res.status(500).json({error:'Could not log in.'});}});
-app.post('/api/auth/logout',(req,res)=>{res.clearCookie('token');res.json({ok:true});});
-app.get('/api/auth/me',requireAuth,(req,res)=>res.json({name:req.user.name,email:req.user.email}));
-app.post('/api/auth/google',rateLimit('google-login',12,15*60*1000),async(req,res)=>{try{
-  if(!GOOGLE_CLIENT_ID)return res.status(503).json({error:'Google sign-in is not configured yet.'});
-  const credential=String(req.body?.credential||'');
-  if(!credential)return res.status(400).json({error:'Google sign-in token is missing.'});
-  const verify=await fetch(`https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(credential)}`);
-  const info=await verify.json();
-  if(!verify.ok || info.aud!==GOOGLE_CLIENT_ID || !['accounts.google.com','https://accounts.google.com'].includes(info.iss) || String(info.email_verified)!=='true')return res.status(401).json({error:'Google sign-in could not be verified.'});
-  const email=String(info.email||'').trim().toLowerCase();
-  const name=String(info.name||info.given_name||'Google User').trim().slice(0,120);
-  if(!email)return res.status(400).json({error:'Google did not provide an email address.'});
-  let user=await findUserByEmail(email);
-  if(!user){
-    user={id:crypto.randomUUID(),name,email,passwordHash:await bcrypt.hash(crypto.randomBytes(32).toString('hex'),12),role:'customer',createdAt:new Date().toISOString()};
-    await createUser(user);
-  } else if(!user.name && name){ user.name=name; }
-  const token=signToken(user);
-  res.cookie('token',token,{httpOnly:true,sameSite:'lax',secure:IS_PROD,maxAge:7*24*60*60*1000});
-  res.json({ok:true,user:{name:user.name||name,email}});
-}catch(e){console.error('Google auth error:',e);res.status(500).json({error:'Google sign-in failed. Please try again.'});}});
-
-// STAFF PORTAL
-app.post('/api/staff/login',rateLimit('staff-login',12,15*60*1000),async(req,res)=>{try{
-  const email=String(req.body?.email||'').trim().toLowerCase();
-  const password=String(req.body?.password||'');
-  if(!email||!password)return res.status(400).json({error:'Email and password are required.'});
-  let staff=null;
-  if(email===MASTER_ADMIN_EMAIL && password===String(process.env.ADMIN_PASS||'')) staff={id:MASTER_ADMIN_VIEWER_ID,email,name:MASTER_ADMIN_NAME,role:'admin'};
-  else {
-    const user=await findUserByEmail(email);
-    const role=user?.role||user?.user_role;
-    if(!user || !['admin','agent'].includes(role))return res.status(401).json({error:'Invalid staff credentials.'});
-    const ok=await bcrypt.compare(password,user.passwordHash||user.password_hash||'');
-    if(!ok)return res.status(401).json({error:'Invalid staff credentials.'});
-    staff={id:user.id,email:user.email,name:user.name,role};
-  }
-  res.cookie('staff_token',signStaffToken(staff),{httpOnly:true,sameSite:'lax',secure:IS_PROD,maxAge:12*60*60*1000});
-  res.json({ok:true,staff});
-}catch(e){console.error(e);res.status(500).json({error:'Could not sign in.'});}});
-app.post('/api/staff/logout',(req,res)=>{res.clearCookie('staff_token');res.json({ok:true});});
-app.get('/api/staff/me',requireStaff,(req,res)=>res.json({staff:req.staff}));
-
-async function listAgents(){
-  if(!DB_ENABLED)return readJson(FILES.users).filter(u=>['agent','admin'].includes(u.role));
-  return dbSelect('users','role=eq.agent&order=created_at.desc');
-}
-app.get('/api/admin/agents',requireAdmin,async(req,res)=>res.json((await listAgents()).map(u=>({id:u.id,name:u.name,email:u.email,role:u.role||'agent',createdAt:u.created_at||u.createdAt}))));
-app.post('/api/admin/agents',requireAdmin,async(req,res)=>{try{
-  const name=String(req.body?.name||'').trim().slice(0,120),email=String(req.body?.email||'').trim().toLowerCase(),password=String(req.body?.password||'');
-  if(name.length<2)return res.status(400).json({error:'Name is required.'});
-  if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))return res.status(400).json({error:'Enter a valid email.'});
-  if(password.length<8)return res.status(400).json({error:'Password must be at least 8 characters.'});
-  if(email===MASTER_ADMIN_EMAIL)return res.status(409).json({error:'That email is reserved for the master administrator.'});
-  if(await findUserByEmail(email))return res.status(409).json({error:'An account with that email already exists.'});
-  const user={id:crypto.randomUUID(),name,email,passwordHash:await bcrypt.hash(password,12),role:'agent',createdAt:new Date().toISOString()};
-  await createUser(user);res.status(201).json({ok:true,agent:{id:user.id,name:user.name,email:user.email,role:'agent',createdAt:user.createdAt}});
-}catch(e){console.error(e);res.status(500).json({error:'Could not create agent.'});}});
-app.delete('/api/admin/agents/:id',requireAdmin,async(req,res)=>{try{
-  const user=await findUserById(req.params.id);if(!user || (user.role||user.user_role)!=='agent')return res.status(404).json({error:'Agent not found.'});
-  if(DB_ENABLED)await dbUpdate('users',`id=eq.${encodeURIComponent(req.params.id)}`,{role:'disabled'}); else {const a=readJson(FILES.users);const i=a.findIndex(u=>u.id===req.params.id);if(i>=0){a[i].role='disabled';writeJson(FILES.users,a);}}
-  // Unassign their active cases so another staff member can pick them up.
-  if(DB_ENABLED)await dbUpdate('cases',`assigned_to=eq.${encodeURIComponent(req.params.id)}`,{assigned_to:null,assigned_at:null,updated_at:new Date().toISOString()});
-  else {const a=readJson(FILES.cases);a.forEach(c=>{if(c.assignedTo===req.params.id){c.assignedTo=null;c.assignedAt=null;}});writeJson(FILES.cases,a);}
-  res.json({ok:true});
-}catch(e){console.error(e);res.status(500).json({error:'Could not disable agent.'});}});
-
-// CUSTOMER USERS — super-admin-only directory, with manual delete/reopen powers for when a
-// customer asks to be removed, a test/spam case needs purging, or a case should be reopened
-// without making them pay again.
-app.get('/api/admin/users',requireAdmin,asyncHandler(async(req,res)=>{
-  const users=(await listUsers()).filter(u=>!u.role||u.role==='customer');
-  const rawCases=DB_ENABLED?await dbSelect('cases','order=created_at.desc'):readJson(FILES.cases);
-  const byUser=new Map();
-  for(const raw of rawCases){
-    const c=DB_ENABLED?caseFromDb(raw):raw;
-    const uid=c.userId; if(!uid)continue;
-    if(!byUser.has(uid))byUser.set(uid,[]);
-    byUser.get(uid).push(c);
-  }
-  res.json(users.map(u=>{
-    const id=u.id,uc=byUser.get(id)||[];
-    let lastTs=0; for(const c of uc){const t=new Date(c.updatedAt||c.createdAt||0).getTime();if(t>lastTs)lastTs=t;}
-    return {
-      id, name:u.name, email:u.email, createdAt:u.createdAt||u.created_at,
-      caseCount:uc.length, paidCaseCount:uc.filter(c=>c.paymentStatus==='paid').length,
-      openCaseCount:uc.filter(c=>!['closed','won'].includes(c.status)).length,
-      lastActivityAt:lastTs?new Date(lastTs).toISOString():null,
-    };
-  }).sort((a,b)=>new Date(b.lastActivityAt||b.createdAt||0)-new Date(a.lastActivityAt||a.createdAt||0)));
-}));
-app.delete('/api/admin/users/:userId',requireAdmin,asyncHandler(async(req,res)=>{
-  const user=await findUserById(req.params.userId);
-  if(!user)return res.status(404).json({error:'User not found.'});
-  if(user.role && user.role!=='customer')return res.status(400).json({error:'Only customer accounts can be deleted here. Use the support-team panel to remove staff.'});
-  await deleteUserCascade(req.params.userId);
-  console.log(`[admin-delete] user ${req.params.userId} (${user.email}) and all their cases deleted by ${req.staff.email}`);
-  res.json({ok:true,userId:req.params.userId});
-}));
-app.delete('/api/admin/cases/:caseId',requireAdmin,asyncHandler(async(req,res)=>{
-  const record=await findCase(req.params.caseId);
-  if(!record)return res.status(404).json({error:'Case not found.'});
-  await deleteCaseCascade(req.params.caseId);
-  console.log(`[admin-delete] case ${req.params.caseId} deleted by ${req.staff.email}`);
-  res.json({ok:true,caseId:req.params.caseId});
-}));
-app.post('/api/admin/cases/:caseId/reopen',requireAdmin,asyncHandler(async(req,res)=>{
-  const record=await findCase(req.params.caseId);
-  if(!record)return res.status(404).json({error:'Case not found.'});
-  const now=new Date().toISOString();
-  const nextStatus=['awaiting_details','submitted','in-progress'].includes(req.body?.status)?req.body.status:'in-progress';
-  // A super admin can wave the 48-hour paid-access requirement entirely: mark it paid and
-  // restart the access window, with no payment ever touched.
-  await updateCase(req.params.caseId,{status:nextStatus,paymentStatus:'paid',activatedAt:now,updatedAt:now});
-  console.log(`[admin-reopen] case ${req.params.caseId} reopened without payment by ${req.staff.email} -> ${nextStatus}`);
-  broadcastCaseEvent(req.params.caseId,'case-status',{caseId:req.params.caseId,status:nextStatus,updatedAt:now});
-  res.json({ok:true,caseId:req.params.caseId,status:nextStatus});
-}));
-
-// LEAD CHAT
-const LEAD_CATEGORY_LABELS={ecommerce:'an e-commerce purchase or return',banking:'a bank or EMI/lending app charge',telecom:'a telecom billing issue',travel:'a travel or cab booking',food:'a food delivery order',insurance:'an insurance claim',other:'a consumer complaint'};
-function guessCategory(text){const t=(text||'').toLowerCase();if(/(amazon|flipkart|myntra|order|delivery|refund|return|product|parcel)/.test(t))return'ecommerce';if(/(bank|emi|loan|lending|credit|interest|processing fee)/.test(t))return'banking';if(/(airtel|jio|vi |vodafone|telecom|recharge|network|sim)/.test(t))return'telecom';if(/(flight|train|irctc|cab|ola|uber|hotel|booking|travel)/.test(t))return'travel';if(/(zomato|swiggy|food|restaurant|delivery boy)/.test(t))return'food';if(/(insurance|policy|claim|premium)/.test(t))return'insurance';return'other';}
-function buildLeadSummary({name,contact,story,category}){const topic=LEAD_CATEGORY_LABELS[category]||LEAD_CATEGORY_LABELS.other;const words=(story||'').trim().split(/\s+/).filter(Boolean);const preview=words.slice(0,40).join(' ')+(words.length>40?'…':'');return `Thanks, ${name||'there'}! I've got the story. This looks like ${topic}. You can keep chatting here if you remember anything else; a Fraudify human can take over from this conversation. We'll reach you at ${contact||'the contact you provide'}.`;}
-const SCRIPTED_STAGES=['story','name','contact'];
-function scriptedNextQuestion(stage){return({story:"Tell me what happened in your own words — which company, what went wrong, how much money is involved, and what you've already tried.",name:"Got it. What's your name?",contact:"Thanks. What's the best phone number or email to reach you on?"})[stage];}
-function runScriptedTurn(lead,userText){const stage=SCRIPTED_STAGES[lead.stage];if(stage==='name')lead.name=userText.trim().slice(0,120);else if(stage==='contact')lead.contact=userText.trim().slice(0,160);else if(stage==='story'){lead.story=userText.trim().slice(0,3000);lead.category=guessCategory(lead.story);}lead.stage+=1;if(lead.stage>=SCRIPTED_STAGES.length){lead.summary=buildLeadSummary(lead);lead.status='captured';return{reply:lead.summary,done:true};}return{reply:scriptedNextQuestion(SCRIPTED_STAGES[lead.stage]),done:false};}
-const LEAD_SYSTEM_PROMPT=`You are a warm, brief intake assistant for Fraudify, a service that helps Indian customers fight back on refunds, late deliveries, services that were never fulfilled, and promises companies didn't keep. Let the customer tell their story first, in their own words. Then naturally collect any missing details: their name and a phone number or email. Your job is intake only. Do not give legal advice, do not promise outcomes, and do not claim that a refund is guaranteed. Keep replies short (1-3 sentences), empathetic, plain conversational English. If the customer asks for a human, says they want an agent, or the situation needs human review, respond that a Fraudify human can take over and keep the conversation open. You MUST respond with ONLY a raw JSON object, no markdown. While collecting information: {"done":false,"reply":"<next response>"}. Once you have enough information: {"done":true,"reply":"<brief handoff message>","name":"<name>","contact":"<phone or email>","story":"<concise customer story>","category":"<ecommerce|banking|telecom|travel|food|insurance|other>"}`;
-async function callClaudeForLead(transcript){const res=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json','x-api-key':ANTHROPIC_API_KEY,'anthropic-version':'2023-06-01'},body:JSON.stringify({model:ANTHROPIC_MODEL,max_tokens:400,system:LEAD_SYSTEM_PROMPT,messages:transcript.map(t=>({role:t.role,content:t.text}))})});if(!res.ok)throw new Error(`Claude API error ${res.status}`);const data=await res.json();const raw=(data.content||[]).map(b=>b.text||'').join('').trim();return JSON.parse(raw.replace(/^```json\s*/i,'').replace(/^```\s*/i,'').replace(/```\s*$/i,'').trim());}
-
-app.post('/api/lead-chat/start',rateLimit('lead-start',20,30*60*1000),async(req,res)=>{try{const id=crypto.randomUUID(),firstMessage=AI_CHAT_LIVE?"Hi! I'm here to help. Tell me what happened in your own words — no need to make it formal.":scriptedNextQuestion('story');const lead={id,name:null,contact:null,story:null,category:null,summary:null,stage:0,userId:null,status:'in-progress',source:AI_CHAT_LIVE?'ai':'scripted',transcript:[{role:'assistant',text:firstMessage,at:new Date().toISOString()}],createdAt:new Date().toISOString()};await createLead(lead);res.status(201).json({sessionId:id,message:firstMessage,status:lead.status,source:lead.source});}catch(e){console.error(e);res.status(500).json({error:'Could not start chat.'});}});
-app.get('/api/lead-chat/:sessionId',rateLimit('lead-read',120,10*60*1000),async(req,res)=>{try{const raw=await findLead(req.params.sessionId);if(!raw)return res.status(404).json({error:'Chat session not found.'});const lead=leadFromDb(raw);res.json({leadId:lead.id,status:lead.status,source:lead.source,name:lead.name,contact:lead.contact,category:lead.category,done:['captured','human','converted','closed'].includes(lead.status),transcript:lead.transcript||[]});}catch(e){console.error(e);res.status(500).json({error:'Chat temporarily unavailable.'});}});
-app.post('/api/lead-chat/:sessionId/message',rateLimit('lead-msg',60,10*60*1000),async(req,res)=>{try{const{text}=req.body||{};if(!text||!text.trim())return res.status(400).json({error:'Please type something first.'});const raw=await findLead(req.params.sessionId);if(!raw)return res.status(404).json({error:'Chat session not found. Please refresh and start again.'});const lead=leadFromDb(raw);if(lead.status==='closed')return res.status(400).json({error:'This conversation is closed.'});const cleanText=text.trim().slice(0,3000);lead.transcript=Array.isArray(lead.transcript)?lead.transcript:[];lead.transcript.push({role:'user',text:cleanText,at:new Date().toISOString()});
-let result=null;
-if(lead.status==='human'){result={reply:"Thanks — your message is in the queue for our human team. We'll reply here as soon as possible.",done:false};}
-else if(['captured','converted'].includes(lead.status)){result={reply:"Thanks — I've added that to your story. A Fraudify human can review and reply here.",done:false};}
-else {try{result=lead.source==='ai'?await callClaudeForLead(lead.transcript):runScriptedTurn(lead,cleanText);}catch(err){console.error('Lead chat error:',err.message);lead.source='scripted';result=runScriptedTurn(lead,cleanText);}}
-if(result.done&&lead.source==='ai'){lead.name=(result.name||lead.name||'').slice(0,120);lead.contact=(result.contact||lead.contact||'').slice(0,160);lead.story=(result.story||lead.story||'').slice(0,3000);lead.category=LEAD_CATEGORY_LABELS[result.category]?result.category:guessCategory(lead.story);lead.summary=result.reply;lead.status='captured';}
-if(result.done&&lead.source==='scripted'){lead.summary=result.reply;lead.status='captured';}
-lead.transcript.push({role:lead.status==='human'?'system':'assistant',text:result.reply,at:new Date().toISOString()});await updateLead(lead.id,{name:lead.name,contact:lead.contact,story:lead.story,category:lead.category,summary:lead.summary,stage:lead.stage,userId:lead.userId,status:lead.status,source:lead.source,transcript:lead.transcript});res.json({message:result.reply,done:!!result.done,leadId:lead.id,status:lead.status,summary:lead.summary||null});}catch(e){console.error(e);res.status(500).json({error:'Chat temporarily unavailable.'});}});
-app.post('/api/lead-chat/:sessionId/claim',requireAuth,async(req,res)=>{const raw=await findLead(req.params.sessionId);if(!raw)return res.status(404).json({error:'Chat session not found.'});const lead=leadFromDb(raw);lead.userId=req.user.uid;await updateLead(lead.id,{userId:req.user.uid});res.json({ok:true,lead:{name:lead.name,contact:lead.contact,story:lead.story,category:lead.category,status:lead.status}});});
-app.get('/api/admin/leads',requireAdmin,async(req,res)=>res.json((await listLeads()).map(leadFromDb)));
-app.post('/api/admin/leads/:id/messages',requireAdmin,async(req,res)=>{try{const{text}=req.body||{};if(!text||!text.trim())return res.status(400).json({error:'Message cannot be empty.'});const raw=await findLead(req.params.id);if(!raw)return res.status(404).json({error:'Lead not found.'});const lead=leadFromDb(raw);lead.transcript=Array.isArray(lead.transcript)?lead.transcript:[];lead.transcript.push({role:'human',text:text.trim().slice(0,3000),at:new Date().toISOString()});lead.status='human';await updateLead(lead.id,{status:'human',transcript:lead.transcript});res.json({ok:true,status:'human'});}catch(e){console.error(e);res.status(500).json({error:'Could not send message.'});}});
-app.patch('/api/admin/leads/:id',requireAdmin,async(req,res)=>{const allowed=['in-progress','captured','human','converted','closed'];if(!allowed.includes(req.body?.status))return res.status(400).json({error:`Status must be one of: ${allowed.join(', ')}`});const raw=await findLead(req.params.id);if(!raw)return res.status(404).json({error:'Lead not found.'});await updateLead(req.params.id,{status:req.body.status});res.json({ok:true});});
-
-// CASES
-async function importLeadTranscriptIntoCase(record, leadId, userName){
-  if(!leadId)return;
-  const raw=await findLead(leadId); if(!raw)return;
-  const lead=leadFromDb(raw); if(!lead || lead.userId!==record.userId)return;
-  const existing=await listMessages(record.caseId); if(existing.length>0)return;
-  for(const t of (lead.transcript||[])){
-    if(!t?.text)continue;
-    const sender=t.role==='user'?'customer':'agent';
-    const senderName=t.role==='user'?userName:(t.role==='human'?'Fraudify Human':'Fraudify AI');
-    await createMessage({id:crypto.randomUUID(),caseId:record.caseId,sender,senderName,text:String(t.text).slice(0,2000),createdAt:t.at||new Date().toISOString()});
-  }
-}
-
-async function createPaymentOrder(record){
-  if(PAYMENTS_LIVE){
-    const order=await razorpay.orders.create({amount:record.amountPaise,currency:'INR',receipt:record.caseId});
-    await updateCase(record.caseId,{razorpayOrderId:order.id,updatedAt:new Date().toISOString()});
-    return {orderId:order.id};
-  }
-  return {orderId:record.razorpayOrderId||`test_order_${record.id.slice(0,8)}`};
-}
-
-app.post('/api/my/cases',requireAuth,rateLimit('case-create',10,30*60*1000),async(req,res)=>{try{
-  const title=String(req.body?.title||'').trim().slice(0,200);
-  const companyName=String(req.body?.companyName||'').trim().slice(0,160);
-  const category=String(req.body?.category||'other').trim().slice(0,40);
-  if(!title)return res.status(400).json({error:'Please add a short title for this case.'});
-  if(!companyName)return res.status(400).json({error:'Please tell us which company this is against.'});
-  const amountRaw=req.body?.disputeAmount;
-  const disputeAmountPaise=amountRaw!==undefined&&amountRaw!==''&&amountRaw!==null?Math.max(0,Math.round(Number(amountRaw)*100)):null;
-  if(amountRaw!==undefined&&amountRaw!==''&&amountRaw!==null&&!Number.isFinite(disputeAmountPaise))return res.status(400).json({error:'Dispute amount must be a number.'});
-
-  let caseId=genCaseId();
-  while(await findCase(caseId)) caseId=genCaseId();
-
-  const now=new Date().toISOString();
-  const demoMode=!PAYMENTS_LIVE;
-  const record={
-    id:crypto.randomUUID(),
-    caseId,
-    userId:req.user.uid,
-    userEmail:req.user.email,
-    userName:req.user.name,
-    title,
-    companyName,
-    category,
-    disputeAmountPaise,
-    description:null,
-    summary:null,
-    amountPaise:CASE_FEE_PAISE,
-    paymentStatus:demoMode?'paid':'pending',
-    activatedAt:demoMode?now:null,
-    razorpayOrderId:demoMode?`test_order_${crypto.randomUUID().slice(0,8)}`:null,
-    razorpayPaymentId:demoMode?`test_pay_${crypto.randomUUID().slice(0,8)}`:null,
-    leadId:null,
-    status:demoMode?'in-progress':'awaiting_payment',
-    createdAt:now,
-    updatedAt:now
+  $('send').onclick = () => {
+    const t = $('composer').value.trim(); if (!t || !current || current.status === 'closed') return;
+    const caseId = current.caseId; $('composer').value = ''; $('composer').focus();   // clears instantly
+    const tempKey = uid();
+    chat.addPending(tempKey, { text: t, createdAt: new Date().toISOString(), sender: staff.role, senderId: staff.uid, senderName: staff.name, pending: true });
+    attemptStaff(t, tempKey, caseId);
   };
-
-  await createCase(record);
-
-  if(demoMode){
-    return res.status(201).json({
-      ok:true,
-      caseId:record.caseId,
-      paymentStatus:'paid',
-      status:record.status,
-      amountPaise:record.amountPaise,
-      testMode:true,
-      demo:true
-    });
-  }
-
-  const order=await createPaymentOrder(record);
-  res.status(201).json({ok:true,caseId,orderId:order.orderId,amountPaise:record.amountPaise,keyId:RAZORPAY_KEY_ID,testMode:false,paymentStatus:'pending',status:record.status});
-}catch(e){console.error('Create case error:',e);res.status(500).json({error:'Could not create case. Please try again.'});}});
-
-app.post('/api/my/leads/:leadId/human-support',requireAuth,rateLimit('human-support',10,30*60*1000),async(req,res)=>{try{
-  const raw=await findLead(req.params.leadId); if(!raw)return res.status(404).json({error:'Conversation not found.'});
-  const lead=leadFromDb(raw); if(lead.userId!==req.user.uid)return res.status(403).json({error:'This conversation is not linked to your account.'});
-  const all=await listCasesForUser(req.user.uid); let existing=all.map(caseFromDb).find(c=>c.leadId===lead.id);
-  if(existing){
-    if(existing.paymentStatus==='paid'&&!isCaseExpired(existing)){await importLeadTranscriptIntoCase(existing,lead.id,req.user.name);return res.json({ok:true,caseId:existing.caseId,paymentStatus:'paid',status:existing.status,amountPaise:existing.amountPaise});}
-    const order=await createPaymentOrder(existing); return res.json({ok:true,caseId:existing.caseId,paymentStatus:existing.paymentStatus,status:existing.status,orderId:order.orderId,amountPaise:existing.amountPaise,keyId:PAYMENTS_LIVE?RAZORPAY_KEY_ID:null,testMode:!PAYMENTS_LIVE});
-  }
-  let caseId=genCaseId();while(await findCase(caseId))caseId=genCaseId();const now=new Date().toISOString();
-  const record={id:crypto.randomUUID(),caseId,userId:req.user.uid,userEmail:req.user.email,userName:req.user.name,category:lead.category||'other',description:lead.story||'',summary:lead.summary||'Human support requested from the Fraudify AI conversation.',amountPaise:CASE_FEE_PAISE,paymentStatus:'pending',razorpayOrderId:null,razorpayPaymentId:null,leadId:lead.id,status:'awaiting_payment',createdAt:now,updatedAt:now};
-  if(!PAYMENTS_LIVE)record.razorpayOrderId=`test_order_${record.id.slice(0,8)}`; await createCase(record); const order=await createPaymentOrder(record);
-  res.status(201).json({ok:true,caseId,orderId:order.orderId,paymentStatus:'pending',status:record.status,amountPaise:record.amountPaise,keyId:PAYMENTS_LIVE?RAZORPAY_KEY_ID:null,testMode:!PAYMENTS_LIVE});
-}catch(e){console.error(e);res.status(500).json({error:'Could not start human support.'});}});
-
-app.post('/api/my/cases/:caseId/payment-order',requireAuth,async(req,res)=>{try{const record=await findCase(req.params.caseId,req.user.uid);if(!record)return res.status(404).json({error:'Case not found.'});if(casePaymentStatus(record)==='paid'&&!isCaseExpired(record))return res.json({ok:true,alreadyPaid:true,caseId:record.caseId});const order=await createPaymentOrder(record);res.json({ok:true,caseId:record.caseId,orderId:order.orderId,amountPaise:record.amountPaise??record.amount_paise,keyId:PAYMENTS_LIVE?RAZORPAY_KEY_ID:null,testMode:!PAYMENTS_LIVE,renewal:isCaseExpired(record)});}catch(e){console.error(e);res.status(502).json({error:'Could not start payment.'});}});
-app.post('/api/my/cases/:caseId/verify-payment',requireAuth,async(req,res)=>{const{razorpay_order_id,razorpay_payment_id,razorpay_signature}=req.body||{};const record=await findCase(req.params.caseId,req.user.uid);if(!record)return res.status(404).json({error:'Case not found.'});if(!PAYMENTS_LIVE)return res.status(400).json({error:'Live payments are not configured. Use the test-mode confirmation instead.'});const expected=crypto.createHmac('sha256',RAZORPAY_KEY_SECRET).update(`${razorpay_order_id}|${razorpay_payment_id}`).digest('hex');const providedSig=String(razorpay_signature||''); if(providedSig.length!==expected.length || !crypto.timingSafeEqual(Buffer.from(expected),Buffer.from(providedSig)))return res.status(400).json({error:'Payment verification failed. Please contact support.'});const firstPayment=casePaymentStatus(record)!=='paid';const now=new Date().toISOString();let nextStatus=record.status;if(firstPayment){nextStatus='in-progress';await updateCase(record.caseId,{paymentStatus:'paid',razorpayPaymentId:razorpay_payment_id,status:nextStatus,activatedAt:now,updatedAt:now});if(record.leadId)await importLeadTranscriptIntoCase(record,record.leadId,req.user.name);}else{await updateCase(record.caseId,{paymentStatus:'paid',razorpayPaymentId:razorpay_payment_id,activatedAt:now,updatedAt:now});}res.json({ok:true,caseId:record.caseId,status:nextStatus,humanSupport:Boolean(record.leadId),renewed:!firstPayment});});
-app.post('/api/my/cases/:caseId/mock-pay',requireAuth,asyncHandler(async(req,res)=>{
-  if(PAYMENTS_LIVE)return res.status(400).json({error:'Live payments are configured — use real checkout instead.'});
-  const record=await findCase(req.params.caseId,req.user.uid);
-  if(!record)return res.status(404).json({error:'Case not found.'});
-  const firstPayment=casePaymentStatus(record)!=='paid';
-  if(!firstPayment&&!isCaseExpired(record))return res.json({ok:true,alreadyPaid:true,caseId:record.caseId,status:record.status,humanSupport:Boolean(record.leadId)});
-  const now=new Date().toISOString();
-  let nextStatus=record.status;
-  if(firstPayment){
-    nextStatus='in-progress';
-    await updateCase(record.caseId,{paymentStatus:'paid',razorpayPaymentId:`test_pay_${crypto.randomUUID().slice(0,8)}`,status:nextStatus,activatedAt:now,updatedAt:now});
-    if(record.leadId)await importLeadTranscriptIntoCase(record,record.leadId,req.user.name);
-  } else {
-    await updateCase(record.caseId,{activatedAt:now,updatedAt:now});
-  }
-  res.json({ok:true,caseId:record.caseId,status:nextStatus,humanSupport:Boolean(record.leadId),renewed:!firstPayment});
-}));
-
-// Optional, not required to unlock chat: attach proof files any time, or touch up the case's
-// title/company/category/amount after creation. Every field here is optional — only what the
-// customer actually sends gets changed. The story itself belongs in the chat.
-app.post('/api/my/cases/:caseId/details',requireAuth,upload.array('proofs',5),async(req,res)=>{try{const record=await findCase(req.params.caseId,req.user.uid);if(!record)return res.status(404).json({error:'Case not found.'});if((record.paymentStatus||record.payment_status)!=='paid')return res.status(402).json({error:'Please complete the ₹59 filing fee first.'});if(record.status==='closed')return res.status(409).json({error:'This case is closed and can no longer be edited.',caseClosed:true});const{category,description,title,companyName}=req.body||{};const disputeAmountRupeesRaw=req.body&&req.body.disputeAmount;const disputeAmountPaise=disputeAmountRupeesRaw!==undefined&&disputeAmountRupeesRaw!==''?Math.max(0,Math.round(Number(disputeAmountRupeesRaw)*100)):undefined;if(disputeAmountRupeesRaw!==undefined&&disputeAmountRupeesRaw!==''&&!Number.isFinite(disputeAmountPaise))return res.status(400).json({error:'Dispute amount must be a number.'});const files=[];for(const file of req.files||[]){const filename=`${Date.now()}-${crypto.randomBytes(8).toString('hex')}-${file.originalname.replace(/[^a-zA-Z0-9._-]/g,'_').slice(-80)}`;const storagePath=`${record.caseId}/${filename}`;if(DB_ENABLED){await uploadToStorage(file,storagePath);const f={id:crypto.randomUUID(),caseId:record.caseId,filename,originalName:file.originalname,size:file.size,mimeType:file.mimetype,storagePath,createdAt:new Date().toISOString()};await createCaseFile(f);files.push(f);}else{const dir=path.join(UPLOADS_DIR,record.caseId);fs.mkdirSync(dir,{recursive:true});fs.writeFileSync(path.join(dir,filename),file.buffer);files.push({filename,originalName:file.originalname,size:file.size});}}
-const patch={updatedAt:new Date().toISOString()};
-if(category!==undefined&&category!==null)patch.category=String(category).slice(0,40);
-if(title!==undefined&&title!==null&&String(title).trim())patch.title=String(title).trim().slice(0,200);
-if(companyName!==undefined&&companyName!==null&&String(companyName).trim())patch.companyName=String(companyName).trim().slice(0,160);
-if(description!==undefined&&description!==null&&String(description).trim())patch.description=String(description).trim().slice(0,4000);
-if(disputeAmountPaise!==undefined)patch.disputeAmountPaise=disputeAmountPaise;
-if(patch.description||patch.category)patch.summary=buildSummary({category:patch.category||record.category||'other',description:patch.description||record.description||''});
-// Submitting details/evidence is also "the customer gave us information" — move a stalled
-// case forward the same way replying in chat does, so it doesn't stay stuck either way.
-if(STALLED_ON_CUSTOMER_STATUSES.includes(record.status)){patch.status='in-progress';console.log(`[status-auto] ${record.caseId}: ${record.status} -> in-progress (details/evidence submitted)`);}
-await updateCase(record.caseId,patch);
-if(patch.status)broadcastCaseEvent(record.caseId,'case-status',{caseId:record.caseId,status:patch.status,updatedAt:patch.updatedAt});
-const leadId=String(req.body?.leadId||'').trim();if(leadId)await importLeadTranscriptIntoCase(record,leadId,req.user.name);
-res.json({ok:true,caseId:record.caseId,...patch});}catch(e){console.error(e);res.status(500).json({error:'Could not save case details or evidence.'});}});
-
-function stripInternal(c){const x=caseFromDb(c);const{userId,...rest}=x;return rest;}
-async function decorateCase(c){
-  const x=caseFromDb(c);
-  try {
-    x.proofFiles=await listCaseFiles(x.caseId);
-  } catch (err) {
-    // A case must remain viewable even if evidence metadata is temporarily unavailable.
-    console.error('Case file metadata error:', err);
-    x.proofFiles=[];
-    x.proofFilesUnavailable=true;
-  }
-  return x;
+  $('messages').addEventListener('click', e => { const el = e.target.closest('.msg.failed'); if (!el || !el.dataset.tmp || !current) return;
+    const tempKey = el.dataset.tmp, msg = chat.retryPending(tempKey); if (msg) attemptStaff(msg.text, tempKey, current.caseId); });
 }
-app.get('/api/my/cases',requireAuth,asyncHandler(async(req,res)=>{
-  const rows=await listCasesForUser(req.user.uid);
-  const fallbackSeen=parseReadState(req.get('x-read-state'));
-  const seenMap=await resolveSeenMap(req.user.uid,fallbackSeen);
-  const meta=await getLatestMessageMeta(rows,'customer',seenMap,req.user.uid);
-  const out=attachMessageMeta(rows,meta).sort((a,b)=>new Date(b.lastMessageAt||b.updatedAt||b.createdAt||0)-new Date(a.lastMessageAt||a.updatedAt||a.createdAt||0));
-  res.json(out.map(x=>{const{userId,...rest}=x;return rest;}));
-}));
-app.get('/api/my/cases/:caseId',requireAuth,asyncHandler(async(req,res)=>{
-  const r=await findCase(req.params.caseId,req.user.uid);
-  if(!r)return res.status(404).json({error:'Case not found.'});
-  res.json(stripInternal(await decorateCase(r)));
-}));
+D.addEventListener('visibilitychange', () => { if (D.visibilityState !== 'visible') return; if (admin) loadCases(true).catch(() => {}); else if (currentCaseId) loadMessages(); else loadCases(); });
+})();
+</script>
+<script>/* rw-admin.js — customer-first inbox: customer name + email on top, all of their cases underneath. */
+(() => {
+'use strict';
+const D = document, $ = id => D.getElementById(id);
+if (!$('agentManager')) return;
 
-async function authorizeFile(req,isAdmin){
-  const record=isAdmin?await findCase(req.params.caseId):await findCase(req.params.caseId,req.user.uid);
-  if(!record)return null;
-  const files=await listCaseFiles(req.params.caseId);
-  return files.find(f=>f.filename===req.params.filename)||null;
-}
+const S = D.createElement('style');
+S.textContent = `
+.case-list{padding:0}
+.rw-cust{border-bottom:1px solid var(--line)}
+.rw-cust-head{all:unset;box-sizing:border-box;width:100%;display:flex;align-items:center;gap:12px;padding:14px 15px;cursor:pointer;transition:background .2s}
+.rw-cust-head:hover{background:#f6f8fb}
+.rw-cust-head:focus-visible{outline:3px solid var(--blue);outline-offset:-3px}
+.rw-av{flex:none;width:40px;height:40px;border-radius:50%;background:var(--c);color:#fff;font-weight:900;font-size:13px;display:grid;place-items:center;border:2px solid var(--ink)}
+.rw-cust-main{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.rw-cust-main b{font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rw-cust-main small{font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rw-cust-side{display:flex;align-items:center;gap:8px;flex:none}
+.rw-count{font-size:11px;font-weight:800;color:var(--muted)}
+.rw-chev{width:15px;height:15px;transition:transform .3s cubic-bezier(.22,1,.36,1)}
+.rw-cust.open .rw-chev{transform:rotate(90deg)}
+.rw-cust.has-unread{box-shadow:inset 4px 0 0 var(--red)}
+.rw-cases{display:grid;grid-template-rows:0fr;transition:grid-template-rows .35s cubic-bezier(.22,1,.36,1)}
+.rw-cust.open .rw-cases{grid-template-rows:1fr}
+.rw-cases-in{overflow:hidden;min-height:0;background:#faf8f3}
+.rw-case{padding:11px 15px 11px 30px;border-top:1px solid var(--line);cursor:pointer;transition:background .2s}
+.rw-case:hover{background:#f1efe8}
+.rw-case:focus-visible{outline:3px solid var(--blue);outline-offset:-3px}
+.rw-case.active{background:#eaf1ff;box-shadow:inset 3px 0 0 var(--blue)}
+.rw-case.unread .case-id{color:var(--red)}
+.rw-exp{font-size:10px;font-weight:800;color:#9b6810;background:#fff1cf;border:1px solid #d6a91d;border-radius:999px;padding:2px 7px;text-transform:uppercase}
+.rw-tabs{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
+.rw-tab{border:2px solid var(--ink);background:#fff;color:var(--ink);padding:5px 10px;font:inherit;font-size:12px;font-weight:800;cursor:pointer;transition:background .2s,color .2s}
+.rw-tab:hover{background:#f1efe8}
+.rw-tab.active{background:var(--ink);color:#fff}
+.rw-tab i{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px}`;
+D.head.append(S);
 
-app.get('/api/my/cases/:caseId/files/:filename',requireAuth,asyncHandler(async(req,res)=>{
-  const f=await authorizeFile(req,false);
-  if(!f)return res.status(404).json({error:'File not found.'});
-  if(DB_ENABLED){
-    try{return res.redirect(await signedStorageUrl(f.storagePath));}
-    catch(e){console.error('Customer file URL error:',e);return res.status(500).json({error:'Could not open file.'});}
-  }
-  const fp=path.join(UPLOADS_DIR,req.params.caseId,req.params.filename);
-  if(!fp.startsWith(path.resolve(UPLOADS_DIR)+path.sep)||!fs.existsSync(fp))return res.status(404).json({error:'File not found.'});
-  res.sendFile(fp);
-}));
+const attr = v => esc(v).replace(/"/g, '&quot;');
+const keyOf = c => String(c.userEmail || c.userId || c.userName || c.caseId).trim().toLowerCase();
+const ts = c => new Date(c.lastMessageAt || c.updatedAt || c.createdAt || 0).getTime();
+const COLORS = ['#c1272d', '#2457a6', '#28734b', '#9b6810', '#6b3fa0', '#0f766e'];
+const hue = s => COLORS[[...s].reduce((a, ch) => (a * 31 + ch.charCodeAt(0)) >>> 0, 7) % COLORS.length];
+const initials = n => String(n || '?').trim().split(/\s+/).slice(0, 2).map(w => w[0]).join('').toUpperCase() || '?';
+const DOT = { 'in-progress': '#2457a6', won: '#28734b', closed: '#999', submitted: '#9b6810', awaiting_details: '#9b6810', awaiting_payment: '#c1272d' };
+const expanded = new Set(); let seeded = false, lastCur = null;
 
-app.post('/api/my/cases/:caseId/read',requireAuth,asyncHandler(async(req,res)=>{
-  const record=await findCase(req.params.caseId,req.user.uid);
-  if(!record)return res.status(404).json({error:'Case not found.'});
-  res.json(await markCaseRead(req.user.uid,req.params.caseId,req.body?.lastReadAt));
-}));
+const matches = (c, q, f) =>
+  (!q || [c.caseId, c.userName, c.userEmail, c.category, c.lastMessageText].join(' ').toLowerCase().includes(q)) &&
+  (f === 'all' || (f === 'unassigned' && !c.assignedTo) || (f === 'mine' && c.assignedTo === staff.uid) || f === c.status);
 
-app.get('/api/my/cases/:caseId/stream',requireAuth,asyncHandler(async(req,res)=>{
-  const record=await findCase(req.params.caseId,req.user.uid); if(!record)return res.status(404).end();
-  res.set({'Content-Type':'text/event-stream','Cache-Control':'no-cache, no-transform','Connection':'keep-alive','X-Accel-Buffering':'no'}); res.flushHeaders?.(); res.write('event: ready\ndata: {}\n\n');
-  const client=addChatStream(req.params.caseId,req.user.uid,res); const heartbeat=setInterval(()=>{try{res.write(`: heartbeat ${Date.now()}\n\n`);}catch(_){clearInterval(heartbeat);removeChatStream(req.params.caseId,client);}},15000);
-  req.on('close',()=>{clearInterval(heartbeat);removeChatStream(req.params.caseId,client);});
-}));
+const caseRow = (c, open) => {
+  const n = Number(c.unreadCount || 0), locked = !!c.accessExpired, p = locked ? 'Access expired — awaiting customer renewal' : (c.lastMessageText ? `${senderLabel(c)}: ${c.lastMessageText}` : 'No messages yet');
+  const who = c.assignedTo ? ((agents.find(a => a.id === c.assignedTo) || {}).name || 'Assigned') : 'Unassigned';
+  return `<div class="rw-case ${current && current.caseId === c.caseId ? 'active ' : ''}${n ? 'unread' : ''}" data-id="${attr(c.caseId)}" role="button" tabindex="${open ? 0 : -1}"><div class="case-top"><span class="case-id">${esc(c.title || c.caseId)}</span>${badge(c.status)}${locked ? '<span class="rw-exp">⏳ Expired</span>' : ''}</div><div class="case-meta">${c.companyName ? esc(c.companyName) + ' · ' : ''}${esc(c.category || 'No category')} · ${esc(who)}</div><div class="case-preview"${locked ? ' style="color:#9b6810;font-weight:600"' : ''}>${esc(p)}</div><div class="case-bottom"><span class="last-time">${formatTime(c.lastMessageAt || c.updatedAt)}</span>${n ? `<span class="unread-pill" title="${n} unread message${n === 1 ? '' : 's'}">${n > 99 ? '99+' : n}</span>` : ''}</div></div>`;
+};
 
-app.get('/api/my/cases/:caseId/messages',requireAuth,asyncHandler(async(req,res)=>{
-  const record=await findCase(req.params.caseId,req.user.uid);
-  if(!record)return res.status(404).json({error:'Case not found.'});
-  res.json(await listMessages(req.params.caseId));
-}));
+window.renderList = function () {
+  const q = $('search').value.trim().toLowerCase(), f = $('filter').value;
+  $('total').textContent = cases.length;
+  $('unassigned').textContent = cases.filter(c => !c.assignedTo).length;
+  $('mine').textContent = cases.filter(c => c.assignedTo === staff.uid).length;
+  $('open').textContent = cases.filter(c => !['closed', 'won'].includes(c.status)).length;
 
-app.post('/api/my/cases/:caseId/messages',requireAuth,rateLimit('chat-send',30,5*60*1000),asyncHandler(async(req,res)=>{
-  const record=await findCase(req.params.caseId,req.user.uid);
-  if(!record)return res.status(404).json({error:'Case not found.'});
-  if(isCaseExpired(record))return res.status(402).json({error:'Your 48-hour chat access for this case has ended. Please renew to keep messaging.',accessExpired:true,renewalRequired:true});
-  // A closed case is done — block new messages server-side too, not just by disabling the
-  // composer in the UI, so a stale tab or a direct API call can't sneak a message in.
-  if(record.status==='closed')return res.status(409).json({error:'This case is closed. Messaging has ended — open a new case if you need further help.',caseClosed:true});
-  const{text}=req.body||{};
-  if(!text||!text.trim())return res.status(400).json({error:'Message cannot be empty.'});
-  const msg={id:crypto.randomUUID(),caseId:req.params.caseId,sender:'customer',senderName:req.user.name,senderId:req.user.uid,text:text.trim().slice(0,2000),createdAt:new Date().toISOString()};
-  const saved=await createMessage(msg);
-  broadcastChatMessage(saved);
-  let caseStatus=record.status;
-  if (STALLED_ON_CUSTOMER_STATUSES.includes(record.status)) {
-    const updatedAt=new Date().toISOString();
-    caseStatus='in-progress';
-    await updateCase(req.params.caseId,{status:caseStatus,updatedAt});
-    console.log(`[status-auto] ${req.params.caseId}: ${record.status} -> in-progress (customer replied)`);
-    broadcastCaseEvent(req.params.caseId,'case-status',{caseId:req.params.caseId,status:caseStatus,updatedAt});
-  }
-  res.status(201).json({...saved,caseStatus});
-}));
+  const groups = new Map();
+  cases.filter(c => matches(c, q, f)).forEach(c => { const k = keyOf(c); if (!groups.has(k)) groups.set(k, []); groups.get(k).push(c); });
+  const list = [...groups].map(([k, cs]) => { cs.sort((a, b) => ts(b) - ts(a)); return { k, cs, unread: cs.reduce((a, c) => a + Number(c.unreadCount || 0), 0), t: ts(cs[0]) }; }).sort((a, b) => b.t - a.t);
 
-// Lightweight server-push chat transport. Messages are pushed immediately to open conversations;
-// a slow fallback poll remains in the clients for resilience.
-const CHAT_STREAMS = new Map();
-function addChatStream(caseId, viewerId, res) {
-  const key=String(caseId); const set=CHAT_STREAMS.get(key)||new Set(); const client={viewerId,res}; set.add(client); CHAT_STREAMS.set(key,set); return client;
-}
-function removeChatStream(caseId, client) { const set=CHAT_STREAMS.get(String(caseId)); if(!set)return; set.delete(client); if(!set.size)CHAT_STREAMS.delete(String(caseId)); }
-function broadcastChatMessage(message) {
-  const set=CHAT_STREAMS.get(String(message.caseId)); if(!set)return; const payload=`event: message\ndata: ${JSON.stringify(message)}\n\n`;
-  for(const client of [...set]) { try { client.res.write(payload); } catch (_) { removeChatStream(message.caseId,client); } }
-}
-// Pushes a live case-level update (e.g. a status change) to anyone with that case's chat open,
-// so the admin/customer UI updates instantly instead of waiting on the next poll.
-function broadcastCaseEvent(caseId, type, data) {
-  const set=CHAT_STREAMS.get(String(caseId)); if(!set)return; const payload=`event: ${type}\ndata: ${JSON.stringify(data)}\n\n`;
-  for(const client of [...set]) { try { client.res.write(payload); } catch (_) { removeChatStream(caseId,client); } }
-}
-// Statuses that mean "we're waiting on the customer" — once they reply in chat, the case is
-// moving again, so flip it back automatically instead of making an agent remember to do it.
-const STALLED_ON_CUSTOMER_STATUSES = ['awaiting_details', 'submitted'];
+  if (current && current.caseId !== lastCur) { lastCur = current.caseId; expanded.add(keyOf(current)); }
+  if (!seeded && list.length) { seeded = true; const u = list.filter(g => g.unread); (u.length ? u : [list[0]]).forEach(g => expanded.add(g.k)); }
 
-// ADMIN / AGENT WORKSPACE
-async function listStaffCases(staff){
-  if(!DB_ENABLED){
-    const rows=readJson(FILES.cases).filter(c=>c.paymentStatus==='paid');
-    if(staff.role==='admin')return rows;
-    return rows.filter(c=>!c.assignedTo||c.assignedTo===staff.uid);
-  }
-  if(staff.role==='admin')return dbSelect('cases','payment_status=eq.paid&order=updated_at.desc');
-  const mine=await dbSelect('cases',`payment_status=eq.paid&assigned_to=eq.${encodeURIComponent(staff.uid)}&order=updated_at.desc`);
-  const open=await dbSelect('cases','payment_status=eq.paid&assigned_to=is.null&order=updated_at.desc');
-  return [...mine,...open];
-}
-async function canStaffAccessCase(staff,record){return staff.role==='admin'||!record.assignedTo||record.assignedTo===staff.uid;}
-// Aggregate numbers for the owner/admin: case volume and dispute value broken down by
-// category and by company, plus a status funnel. Pulls from the same paid-case set as the
-// inbox, so the numbers always match what staff see on screen.
-app.get('/api/admin/stats',requireAdmin,asyncHandler(async(req,res)=>{
-  const rows=(await listStaffCases(req.staff)).map(caseFromDb);
-  const byCategory={}, byCompany={}, byStatus={};
-  let totalDisputePaise=0, withAmount=0;
-  for(const c of rows){
-    const cat=c.category||'uncategorised';
-    byCategory[cat]=byCategory[cat]||{count:0,disputePaise:0};
-    byCategory[cat].count++;
-    const comp=(c.companyName||'').trim();
-    if(comp){
-      const key=comp.toLowerCase();
-      byCompany[key]=byCompany[key]||{company:comp,count:0,disputePaise:0};
-      byCompany[key].count++;
-    }
-    const st=c.status||'unknown';
-    byStatus[st]=(byStatus[st]||0)+1;
-    if(c.disputeAmountPaise){
-      totalDisputePaise+=c.disputeAmountPaise; withAmount++;
-      byCategory[cat].disputePaise+=c.disputeAmountPaise;
-      if(comp)byCompany[comp.toLowerCase()].disputePaise+=c.disputeAmountPaise;
-    }
-  }
-  res.json({
-    totalCases:rows.length,
-    totalDisputePaise, averageDisputePaise:withAmount?Math.round(totalDisputePaise/withAmount):0, casesWithAmount:withAmount,
-    byCategory:Object.entries(byCategory).map(([category,v])=>({category,...v})).sort((a,b)=>b.count-a.count),
-    byCompany:Object.values(byCompany).sort((a,b)=>b.count-a.count).slice(0,25),
-    byStatus
-  });
-}));
-app.get('/api/admin/cases',requireStaff,asyncHandler(async(req,res)=>{
-  const rows=await listStaffCases(req.staff);
-  const fallbackSeen=parseReadState(req.get('x-read-state'));
-  const seenMap=await resolveSeenMap(req.staff.uid,fallbackSeen);
-  const meta=await getLatestMessageMeta(rows,req.staff.role,seenMap,req.staff.uid);
-  const out=attachMessageMeta(rows,meta).sort((a,b)=>new Date(b.lastMessageAt||b.updatedAt||b.createdAt||0)-new Date(a.lastMessageAt||a.updatedAt||a.createdAt||0));
-  res.json(out);
-}));
-app.get('/api/admin/cases/:caseId',requireStaff,asyncHandler(async(req,res)=>{
-  const record=await findCase(req.params.caseId);if(!record)return res.status(404).json({error:'Case not found.'});
-  const c=caseFromDb(record);if(!(await canStaffAccessCase(req.staff,c)))return res.status(403).json({error:'This case is assigned to another agent.'});
-  res.json(await decorateCase(record));
-}));
-app.patch('/api/admin/cases/:caseId/status',requireStaff,asyncHandler(async(req,res)=>{const allowed=['awaiting_details','submitted','in-progress','won','closed'];if(!allowed.includes(req.body?.status))return res.status(400).json({error:`Status must be one of: ${allowed.join(', ')}`});const record=await findCase(req.params.caseId);if(!record)return res.status(404).json({error:'Case not found.'});if(!(await canStaffAccessCase(req.staff,caseFromDb(record))))return res.status(403).json({error:'This case is assigned to another agent.'});const updatedAt=new Date().toISOString();await updateCase(req.params.caseId,{status:req.body.status,updatedAt});
-  // Push the change live so an open customer chat locks (or unlocks) immediately — e.g. closing
-  // a case should stop them from being able to send another message right away, not just on reload.
-  broadcastCaseEvent(req.params.caseId,'case-status',{caseId:req.params.caseId,status:req.body.status,updatedAt});
-  res.json({ok:true});}));
-app.patch('/api/admin/cases/:caseId/assign',requireAdmin,async(req,res)=>{try{
-  const record=await findCase(req.params.caseId);if(!record)return res.status(404).json({error:'Case not found.'});
-  const agentId=req.body?.agentId?String(req.body.agentId):null;
-  if(agentId){const agent=await findUserById(agentId);if(!agent||agent.role!=='agent')return res.status(400).json({error:'Agent not found.'});}
-  await updateCase(req.params.caseId,{assignedTo:agentId,assignedAt:agentId?new Date().toISOString():null,updatedAt:new Date().toISOString()});res.json({ok:true,assignedTo:agentId});
-}catch(e){console.error(e);res.status(500).json({error:'Could not assign case.'});}});
-app.post('/api/admin/cases/:caseId/read',requireStaff,asyncHandler(async(req,res)=>{
-  const record=await findCase(req.params.caseId);
-  if(!record)return res.status(404).json({error:'Case not found.'});
-  if(!(await canStaffAccessCase(req.staff,caseFromDb(record))))return res.status(403).json({error:'This case is assigned to another agent.'});
-  res.json(await markCaseRead(req.staff.uid,req.params.caseId,req.body?.lastReadAt));
-}));
-app.get('/api/admin/cases/:caseId/stream',requireStaff,asyncHandler(async(req,res)=>{
-  const record=await findCase(req.params.caseId); if(!record)return res.status(404).end(); if(!(await canStaffAccessCase(req.staff,caseFromDb(record))))return res.status(403).end();
-  res.set({'Content-Type':'text/event-stream','Cache-Control':'no-cache, no-transform','Connection':'keep-alive','X-Accel-Buffering':'no'}); res.flushHeaders?.(); res.write('event: ready\ndata: {}\n\n');
-  const client=addChatStream(req.params.caseId,req.staff.uid,res); const heartbeat=setInterval(()=>{try{res.write(`: heartbeat ${Date.now()}\n\n`);}catch(_){clearInterval(heartbeat);removeChatStream(req.params.caseId,client);}},15000);
-  req.on('close',()=>{clearInterval(heartbeat);removeChatStream(req.params.caseId,client);});
-}));
+  const total = cases.reduce((a, c) => a + Number(c.unreadCount || 0), 0);
+  D.title = (total ? `(${total}) ` : '') + 'Fraudify — Support Workspace';
 
-app.get('/api/admin/cases/:caseId/messages',requireStaff,asyncHandler(async(req,res)=>{const record=await findCase(req.params.caseId);if(!record)return res.status(404).json({error:'Case not found.'});if(!(await canStaffAccessCase(req.staff,caseFromDb(record))))return res.status(403).json({error:'This case is assigned to another agent.'});res.json(await listMessages(req.params.caseId));}));
-app.post('/api/admin/cases/:caseId/messages',requireStaff,async(req,res)=>{try{const{text}=req.body||{};if(!text||!text.trim())return res.status(400).json({error:'Message cannot be empty.'});const record=await findCase(req.params.caseId);if(!record)return res.status(404).json({error:'Case not found.'});const c=caseFromDb(record);if(isCaseExpired(c))return res.status(409).json({error:'This case\'s paid access window has ended. The customer needs to renew before messaging can continue.',accessExpired:true});
-  // Mirrors the customer-side block: a closed case is done on both ends, server-side, not just a
-  // disabled composer — so a stale admin tab (or a direct API call) can't reopen the conversation.
-  if(c.status==='closed')return res.status(409).json({error:'This case is closed. Reopen it (change its status) before sending another message.',caseClosed:true});
-  if(!(await canStaffAccessCase(req.staff,c)))return res.status(403).json({error:'This case is assigned to another agent.'});
-  // An agent replying to an unassigned case claims it, preventing two agents from working it simultaneously.
-  if(req.staff.role==='agent'&&!c.assignedTo)await updateCase(c.caseId,{assignedTo:req.staff.uid,assignedAt:new Date().toISOString(),updatedAt:new Date().toISOString()});
-  const msg={id:crypto.randomUUID(),caseId:req.params.caseId,sender:req.staff.role==='admin'?'admin':'agent',senderName:req.staff.name,senderId:req.staff.uid,text:text.trim().slice(0,2000),createdAt:new Date().toISOString()};const saved=await createMessage(msg);broadcastChatMessage(saved);res.status(201).json(saved);
-}catch(e){console.error(e);res.status(500).json({error:'Could not send message.'});}});
-app.get('/api/admin/cases/:caseId/files/:filename',requireStaff,async(req,res)=>{const record=await findCase(req.params.caseId);if(!record)return res.status(404).json({error:'Case not found.'});if(!(await canStaffAccessCase(req.staff,caseFromDb(record))))return res.status(403).json({error:'This case is assigned to another agent.'});const f=await authorizeFile(req,true);if(!f)return res.status(404).json({error:'File not found.'});if(DB_ENABLED){try{return res.redirect(await signedStorageUrl(f.storagePath));}catch(e){return res.status(500).json({error:'Could not open file.'});}}const fp=path.join(UPLOADS_DIR,req.params.caseId,req.params.filename);if(!fp.startsWith(path.resolve(UPLOADS_DIR)+path.sep)||!fs.existsSync(fp))return res.status(404).json({error:'File not found.'});res.sendFile(fp);});
+  $('caseList').innerHTML = list.length ? list.map(({ k, cs, unread }) => {
+    const open = !!q || expanded.has(k), c0 = cs[0], name = c0.userName || 'Unnamed customer';
+    return `<div class="rw-cust ${open ? 'open' : ''}${unread ? ' has-unread' : ''}" data-k="${attr(k)}"><button type="button" class="rw-cust-head" aria-expanded="${open}"><span class="rw-av" style="--c:${hue(k)}">${esc(initials(name))}</span><span class="rw-cust-main"><b>${esc(name)}</b><small>${esc(c0.userEmail || '')}</small></span><span class="rw-cust-side">${unread ? `<span class="unread-pill" title="${unread} unread">${unread > 99 ? '99+' : unread}</span>` : ''}<span class="rw-count">${cs.length} case${cs.length === 1 ? '' : 's'}</span><svg class="rw-chev" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path d="M6 3l5 5-5 5"/></svg></span></button><div class="rw-cases"><div class="rw-cases-in">${cs.map(c => caseRow(c, open)).join('')}</div></div></div>`;
+  }).join('') : '<div class="empty">No matching customers or cases.</div>';
+};
 
-app.get('/admin',(req,res)=>res.sendFile(path.join(__dirname,'public','admin.html')));
-app.get('/admin-login',(req,res)=>res.sendFile(path.join(__dirname,'public','admin-login.html')));
-
-app.get('/api/config',(req,res)=>res.json({paymentsLive:PAYMENTS_LIVE,caseFeeRupees:CASE_FEE_PAISE/100,aiChatLive:AI_CHAT_LIVE,googleLogin:!!GOOGLE_CLIENT_ID,googleClientId:GOOGLE_CLIENT_ID,database:'supabase'}));
-app.get('/api/health',(req,res)=>res.json({ok:true,time:new Date().toISOString(),database:DB_ENABLED?'supabase':'json-fallback'}));
-app.use((err,req,res,next)=>{
-  console.error('Unhandled request error:',err);
-  if(res.headersSent)return next(err);
-  if(err instanceof multer.MulterError)return res.status(400).json({error:err.message});
-  if(err.message==='CORS origin not allowed')return res.status(403).json({error:err.message});
-  res.status(500).json({error:'Unexpected server error. Please try again.'});
+// one delegated handler: expand/collapse a customer, or open a case
+$('caseList').addEventListener('click', e => {
+  const row = e.target.closest('.rw-case'); if (row) { openCase(row.dataset.id); return; }
+  const head = e.target.closest('.rw-cust-head'); if (!head) return;
+  const g = head.parentElement, o = !g.classList.contains('open');
+  g.classList.toggle('open', o); head.setAttribute('aria-expanded', o); o ? expanded.add(g.dataset.k) : expanded.delete(g.dataset.k);
+  g.querySelectorAll('.rw-case').forEach(r => r.tabIndex = o ? 0 : -1);
 });
+$('caseList').addEventListener('keydown', e => { if ((e.key === 'Enter' || e.key === ' ') && e.target.classList.contains('rw-case')) { e.preventDefault(); openCase(e.target.dataset.id); } });
+$('search').oninput = () => window.renderList(); $('filter').onchange = () => window.renderList();
+$('search').placeholder = 'Search customer, email or case ID';
+const h2 = $('caseList').closest('.panel').querySelector('h2'); if (h2) h2.textContent = 'Customers';
 
-// Log unexpected process-level failures without deliberately terminating the service.
-// Request-level async failures are handled by asyncHandler above.
-process.on('unhandledRejection',(err)=>console.error('Unhandled promise rejection:',err));
+// case header: customer first, case ID second, plus quick tabs for the customer's other cases
+const tabs = D.createElement('div'); tabs.className = 'rw-tabs'; $('dCustomer').after(tabs);
+tabs.addEventListener('click', e => { const b = e.target.closest('.rw-tab'); if (b) openCase(b.dataset.id); });
+const _rd = window.renderDetail;
+window.renderDetail = function (c) {
+  _rd.apply(this, arguments);
+  $('dId').textContent = c.userName || c.caseId;
+  $('dCustomer').textContent = `${c.userEmail || ''} · Case ${c.caseId}`;
+  applyComposerLock(c);
+  const k = keyOf(c), mine = cases.filter(x => keyOf(x) === k).sort((a, b) => ts(b) - ts(a));
+  tabs.innerHTML = mine.length > 1 ? mine.map(x => `<button type="button" class="rw-tab ${x.caseId === c.caseId ? 'active' : ''}" data-id="${attr(x.caseId)}"><i style="background:${DOT[x.status] || '#999'}"></i>${esc(x.caseId)}</button>`).join('') : '';
+};
+})();
+</script>
+<script>/* Fraudify FX — drop-in motion + speed layer (no dependencies).
+   Same design, zero changes to your API/payment/chat logic. */
+(() => {
+'use strict';
+const D = document, R = D.documentElement, raf = requestAnimationFrame;
+const $ = (s, c = D) => c.querySelector(s), $$ = (s, c = D) => [...c.querySelectorAll(s)];
+const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const fine = matchMedia('(hover:hover) and (pointer:fine)').matches;
+const isHome = !!$('#heroSection'), isDash = !!$('#screenList'), isAdmin = !!$('#agentManager');
+const EASE = 'cubic-bezier(.22,1,.36,1)', SPRING = 'cubic-bezier(.34,1.56,.64,1)';
+const io = (el, fn, o = { threshold: .25 }) => { const x = new IntersectionObserver(([e]) => { if (e.isIntersecting) { x.disconnect(); fn(e.target); } }, o); x.observe(el); };
 
-app.listen(PORT,'0.0.0.0',()=>{console.log(`Fraudify server running on port ${PORT}`);console.log(`Database: ${DB_ENABLED?'SUPABASE':'JSON FALLBACK'}`);console.log(`Payments: ${PAYMENTS_LIVE?'LIVE':'TEST MODE'}`);console.log(`Lead chat: ${AI_CHAT_LIVE?'AI':'SCRIPTED'}`);});
+/* ---------- 1. STYLES (compositor-only: transform / opacity / translate / scale) ---------- */
+const st = D.createElement('style');
+st.textContent = `
+body::before{mix-blend-mode:normal!important;opacity:.045!important;transform:translateZ(0)}
+.rw-off,.rw-off *{animation-play-state:paused!important}
+.fighter,.float-particle,.marquee-inner,.ticker-inner{will-change:transform}
+button:active:not(:disabled),.btn:active{scale:.97}
+.loading-state{background:linear-gradient(100deg,#E8DBB8 30%,#F6EDD3 50%,#E8DBB8 70%) 0 0/300% 100%;animation:rw-shim 1.3s linear infinite}
+@keyframes rw-shim{to{background-position:-300% 0}}
+@keyframes rw-screen{from{opacity:0;translate:0 20px}}
+@keyframes rw-pop{from{opacity:0;scale:.9;translate:0 12px}}
+.rw-screen{animation:rw-screen .55s ${EASE} backwards}
+.rw-pop{animation:rw-pop .5s ${SPRING} backwards;animation-delay:calc(var(--i,0)*50ms)}
+.case-row,.case{transition:translate .3s ${EASE},box-shadow .3s ease,background .2s ease}
+.case-row:hover{translate:6px 0;box-shadow:8px 8px 0 rgba(0,0,0,.18)}
+.rw-w{display:inline-block;overflow:hidden;vertical-align:top;padding:.06em .05em .1em;margin:-.06em -.05em -.1em}
+.rw-w>i{display:inline-block;font-style:normal;transform:translateY(112%) rotate(7deg);transform-origin:0 100%}
+.rw-go .rw-w>i{transform:none;transition:transform .85s ${EASE};transition-delay:calc(var(--i)*60ms)}
+.scroll-progress{width:100%!important;transform:scaleX(0);transform-origin:0 50%;will-change:transform}
+nav{transition:box-shadow .3s ease,translate .5s ${EASE}!important}
+nav.rw-hide{translate:0 -110%}
+.btn,.cta-small{transition:transform .12s ease,box-shadow .12s ease,translate .4s ${SPRING}}
+.rw-cur{position:fixed;left:0;top:0;width:18px;height:18px;margin:-9px 0 0 -9px;border:3px solid #1A1611;background:#C1272D;border-radius:50%;pointer-events:none;z-index:9999;will-change:transform;opacity:0;transition:width .25s ${EASE},height .25s ${EASE},margin .25s ${EASE},background .25s,opacity .2s}
+.rw-cur.on{opacity:1}.rw-cur.big{width:46px;height:46px;margin:-23px 0 0 -23px;background:rgba(232,163,61,.55)}
+@supports(animation-timeline:view()){
+.rope-divider{animation:rw-rope linear both;animation-timeline:view();animation-range:cover}
+@keyframes rw-rope{from{background-position:0 0}to{background-position:283px 0}}
+.gen-box,.poll-caption-box,.chat-lead-card,.price-card{animation:rw-rise linear both;animation-timeline:view();animation-range:entry 0% entry 55%}
+@keyframes rw-rise{from{opacity:0;translate:0 70px;scale:.94}}
+.ring{animation:rw-par linear both;animation-timeline:scroll(root);animation-range:0 100vh}
+@keyframes rw-par{to{translate:0 60px;rotate:2deg}}
+}`;
+D.head.append(st);
+
+/* ---------- 2. SPEED: skip identical re-renders, prefetch on intent ---------- */
+// Your polls/SSE re-set innerHTML every few seconds even when nothing changed. Ignore identical writes:
+// no DOM churn, no scroll resets, no hover flicker.
+const dedupe = el => { if (!el) return; const d = Object.getOwnPropertyDescriptor(Element.prototype, 'innerHTML'); let last = '';
+  Object.defineProperty(el, 'innerHTML', { configurable: true, get() { return d.get.call(this); },
+    set(v) { if (v === last && this.firstElementChild) return; last = v; d.set.call(this, v); } }); };
+['caseList', 'chatMessages', 'messages'].forEach(id => dedupe(D.getElementById(id)));
+
+const seen = new Set();
+D.addEventListener('pointerover', e => { const a = e.target.closest && e.target.closest('a[href^="/"]');
+  if (!a || seen.has(a.href) || a.pathname.startsWith('/api')) return; seen.add(a.href);
+  const l = D.createElement('link'); l.rel = 'prefetch'; l.href = a.href; D.head.append(l); }, { passive: true });
+
+/* ---------- 3. APP PAGES: screen / list / chat / number motion ---------- */
+const onReveal = (s, fn) => { let hid = s.classList.contains('hidden');
+  new MutationObserver(() => { const h = s.classList.contains('hidden'); if (hid && !h) fn(s); hid = h; }).observe(s, { attributes: true, attributeFilter: ['class'] }); };
+if (!reduce) {
+  $$('#screenList,#screenPay,#screenCase').forEach(s => onReveal(s, el => { el.classList.remove('rw-screen'); void el.offsetWidth; el.classList.add('rw-screen'); }));
+
+  const watchList = (el, sel) => { if (!el) return; let had = false;
+    new MutationObserver(() => { const rows = $$(sel, el);
+      if (rows.length && !had) rows.slice(0, 14).forEach((r, i) => { r.style.setProperty('--i', i); r.classList.add('rw-pop'); });
+      had = rows.length > 0; }).observe(el, { childList: true }); };
+  watchList($('#caseList'), '.case-row,.case,.rw-cust');
+
+  const watchChat = el => { if (!el) return; let prev = 0;
+    new MutationObserver(() => { const k = [...el.children].filter(c => /msg/.test(c.className)), n = k.length;
+      if (n > prev) k.slice(prev > 0 ? prev : Math.max(0, n - 10)).forEach((b, i) => { b.style.setProperty('--i', prev > 0 ? 0 : i); b.classList.add('rw-pop'); });
+      prev = n; }).observe(el, { childList: true }); };
+  watchChat($('#chatMessages')); watchChat($('#messages'));
+
+  // Admin stat counters roll to their new value
+  ['total', 'unassigned', 'mine', 'open'].forEach(id => { const el = D.getElementById(id); if (!el || !isAdmin) return;
+    let cur = +el.textContent || 0, busy = false;
+    new MutationObserver(() => { if (busy) return; const to = +el.textContent; if (isNaN(to) || to === cur) return;
+      busy = true; const from = cur, t0 = performance.now(); cur = to;
+      (function s(n) { const p = Math.min((n - t0) / 700, 1); el.textContent = Math.round(from + (to - from) * (1 - Math.pow(1 - p, 3)));
+        if (p < 1) raf(s); else { el.textContent = to; busy = false; } })(t0);
+    }).observe(el, { childList: true }); });
+}
+
+if (!isHome && !isDash) return;   // everything below is landing/dashboard flair
+
+/* ---------- 4. TEXT: poster-slam word reveals ---------- */
+function split(el) { let n = 0; const label = el.textContent.replace(/\s+/g, ' ').trim();
+  (function walk(node) { [...node.childNodes].forEach(c => {
+    if (c.nodeType === 3) { const f = D.createDocumentFragment();
+      c.textContent.split(/(\s+)/).forEach(t => { if (!t) return; if (/^\s+$/.test(t)) { f.append(' '); return; }
+        const w = D.createElement('span'), i = D.createElement('i'); w.className = 'rw-w'; w.setAttribute('aria-hidden', 'true');
+        i.textContent = t; i.style.setProperty('--i', n++); w.append(i); f.append(w); });
+      c.replaceWith(f);
+    } else if (c.nodeType === 1 && c.tagName !== 'BR') walk(c); }); })(el);
+  el.setAttribute('aria-label', label); }
+if (!reduce) {
+  $$('.hero-title,.section-title').forEach(t => split(t));
+  const go = t => t.classList.add('rw-go');
+  const hero = $('.hero-title'); if (hero) Promise.race([D.fonts ? D.fonts.ready : 0, new Promise(r => setTimeout(r, 400))]).then(() => raf(() => go(hero)));
+  $$('.section-title').forEach(t => io(t, go, { threshold: .4 }));
+}
+
+/* ---------- 5. LANDING PAGE ---------- */
+if (isHome) {
+  // eased anchor scroll that re-measures every frame (robust while layout settles)
+  var busy = false;
+  D.addEventListener('click', e => { const a = e.target.closest('a[href^="#"]'); if (!a || reduce) return;
+    const id = a.getAttribute('href').slice(1), t = id ? D.getElementById(id) : null; if (id && !t) return;
+    e.preventDefault(); const y0 = scrollY, t0 = performance.now(); let stop = false; busy = true; R.style.scrollBehavior = 'auto';
+    const off = t ? parseFloat(getComputedStyle(t).scrollMarginTop) || 0 : 0, dur = Math.min(1500, 500 + Math.abs(t ? t.getBoundingClientRect().top : y0) * .3);
+    const cancel = () => stop = true; addEventListener('wheel', cancel, { once: true, passive: true }); addEventListener('touchstart', cancel, { once: true, passive: true });
+    (function step(now) { const p = Math.min((now - t0) / dur, 1), k = p < .5 ? 4 * p * p * p : 1 - Math.pow(-2 * p + 2, 3) / 2;
+      const dest = t ? t.getBoundingClientRect().top + scrollY - off : 0; scrollTo(0, y0 + (dest - y0) * k);
+      if (p < 1 && !stop) raf(step); else { R.style.scrollBehavior = ''; busy = false; } })(t0);
+    history.pushState(null, '', id ? '#' + id : location.pathname); });
+
+  // pause off-screen animation work
+  $$('.hero,.marquee-track,.ticker').forEach(el => new IntersectionObserver(([e]) => el.classList.toggle('rw-off', !e.isIntersecting)).observe(el));
+
+  // poll bars grow in
+  const pb = $('#pollBars'); if (pb && !reduce) io(pb, () => $$('.poll-fill', pb).forEach((f, i) => { f.style.transformOrigin = '0 50%';
+    f.animate([{ transform: 'scaleX(0)' }, { transform: 'scaleX(1)' }], { duration: 900, delay: i * 90, easing: EASE, fill: 'backwards' }); }), { threshold: .3 });
+
+  // K.O. / hit screen-shake + haptics
+  const v = $('#villain'), ring = $('.ring');
+  if (v && ring && !reduce) new MutationObserver(() => { const ko = v.classList.contains('ko'); if (!ko && !v.classList.contains('hit')) return;
+    const a = ko ? 14 : 5; ring.animate([{ transform: 'none' }, { transform: `translate(${a}px,${-a / 2}px)` }, { transform: `translate(${-a}px,${a / 2}px)` }, { transform: `translate(${a / 2}px,0)` }, { transform: 'none' }], { duration: 320, easing: 'ease-out' });
+    if (navigator.vibrate) navigator.vibrate(ko ? [30, 40, 60] : 15); }).observe(v, { attributes: true, attributeFilter: ['class'] });
+
+  // comic-book burst on every button hit
+  const W = ['POW!', 'BAM!', 'ZAP!', 'WHAM!', 'BOOM!'];
+  if (!reduce) D.addEventListener('pointerdown', e => { if (!e.target.closest('.btn:not(#punchBtn),.cta-small,.poll-chip')) return;
+    const b = D.createElement('div'), r = Math.random() * 40 - 20; b.textContent = W[Math.random() * W.length | 0];
+    b.style.cssText = `position:fixed;left:${e.clientX}px;top:${e.clientY}px;z-index:9998;pointer-events:none;font:400 30px Anton,sans-serif;color:#E8A33D;-webkit-text-stroke:2px #1A1611;text-shadow:3px 3px 0 #1A1611;translate:-50% -50%`;
+    D.body.append(b); b.animate([{ opacity: 0, transform: `scale(.2) rotate(${r - 20}deg)` }, { opacity: 1, transform: `scale(1.3) rotate(${r}deg)`, offset: .25 }, { opacity: 0, transform: `translateY(-60px) scale(1) rotate(${r}deg)` }], { duration: 650, easing: EASE }).onfinish = () => b.remove(); }, { passive: true });
+
+  var nav = $('#siteNav'), bar = $('#scrollProgress'), anims = $$('.marquee-inner,.ticker-inner').flatMap(e => e.getAnimations());
+  var fighters = [['.fighter.you', 14], ['.fighter.villain', -14], ['.you-label', 6], ['.villain-label', -6], ['.villain-tagline', -9]].map(([s, k]) => [$(s), k]).filter(x => x[0]);
+  var heroOn = true; const h = $('#heroSection'); if (h) new IntersectionObserver(([e]) => heroOn = e.isIntersecting).observe(h);
+}
+
+/* ---------- 6. POINTER: magnetic buttons + cursor follower ---------- */
+let mx = innerWidth / 2, my = innerHeight / 2, cx = mx, cy = my, px = 0, py = 0, tx = 0, ty = 0, cur = null;
+if (fine && !reduce) {
+  $$('.btn,.cta-small,.logo').forEach(el => {
+    el.addEventListener('pointermove', e => { const b = el.getBoundingClientRect(); el.style.translate = `${(e.clientX - b.left - b.width / 2) * .18}px ${(e.clientY - b.top - b.height / 2) * .28}px`; }, { passive: true });
+    el.addEventListener('pointerleave', () => el.style.translate = '');
+  });
+  cur = D.createElement('div'); cur.className = 'rw-cur'; cur.setAttribute('aria-hidden', 'true'); D.body.append(cur);
+  addEventListener('pointermove', e => { mx = e.clientX; my = e.clientY; tx = mx / innerWidth - .5; ty = my / innerHeight - .5; cur.classList.add('on');
+    cur.classList.toggle('big', !!e.target.closest('a,button,.btn,.poll-chip,.shame-card,.case-row,select,input,textarea')); }, { passive: true });
+  D.addEventListener('pointerleave', () => cur.classList.remove('on'));
+}
+
+/* ---------- 7. ONE rAF LOOP drives everything scroll/pointer-linked ---------- */
+if (!reduce && (cur || isHome)) {
+  let lastY = scrollY, vel = 0, max = R.scrollHeight - innerHeight, rate = 1, hidden = false;
+  new ResizeObserver(() => max = R.scrollHeight - innerHeight).observe(D.body);
+  (function loop() {
+    if (cur) { cx += (mx - cx) * .22; cy += (my - cy) * .22; cur.style.transform = `translate3d(${cx}px,${cy}px,0)`; }
+    if (isHome) {
+      const y = scrollY; vel += ((y - lastY) - vel) * .15; lastY = y;
+      if (bar) bar.style.transform = `scaleX(${max > 0 ? Math.min(y / max, 1) : 0})`;
+      const r = 1 + Math.min(Math.abs(vel) * .35, 6);                       // marquees speed up with scroll velocity
+      if (Math.abs(r - rate) > .02) { rate = r; anims.forEach(a => a.playbackRate = r); }
+      const hide = !busy && y > 240 && vel > 3 && !nav.classList.contains('mobile-open');   // nav tucks away on scroll-down
+      if (hide !== hidden && (hide || vel < -2 || y < 240 || busy)) { hidden = hide; nav.classList.toggle('rw-hide', hide); }
+      if (heroOn) { px += (tx - px) * .08; py += (ty - py) * .08; fighters.forEach(([el, k]) => el.style.translate = `${px * k * 2}px ${py * k}px`); }
+    }
+    raf(loop);
+  })();
+}
+})();
+</script>
+</body></html>
